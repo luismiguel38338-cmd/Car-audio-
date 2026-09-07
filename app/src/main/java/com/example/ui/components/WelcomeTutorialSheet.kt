@@ -262,7 +262,7 @@ fun WelcomeTutorialDialog(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Car Audio Pro DSP & RTA Analyzer Suite v1.0",
+                                        text = "Car Audio Pro DSP & RTA Analyzer Suite v1.1 (Nueva Actualización)",
                                         color = theme.textSecondaryColor,
                                         fontSize = 10.sp
                                     )
