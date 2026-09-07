@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">CarAudio DSP &amp; Player</string>
+    <string name="tab_processor">Procesador DSP</string>
+    <string name="tab_analyzer">Analizador RTA</string>
+    <string name="tab_player">Reproductor</string>
+    <string name="tab_themes">Temas (12)</string>
+    <string name="tab_monitor">Monitor Planta</string>
+    <string name="permission_audio_title">Permiso de Audio / Micrófono</string>
+    <string name="permission_audio_desc">Necesario para analizar en tiempo real el espectro de sonido de tu planta car audio y equipo musical.</string>
+    <string name="permission_notification_title">Permiso de Notificaciones</string>
+    <string name="permission_notification_desc">Necesario para alertar sobre sobrecalentamiento, bajo voltaje de batería (&lt;11.5V), clipping y controles del reproductor.</string>
+</resources>
