@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ElectricalServices
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -80,6 +82,7 @@ import com.example.ui.components.PlayerView
 import com.example.ui.components.PlantaMonitorView
 import com.example.ui.components.ThemeSelectorSheet
 import com.example.ui.components.VisualizerView
+import com.example.ui.components.WelcomeTutorialDialog
 import com.example.ui.theme.CarAudioAppTheme
 import com.example.viewmodel.AppTab
 import com.example.viewmodel.CarAudioViewModel
@@ -120,6 +123,7 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
     val isMicRta by viewModel.isMicRta.collectAsState()
     val showPermissionDialog by viewModel.showPermissionDialog.collectAsState()
     val pendingPermissionType by viewModel.pendingPermissionType.collectAsState()
+    val showWelcomeTutorial by viewModel.showWelcomeTutorial.collectAsState()
 
     // Notification permission launcher
     var hasNotifPermission by remember {
@@ -239,6 +243,20 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.openWelcomeTutorial() },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("open_tutorial_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HelpOutline,
+                                    contentDescription = "Tutorial y Creador",
+                                    tint = currentTheme.primaryColor,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
@@ -424,6 +442,14 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
             }
+        )
+    }
+
+    // Welcome, Video Tutorial & Creator Dialog
+    if (showWelcomeTutorial) {
+        WelcomeTutorialDialog(
+            theme = currentTheme,
+            onDismiss = { viewModel.closeWelcomeTutorial() }
         )
     }
 }

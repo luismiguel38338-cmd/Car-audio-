@@ -89,6 +89,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _pendingPermissionType = MutableStateFlow("notification")
     val pendingPermissionType: StateFlow<String> = _pendingPermissionType.asStateFlow()
 
+    // Welcome & Interactive Tutorial State (Shows on first launch)
+    private val _showWelcomeTutorial = MutableStateFlow(true)
+    val showWelcomeTutorial: StateFlow<Boolean> = _showWelcomeTutorial.asStateFlow()
+
+    fun openWelcomeTutorial() {
+        _showWelcomeTutorial.value = true
+    }
+
+    fun closeWelcomeTutorial() {
+        _showWelcomeTutorial.value = false
+    }
+
     private var lastClipAlertTime = 0L
     private var lastVoltAlertTime = 0L
 
