@@ -21,13 +21,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MoreTime
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VolumeMute
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -35,15 +41,28 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -52,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.CarAudioThemeType
+import com.example.model.DspChannel
 import com.example.model.DspSettings
 
 @Composable
@@ -60,9 +80,23 @@ fun DspProcessorView(
     dsp: DspSettings,
     onDspChange: (DspSettings) -> Unit,
     onSelectPreset: (String) -> Unit,
+    dspChannels: List<DspChannel> = emptyList(),
+    selectedChannelId: Int = 1,
+    onSelectChannel: (Int) -> Unit = {},
+    onUpdateChannelHpf: (Int, Float, Int, Boolean) -> Unit = { _, _, _, _ -> },
+    onUpdateChannelLpf: (Int, Float, Int, Boolean) -> Unit = { _, _, _, _ -> },
+    onUpdateChannelGain: (Int, Float) -> Unit = { _, _ -> },
+    onToggleChannelPhase: (Int) -> Unit = {},
+    onUpdateChannelDelay: (Int, Float) -> Unit = { _, _ -> },
+    onToggleChannelMute: (Int) -> Unit = {},
+    onSaveCustomPreset: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    var dspModeTab by remember { mutableIntStateOf(0) }
+    var showSavePresetDialog by remember { mutableStateOf(false) }
+    var newPresetName by remember { mutableStateOf("") }
+    var newPresetDesc by remember { mutableStateOf("") }
 
     val presets = listOf(
         "Open Show Pro",
@@ -72,6 +106,51 @@ fun DspProcessorView(
         "Rock & Metal Punch"
     )
 
+    if (showSavePresetDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePresetDialog = false },
+            containerColor = theme.surfaceColor,
+            title = { Text("Guardar Preset Car Audio", color = theme.textColor, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Guarda la ecualización y crossovers actuales:", fontSize = 12.sp, color = theme.textSecondaryColor)
+                    OutlinedTextField(
+                        value = newPresetName,
+                        onValueChange = { newPresetName = it },
+                        label = { Text("Nombre del Preset") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newPresetDesc,
+                        onValueChange = { newPresetDesc = it },
+                        label = { Text("Descripción") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPresetName.isNotBlank()) {
+                            onSaveCustomPreset(newPresetName.trim(), newPresetDesc.trim().ifBlank { "Preset de usuario" })
+                            showSavePresetDialog = false
+                            newPresetName = ""
+                            newPresetDesc = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Guardar", color = theme.onPrimaryColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavePresetDialog = false }) {
+                    Text("Cancelar", color = theme.textSecondaryColor)
+                }
+            }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -79,72 +158,123 @@ fun DspProcessorView(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Presets Selector Row
-        Card(
+        // DSP Mode Switcher Tab
+        TabRow(
+            selectedTabIndex = dspModeTab,
+            containerColor = theme.surfaceColor,
+            contentColor = theme.primaryColor,
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[dspModeTab]),
+                    color = theme.primaryColor,
+                    height = 3.dp
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("dsp_presets_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "Presets",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "PRESETS DE PROCESADOR CAR AUDIO",
-                            color = theme.textColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Text(
-                        text = dsp.activePresetName,
-                        color = theme.accentColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Tab(
+                selected = dspModeTab == 0,
+                onClick = { dspModeTab = 0 },
+                text = { Text("PROCESADOR MAESTRO", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            )
+            Tab(
+                selected = dspModeTab == 1,
+                onClick = { dspModeTab = 1 },
+                text = { Text("CROSSOVER 4-VÍAS PRO", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.AltRoute, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            )
+        }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(presets) { preset ->
-                        val isSelected = preset == dsp.activePresetName
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onSelectPreset(preset) },
-                            label = {
-                                Text(
-                                    text = preset,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = theme.primaryColor,
-                                selectedLabelColor = theme.onPrimaryColor,
-                                containerColor = theme.surfaceColor,
-                                labelColor = theme.textColor
+        if (dspModeTab == 1 && dspChannels.isNotEmpty()) {
+            MultichannelDspSection(
+                theme = theme,
+                channels = dspChannels,
+                selectedChannelId = selectedChannelId,
+                onSelectChannel = onSelectChannel,
+                onUpdateHpf = onUpdateChannelHpf,
+                onUpdateLpf = onUpdateChannelLpf,
+                onUpdateGain = onUpdateChannelGain,
+                onTogglePhase = onToggleChannelPhase,
+                onUpdateDelay = onUpdateChannelDelay,
+                onToggleMute = onToggleChannelMute
+            )
+        } else {
+            // Presets Selector Row
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dsp_presets_card"),
+                colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Presets",
+                                tint = theme.primaryColor,
+                                modifier = Modifier.size(18.dp)
                             )
-                        )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "PRESETS DE PROCESADOR CAR AUDIO",
+                                color = theme.textColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { showSavePresetDialog = true },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BookmarkAdd,
+                                contentDescription = "Guardar Preset",
+                                tint = theme.accentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(presets) { preset ->
+                            val isSelected = preset == dsp.activePresetName
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSelectPreset(preset) },
+                                label = {
+                                    Text(
+                                        text = preset,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = theme.primaryColor,
+                                    selectedLabelColor = theme.onPrimaryColor,
+                                    containerColor = theme.surfaceColor,
+                                    labelColor = theme.textColor
+                                )
+                            )
+                        }
                     }
                 }
             }
-        }
 
         // Crossover Section (HPF, LPF, Subsonic)
         Card(
@@ -458,6 +588,214 @@ fun DspProcessorView(
                         )
                     }
                 }
+            }
+        }
+        }
+    }
+}
+
+@Composable
+fun MultichannelDspSection(
+    theme: CarAudioThemeType,
+    channels: List<DspChannel>,
+    selectedChannelId: Int,
+    onSelectChannel: (Int) -> Unit,
+    onUpdateHpf: (Int, Float, Int, Boolean) -> Unit,
+    onUpdateLpf: (Int, Float, Int, Boolean) -> Unit,
+    onUpdateGain: (Int, Float) -> Unit,
+    onTogglePhase: (Int) -> Unit,
+    onUpdateDelay: (Int, Float) -> Unit,
+    onToggleMute: (Int) -> Unit
+) {
+    val currentChannel = channels.find { it.id == selectedChannelId } ?: channels.firstOrNull() ?: return
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Channel Selector Tabs
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "SELECCIÓN DE VÍA / CANAL ACTIVO",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = theme.textSecondaryColor
+                )
+
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(channels) { ch ->
+                        val isSelected = ch.id == selectedChannelId
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSelectChannel(ch.id) },
+                            label = {
+                                Text(
+                                    text = ch.name,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = theme.primaryColor,
+                                selectedLabelColor = theme.onPrimaryColor,
+                                containerColor = theme.surfaceColor,
+                                labelColor = if (ch.isMuted) theme.errorColor else theme.textColor
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // Active Channel Controls Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            border = CardDefaults.outlinedCardBorder().copy(
+                brush = Brush.horizontalGradient(listOf(theme.primaryColor.copy(alpha = 0.6f), theme.accentColor.copy(alpha = 0.6f)))
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header of Channel
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = currentChannel.name,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            color = theme.textColor
+                        )
+                        Text(
+                            text = "Rango de Trabajo: ${currentChannel.typeName}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = theme.accentColor
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Mute button
+                        Button(
+                            onClick = { onToggleMute(currentChannel.id) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentChannel.isMuted) theme.errorColor else theme.cardColor,
+                                contentColor = if (currentChannel.isMuted) Color.White else theme.textColor
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (currentChannel.isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                                contentDescription = "Mute",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (currentChannel.isMuted) "MUTED" else "ACTIVO", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Phase 0 / 180 button
+                        Button(
+                            onClick = { onTogglePhase(currentChannel.id) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentChannel.phaseInverted) theme.accentColor else theme.cardColor,
+                                contentColor = if (currentChannel.phaseInverted) Color.Black else theme.textColor
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(if (currentChannel.phaseInverted) "180°" else "0°", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+
+                // Time Alignment (Delay)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.MoreTime, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Alineación de Tiempo (Time Alignment)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                            }
+                            val distanceCm = (currentChannel.delayMs * 34.3f).toInt()
+                            Text("${"%.1f".format(currentChannel.delayMs)} ms ($distanceCm cm)", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = theme.primaryColor)
+                        }
+
+                        Slider(
+                            value = currentChannel.delayMs,
+                            onValueChange = { onUpdateDelay(currentChannel.id, it) },
+                            valueRange = 0f..15f,
+                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.surfaceColor)
+                        )
+                    }
+                }
+
+                // Individual Gain Slider
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Ganancia Individual de Salida", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                            Text("${if (currentChannel.gainDb > 0) "+" else ""}${"%.1f".format(currentChannel.gainDb)} dB", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = theme.primaryColor)
+                        }
+
+                        Slider(
+                            value = currentChannel.gainDb,
+                            onValueChange = { onUpdateGain(currentChannel.id, it) },
+                            valueRange = -12f..12f,
+                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.surfaceColor)
+                        )
+                    }
+                }
+
+                // HPF Cut Filter for this Channel
+                CrossoverControlItem(
+                    name = "Filtro Paso Alto (HPF)",
+                    freqText = "${currentChannel.hpfHz.toInt()} Hz",
+                    slopeText = "${currentChannel.hpfSlopeDb} dB/Oct",
+                    sliderValue = currentChannel.hpfHz,
+                    range = 10f..8000f,
+                    enabled = currentChannel.hpfEnabled,
+                    onToggle = { onUpdateHpf(currentChannel.id, currentChannel.hpfHz, currentChannel.hpfSlopeDb, it) },
+                    onValueChange = { onUpdateHpf(currentChannel.id, it, currentChannel.hpfSlopeDb, currentChannel.hpfEnabled) },
+                    theme = theme
+                )
+
+                // LPF Cut Filter for this Channel
+                CrossoverControlItem(
+                    name = "Filtro Paso Bajo (LPF)",
+                    freqText = "${currentChannel.lpfHz.toInt()} Hz",
+                    slopeText = "${currentChannel.lpfSlopeDb} dB/Oct",
+                    sliderValue = currentChannel.lpfHz,
+                    range = 40f..20000f,
+                    enabled = currentChannel.lpfEnabled,
+                    onToggle = { onUpdateLpf(currentChannel.id, currentChannel.lpfHz, currentChannel.lpfSlopeDb, it) },
+                    onValueChange = { onUpdateLpf(currentChannel.id, it, currentChannel.lpfSlopeDb, currentChannel.lpfEnabled) },
+                    theme = theme
+                )
             }
         }
     }

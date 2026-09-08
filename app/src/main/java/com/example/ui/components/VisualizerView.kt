@@ -18,17 +18,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.CarAudioThemeType
 import com.example.model.RtaBand
+import com.example.model.SplRunState
 
 @Composable
 fun VisualizerView(
@@ -62,11 +71,18 @@ fun VisualizerView(
     waveform: FloatArray,
     isMicRta: Boolean,
     onToggleMic: () -> Unit,
+    splRunState: SplRunState = SplRunState(),
+    onStartSplRun: () -> Unit = {},
+    onStopSplRun: () -> Unit = {},
+    onClearSplHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -196,7 +212,7 @@ fun VisualizerView(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .height(230.dp)
                 .testTag("rta_spectrum_card"),
             colors = CardDefaults.cardColors(containerColor = theme.cardColor),
             shape = RoundedCornerShape(16.dp)
@@ -240,7 +256,7 @@ fun VisualizerView(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .height(140.dp)
                         .background(theme.backgroundColor.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
@@ -320,6 +336,205 @@ fun VisualizerView(
                             color = theme.primaryColor,
                             style = Stroke(width = 2.5f)
                         )
+                    }
+                }
+            }
+        }
+
+        // SPL Competition Run Card (30-second Bass Race / dB Drag Simulator)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("spl_competition_card"),
+            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+            shape = RoundedCornerShape(16.dp),
+            border = CardDefaults.outlinedCardBorder().copy(
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        if (splRunState.isRunning) theme.clipAlertColor else theme.primaryColor.copy(alpha = 0.5f),
+                        theme.accentColor.copy(alpha = 0.5f)
+                    )
+                )
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = "Competencia SPL",
+                            tint = if (splRunState.isRunning) theme.clipAlertColor else theme.accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "MODO COMPETENCIA SPL (BASS RACE 30s)",
+                            color = theme.textColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (splRunState.isRunning) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(theme.clipAlertColor)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${splRunState.timeRemainingSeconds}s",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3 Score Digits: Live, Average, Peak
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("En Vivo:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        Text(
+                            text = "${"%.1f".format(splRunState.currentSplDb)} dB",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.textColor
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Promedio (Avg):", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        Text(
+                            text = "${"%.1f".format(splRunState.averageSplDb)} dB",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.primaryColor
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Pico Récord:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        Text(
+                            text = "${"%.1f".format(splRunState.maxPeakDb)} dB",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = theme.accentColor
+                        )
+                    }
+                }
+
+                // Action button: Start or Stop
+                Button(
+                    onClick = {
+                        if (splRunState.isRunning) onStopSplRun() else onStartSplRun()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("btn_spl_run_toggle"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (splRunState.isRunning) theme.clipAlertColor else theme.primaryColor,
+                        contentColor = theme.onPrimaryColor
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = if (splRunState.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (splRunState.isRunning) "DETENER PRUEBA SPL" else "INICIAR RONDA SPL 30s",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Run History records
+                if (splRunState.runHistory.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Historial de Récords Guardados:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.textSecondaryColor
+                        )
+                        IconButton(
+                            onClick = onClearSplHistory,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Borrar historial",
+                                tint = theme.textSecondaryColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        splRunState.runHistory.take(3).forEach { record ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(theme.surfaceColor, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = record.title,
+                                    fontSize = 11.sp,
+                                    color = theme.textColor,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Avg: ${"%.1f".format(record.avgDb)} dB",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = theme.primaryColor
+                                    )
+                                    Text(
+                                        text = "Peak: ${"%.1f".format(record.peakDb)} dB",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = theme.accentColor
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

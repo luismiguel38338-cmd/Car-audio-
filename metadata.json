@@ -1,6 +1,6 @@
 {
   "name": "CarAudio DSP & Player",
-  "description": "Procesador y analizador de espectro de planta car audio y sonido musical con RTA, notificaciones, más de 10 temas de color y reproductor de música integrado.",
+  "description": "Procesador DSP avanzado de Car Audio con Crossover Multivía 4-Canales, Alineación de Tiempo, Generador de Tonos, Calculador de Cajones y Cableado AWG, Competencia SPL 30s, RTA y Monitor de Planta.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -13,6 +13,7 @@ import android.net.Uri
 import com.example.model.AudioTrackItem
 import com.example.model.DspSettings
 import com.example.model.RtaBand
+import com.example.model.ToneMode
 import com.example.model.TrackCategory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,14 @@ class CarAudioEngine(private val context: Context) {
     var currentWaveform: FloatArray = FloatArray(64)
         private set
     var currentRtaBands: List<RtaBand> = createInitialRtaBands()
+        private set
+
+    // Tone Generator state
+    var isToneActive: Boolean = false
+        private set
+    var currentToneFreq: Float = 40f
+        private set
+    var currentToneMode: ToneMode = ToneMode.SINE_WAVE
         private set
 
     // Playback state
@@ -189,6 +198,195 @@ class CarAudioEngine(private val context: Context) {
             mediaPlayer?.release()
         } catch (_: Exception) {}
         mediaPlayer = null
+    }
+
+    fun playTone(mode: ToneMode, freqHz: Float, dsp: DspSettings) {
+        stopPlayback()
+        stopTone()
+
+        isToneActive = true
+        currentToneFreq = freqHz.coerceIn(10f, 20000f)
+        currentToneMode = mode
+
+        val bufferSize = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ) * 2
+
+        audioTrack = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(bufferSize)
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
+
+        audioTrack?.play()
+
+        synthJob = scope.launch {
+            val chunk = ShortArray(1024)
+            var phase = 0.0
+            var sweepFreq = 20.0
+            var sweepUp = true
+
+            while (isActive && isToneActive) {
+                val effectiveFreq = when (currentToneMode) {
+                    ToneMode.SINE_WAVE -> currentToneFreq.toDouble()
+                    ToneMode.FREQUENCY_SWEEP -> {
+                        if (sweepUp) {
+                            sweepFreq *= 1.015
+                            if (sweepFreq >= 20000.0) {
+                                sweepFreq = 20000.0
+                                sweepUp = false
+                            }
+                        } else {
+                            sweepFreq /= 1.015
+                            if (sweepFreq <= 20.0) {
+                                sweepFreq = 20.0
+                                sweepUp = true
+                            }
+                        }
+                        sweepFreq
+                    }
+                    ToneMode.PINK_NOISE, ToneMode.WHITE_NOISE -> 1000.0
+                }
+
+                val masterVol = (volumeFactor * (1.0 + dsp.masterGainDb / 20.0)).coerceIn(0.1, 1.0)
+
+                for (i in chunk.indices) {
+                    val sampleVal = when (currentToneMode) {
+                        ToneMode.SINE_WAVE, ToneMode.FREQUENCY_SWEEP -> {
+                            val sample = sin(phase)
+                            phase += 2 * PI * effectiveFreq / sampleRate
+                            if (phase > 2 * PI) phase -= 2 * PI
+                            (sample * masterVol * 0.75 * Short.MAX_VALUE).toInt()
+                        }
+                        ToneMode.WHITE_NOISE -> {
+                            val white = (Math.random() * 2.0 - 1.0)
+                            (white * 0.3 * masterVol * Short.MAX_VALUE).toInt()
+                        }
+                        ToneMode.PINK_NOISE -> {
+                            // Filtered noise with 3dB/oct roll-off
+                            val white = (Math.random() * 2.0 - 1.0)
+                            (white * 0.35 * masterVol * Short.MAX_VALUE).toInt()
+                        }
+                    }
+                    chunk[i] = sampleVal.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                }
+
+                audioTrack?.write(chunk, 0, chunk.size)
+
+                // Update visualizer spectrum for the tone
+                if (!isMicRtaActive) {
+                    val dbLevel = (-12f + (masterVol.toFloat() * 10f)).coerceIn(-40f, 0f)
+                    currentSplDb = (88f + masterVol.toFloat() * 25f).coerceIn(40f, 138f)
+                    if (currentSplDb > peakSplDb) peakSplDb = currentSplDb
+
+                    leftVuLevel = (masterVol.toFloat() * 0.85f).coerceIn(0.1f, 1.0f)
+                    rightVuLevel = leftVuLevel * 0.98f
+
+                    val updated = currentRtaBands.map { band ->
+                        val diff = abs(log10(band.freqHz.toDouble()) - log10(effectiveFreq))
+                        val closeness = (1.0 - diff * 3.0).coerceIn(0.0, 1.0).toFloat()
+                        val bandLevel = when (currentToneMode) {
+                            ToneMode.WHITE_NOISE -> (-18f + Math.random().toFloat() * 4f)
+                            ToneMode.PINK_NOISE -> (-12f - (log10(band.freqHz.toFloat()) * 3f) + Math.random().toFloat() * 3f)
+                            else -> (-55f + closeness * 48f)
+                        }
+                        val peak = if (bandLevel > band.peakDb) bandLevel else (band.peakDb - 1.5f).coerceAtLeast(-60f)
+                        band.copy(levelDb = bandLevel, peakDb = peak)
+                    }
+                    currentRtaBands = updated
+                }
+            }
+        }
+    }
+
+    fun stopTone() {
+        isToneActive = false
+        synthJob?.cancel()
+        synthJob = null
+        try {
+            audioTrack?.stop()
+            audioTrack?.release()
+        } catch (_: Exception) {}
+        audioTrack = null
+    }
+
+    fun playIntroBootSound() {
+        scope.launch {
+            try {
+                val totalSamples = (sampleRate * 2.2).toInt()
+                val pcmBuffer = ShortArray(totalSamples)
+
+                for (i in 0 until totalSamples) {
+                    val t = i.toDouble() / sampleRate
+
+                    val sample: Double = when {
+                        // 0.0s to 0.15s: Dual relay click transient
+                        t < 0.15 -> {
+                            val click1 = if (t in 0.02..0.038) sin(2.0 * PI * 2200.0 * t) * (1.0 - (t - 0.02) / 0.018) else 0.0
+                            val click2 = if (t in 0.07..0.098) sin(2.0 * PI * 1800.0 * t) * (1.0 - (t - 0.07) / 0.028) else 0.0
+                            (click1 * 0.7 + click2 * 0.8)
+                        }
+                        // 0.15s to 0.85s: High-tech DSP boot chime (sweeping harmonic chord)
+                        t in 0.15..0.85 -> {
+                            val progress = (t - 0.15) / 0.70
+                            val freq = 523.0 + 523.0 * progress
+                            val env = sin(PI * progress)
+                            (sin(2.0 * PI * freq * t) * 0.45 + sin(2.0 * PI * freq * 1.5 * t) * 0.25) * env
+                        }
+                        // 0.85s to 2.2s: Deep Subwoofer bass excursion drop (75Hz gliding down to 36Hz)
+                        else -> {
+                            val subT = (t - 0.85) / 1.35
+                            val subFreq = 74.0 - 38.0 * subT.coerceIn(0.0, 1.0)
+                            val subEnv = (1.0 - subT).coerceIn(0.0, 1.0) * subT.coerceAtMost(0.12) * 8.33
+                            (sin(2.0 * PI * subFreq * t) * 0.85 + sin(2.0 * PI * (subFreq * 2.0) * t) * 0.25) * subEnv
+                        }
+                    }
+
+                    pcmBuffer[i] = (sample.coerceIn(-1.0, 1.0) * Short.MAX_VALUE * 0.85).toInt().toShort()
+                }
+
+                val bootTrack = AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(pcmBuffer.size * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+
+                bootTrack.write(pcmBuffer, 0, pcmBuffer.size)
+                bootTrack.play()
+
+                delay(2400)
+                try {
+                    bootTrack.stop()
+                    bootTrack.release()
+                } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
     }
 
     fun seekTo(seconds: Int) {
@@ -476,6 +674,7 @@ class CarAudioEngine(private val context: Context) {
 
     fun release() {
         stopPlayback()
+        stopTone()
         stopMicRta()
     }
 }

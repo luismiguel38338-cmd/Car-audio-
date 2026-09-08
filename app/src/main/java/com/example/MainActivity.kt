@@ -35,14 +35,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ElectricalServices
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,13 +77,15 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.CarAudioThemeType
+import com.example.ui.components.CarAudioSplashScreen
+import com.example.ui.components.CarAudioToolsView
 import com.example.ui.components.DspProcessorView
+import com.example.ui.components.EqualizerProcessorView
 import com.example.ui.components.PermissionExplanationDialog
 import com.example.ui.components.PlayerView
 import com.example.ui.components.PlantaMonitorView
 import com.example.ui.components.ThemeSelectorSheet
 import com.example.ui.components.VisualizerView
-import com.example.ui.components.WelcomeTutorialDialog
 import com.example.ui.theme.CarAudioAppTheme
 import com.example.viewmodel.AppTab
 import com.example.viewmodel.CarAudioViewModel
@@ -123,7 +126,11 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
     val isMicRta by viewModel.isMicRta.collectAsState()
     val showPermissionDialog by viewModel.showPermissionDialog.collectAsState()
     val pendingPermissionType by viewModel.pendingPermissionType.collectAsState()
-    val showWelcomeTutorial by viewModel.showWelcomeTutorial.collectAsState()
+    val showSplashScreen by viewModel.showSplashScreen.collectAsState()
+    val equalizerSettings by viewModel.equalizerSettings.collectAsState()
+    val dspChannels by viewModel.dspChannels.collectAsState()
+    val selectedChannelId by viewModel.selectedChannelId.collectAsState()
+    val splRunState by viewModel.splRunState.collectAsState()
 
     // Notification permission launcher
     var hasNotifPermission by remember {
@@ -189,11 +196,12 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.car_audio_icon_1788805964010),
+                            painter = painterResource(id = R.drawable.img_car_audio_logo_brazil_1788873346889),
                             contentDescription = "Car Audio Logo",
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
+                                .border(1.dp, currentTheme.primaryColor, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -247,14 +255,14 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                             }
 
                             IconButton(
-                                onClick = { viewModel.openWelcomeTutorial() },
+                                onClick = { viewModel.openSplashScreen() },
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .testTag("open_tutorial_button")
+                                    .testTag("open_splash_button")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.HelpOutline,
-                                    contentDescription = "Tutorial y Creador",
+                                    imageVector = Icons.Default.VolumeUp,
+                                    contentDescription = "Animación y Sonido de Inicio",
                                     tint = currentTheme.primaryColor,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -281,7 +289,7 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     selected = selectedTab == AppTab.DSP_PROCESSOR,
                     onClick = { viewModel.selectTab(AppTab.DSP_PROCESSOR) },
                     icon = { Icon(Icons.Default.Tune, contentDescription = "DSP") },
-                    label = { Text("DSP", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("DSP", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -293,10 +301,25 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                 )
 
                 NavigationBarItem(
+                    selected = selectedTab == AppTab.EQUALIZER,
+                    onClick = { viewModel.selectTab(AppTab.EQUALIZER) },
+                    icon = { Icon(Icons.Default.Equalizer, contentDescription = "EQ Pro") },
+                    label = { Text("EQ Pro", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = currentTheme.onPrimaryColor,
+                        indicatorColor = currentTheme.primaryColor,
+                        selectedTextColor = currentTheme.primaryColor,
+                        unselectedIconColor = currentTheme.textSecondaryColor,
+                        unselectedTextColor = currentTheme.textSecondaryColor
+                    ),
+                    modifier = Modifier.testTag("nav_tab_equalizer")
+                )
+
+                NavigationBarItem(
                     selected = selectedTab == AppTab.RTA_ANALYZER,
                     onClick = { viewModel.selectTab(AppTab.RTA_ANALYZER) },
                     icon = { Icon(Icons.Default.GraphicEq, contentDescription = "RTA") },
-                    label = { Text("RTA", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("RTA", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -308,10 +331,10 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                 )
 
                 NavigationBarItem(
-                    selected = selectedTab == AppTab.PLAYER,
-                    onClick = { viewModel.selectTab(AppTab.PLAYER) },
-                    icon = { Icon(Icons.Default.PlayCircle, contentDescription = "Player") },
-                    label = { Text("Player", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    selected = selectedTab == AppTab.TOOLS,
+                    onClick = { viewModel.selectTab(AppTab.TOOLS) },
+                    icon = { Icon(Icons.Default.Build, contentDescription = "Cajones Brasil y Tools") },
+                    label = { Text("Brasil", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -319,14 +342,14 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                         unselectedIconColor = currentTheme.textSecondaryColor,
                         unselectedTextColor = currentTheme.textSecondaryColor
                     ),
-                    modifier = Modifier.testTag("nav_tab_player")
+                    modifier = Modifier.testTag("nav_tab_tools")
                 )
 
                 NavigationBarItem(
                     selected = selectedTab == AppTab.PLANTA_MONITOR,
                     onClick = { viewModel.selectTab(AppTab.PLANTA_MONITOR) },
                     icon = { Icon(Icons.Default.ElectricalServices, contentDescription = "Planta") },
-                    label = { Text("Planta", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("Planta", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -338,10 +361,25 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                 )
 
                 NavigationBarItem(
+                    selected = selectedTab == AppTab.PLAYER,
+                    onClick = { viewModel.selectTab(AppTab.PLAYER) },
+                    icon = { Icon(Icons.Default.PlayCircle, contentDescription = "Player") },
+                    label = { Text("Player", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = currentTheme.onPrimaryColor,
+                        indicatorColor = currentTheme.primaryColor,
+                        selectedTextColor = currentTheme.primaryColor,
+                        unselectedIconColor = currentTheme.textSecondaryColor,
+                        unselectedTextColor = currentTheme.textSecondaryColor
+                    ),
+                    modifier = Modifier.testTag("nav_tab_player")
+                )
+
+                NavigationBarItem(
                     selected = selectedTab == AppTab.THEMES,
                     onClick = { viewModel.selectTab(AppTab.THEMES) },
                     icon = { Icon(Icons.Default.Palette, contentDescription = "Temas") },
-                    label = { Text("12 Temas", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("Temas", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -365,7 +403,30 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                         theme = currentTheme,
                         dsp = dspSettings,
                         onDspChange = { viewModel.updateDspSettings(it) },
-                        onSelectPreset = { viewModel.loadPreset(it) }
+                        onSelectPreset = { viewModel.loadPreset(it) },
+                        dspChannels = dspChannels,
+                        selectedChannelId = selectedChannelId,
+                        onSelectChannel = { viewModel.selectDspChannel(it) },
+                        onUpdateChannelHpf = { chId, hz, slope, en -> viewModel.updateChannelHpf(chId, hz, slope, en) },
+                        onUpdateChannelLpf = { chId, hz, slope, en -> viewModel.updateChannelLpf(chId, hz, slope, en) },
+                        onUpdateChannelGain = { chId, gain -> viewModel.updateChannelGain(chId, gain) },
+                        onToggleChannelPhase = { viewModel.toggleChannelPhase(it) },
+                        onUpdateChannelDelay = { chId, delay -> viewModel.updateChannelDelay(chId, delay) },
+                        onToggleChannelMute = { viewModel.toggleChannelMute(it) },
+                        onSaveCustomPreset = { name, desc -> viewModel.saveCustomPreset(name, desc) }
+                    )
+                }
+                AppTab.EQUALIZER -> {
+                    EqualizerProcessorView(
+                        theme = currentTheme,
+                        eqSettings = equalizerSettings,
+                        onTogglePower = { viewModel.toggleEqualizerPower(it) },
+                        onUpdateMasterGain = { viewModel.updateEqualizerMasterGain(it) },
+                        onToggleLimiter = { viewModel.toggleEqualizerLimiter(it) },
+                        onUpdateBand = { idx, gain -> viewModel.updateEqualizerBand(idx, gain) },
+                        onUpdateParametric = { f, g, q -> viewModel.updateEqualizerParametric(f, g, q) },
+                        onSelectPreset = { viewModel.selectEqualizerPreset(it) },
+                        onResetFlat = { viewModel.resetEqualizerFlat() }
                     )
                 }
                 AppTab.RTA_ANALYZER -> {
@@ -380,7 +441,11 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                         isMicRta = isMicRta,
                         onToggleMic = {
                             viewModel.toggleMicRta(hasAudioPermission)
-                        }
+                        },
+                        splRunState = splRunState,
+                        onStartSplRun = { viewModel.startSplRun() },
+                        onStopSplRun = { viewModel.stopSplRun() },
+                        onClearSplHistory = { viewModel.clearSplHistory() }
                     )
                 }
                 AppTab.PLAYER -> {
@@ -414,6 +479,12 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                         onSendStatusNotification = { viewModel.sendStatusNotification() }
                     )
                 }
+                AppTab.TOOLS -> {
+                    CarAudioToolsView(
+                        viewModel = viewModel,
+                        currentTheme = currentTheme
+                    )
+                }
                 AppTab.THEMES -> {
                     ThemeSelectorSheet(
                         currentTheme = currentTheme,
@@ -445,11 +516,12 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
         )
     }
 
-    // Welcome, Video Tutorial & Creator Dialog
-    if (showWelcomeTutorial) {
-        WelcomeTutorialDialog(
+    // Animated Startup Splash Screen with Loading Bubble & Sound (Requested by user)
+    if (showSplashScreen) {
+        CarAudioSplashScreen(
             theme = currentTheme,
-            onDismiss = { viewModel.closeWelcomeTutorial() }
+            onStartSound = { viewModel.playStartupSound() },
+            onEnterApp = { viewModel.dismissSplashScreen() }
         )
     }
 }

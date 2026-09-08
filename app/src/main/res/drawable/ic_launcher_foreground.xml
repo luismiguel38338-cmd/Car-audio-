@@ -3,7 +3,7 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/car_audio_icon_1788805964010"
+        android:drawable="@drawable/img_car_audio_logo_brazil_1788873346889"
         android:gravity="center" />
 </layer-list>
 

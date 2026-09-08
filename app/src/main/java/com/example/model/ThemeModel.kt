@@ -15,7 +15,8 @@ enum class CarAudioThemeType(
     val textColor: Color,
     val textSecondaryColor: Color,
     val meterPeakColor: Color,
-    val clipAlertColor: Color = Color(0xFFFF2222)
+    val clipAlertColor: Color = Color(0xFFFF2222),
+    val errorColor: Color = Color(0xFFFF3333)
 ) {
     NEON_CYBER(
         id = "neon_cyber",
