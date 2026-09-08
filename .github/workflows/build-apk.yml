@@ -47,6 +47,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: CarAudio-DSP-Pro-APK
+          name: CarAudio-DSP-Pro-2.0-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn

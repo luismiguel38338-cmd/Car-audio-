@@ -1,10 +1,16 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +22,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -26,21 +32,35 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,21 +76,37 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.AudioSourceMode
 import com.example.model.CarAudioThemeType
+import com.example.model.OscilloscopeState
 import com.example.model.RtaBand
+import com.example.model.SplCalibrationSettings
 import com.example.model.SplRunState
+import com.example.model.SplSpeed
+import com.example.model.SplWeighting
 
 @Composable
 fun VisualizerView(
     theme: CarAudioThemeType,
     splDb: Float,
     peakSplDb: Float,
+    rmsLevelDb: Float = -28.0f,
     leftVu: Float,
     rightVu: Float,
     rtaBands: List<RtaBand>,
     waveform: FloatArray,
+    rawOscilloscope: FloatArray = FloatArray(128),
+    oscilloscopeState: OscilloscopeState = OscilloscopeState(),
+    splCalibrationSettings: SplCalibrationSettings = SplCalibrationSettings(),
+    isClippingDetected: Boolean = false,
+    sourceMode: AudioSourceMode = AudioSourceMode.INTERNAL_DSP,
     isMicRta: Boolean,
     onToggleMic: () -> Unit,
+    onSetTimebase: (Float) -> Unit = {},
+    onToggleOscilloscopeFreeze: () -> Unit = {},
+    onUpdateSplCalibrationOffset: (Float) -> Unit = {},
+    onSetSplWeighting: (SplWeighting) -> Unit = {},
+    onSetSplSpeed: (SplSpeed) -> Unit = {},
     splRunState: SplRunState = SplRunState(),
     onStartSplRun: () -> Unit = {},
     onStopSplRun: () -> Unit = {},
@@ -78,575 +114,565 @@ fun VisualizerView(
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    var showCalibrationPanel by remember { mutableStateOf(false) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "clip_flash")
+    val clipAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(200),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "clip_pulse"
+    )
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(16.dp),
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Top SPL Sound Pressure Meter Card
+        // MODE & CLIPPING MONITOR BAR
         Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("spl_meter_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(theme.primaryColor.copy(alpha = 0.6f), theme.accentColor.copy(alpha = 0.4f))))
+                .border(1.dp, if (isClippingDetected) Color(0xFFFF1744) else theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = "SPL Meter",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "PRESIÓN SONORA (SPL)",
-                            color = theme.textSecondaryColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "%.1f".format(splDb),
-                            color = theme.textColor,
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "dB SPL",
-                            color = theme.primaryColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-                    }
-                    Text(
-                        text = "PEAK RECORD: ${"%.1f".format(peakSplDb)} dB",
-                        color = theme.accentColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                // Mic or Source switch
-                Button(
-                    onClick = onToggleMic,
-                    modifier = Modifier.testTag("toggle_mic_button"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isMicRta) theme.primaryColor else theme.surfaceColor,
-                        contentColor = if (isMicRta) theme.onPrimaryColor else theme.primaryColor
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isMicRta) Icons.Default.Mic else Icons.Default.MicOff,
-                        contentDescription = "Micrófono RTA",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isMicRta) "Mic En Vivo" else "Audio Player",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        // Stereo VU Meter (Left / Right)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("vu_meter_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "VU METER ESTÉREO (CANAL L / R)",
-                        color = theme.textSecondaryColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "-20dB  -10dB  -3dB  0dB  +3dB",
-                        color = theme.textSecondaryColor.copy(alpha = 0.7f),
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                VuBar(channel = "L", level = leftVu, theme = theme)
-                Spacer(modifier = Modifier.height(6.dp))
-                VuBar(channel = "R", level = rightVu, theme = theme)
-            }
-        }
-
-        // RTA Real-time 30-Band Spectrum Analyzer Canvas
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(230.dp)
-                .testTag("rta_spectrum_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-            ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.GraphicEq,
-                            contentDescription = "Espectro",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "ANALIZADOR DE ESPECTRO RTA (20Hz - 20kHz)",
-                            color = theme.textColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Text(
-                        text = "30 BANDAS",
-                        color = theme.primaryColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Canvas drawing spectrum bars with peak hold dots
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .background(theme.backgroundColor.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 6.dp, vertical = 6.dp)
-                ) {
-                    RtaSpectrumCanvas(bands = rtaBands, theme = theme)
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Frequency labels row (Sub, Bass, Mid, Hi)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("SUB 20-60Hz", color = theme.primaryColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("BASS 60-250Hz", color = theme.accentColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("MEDIOS 500-2k", color = theme.textSecondaryColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("VOCES / DRIVER", color = theme.primaryColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("AGUDOS 8k-20k", color = theme.accentColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // Real-time Oscilloscope Waveform Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(84.dp)
-                .testTag("oscilloscope_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = "OSCILOSCOPIO DIGITAL (ONDA DE AUDIO)",
-                    color = theme.textSecondaryColor,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                ) {
-                    val w = size.width
-                    val h = size.height
-                    val centerY = h / 2f
-
-                    // Grid line
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.1f),
-                        start = Offset(0f, centerY),
-                        end = Offset(w, centerY),
-                        strokeWidth = 1f
-                    )
-
-                    if (waveform.isNotEmpty()) {
-                        val path = Path()
-                        val step = w / (waveform.size - 1).coerceAtLeast(1)
-
-                        for (i in waveform.indices) {
-                            val x = i * step
-                            val y = centerY - (waveform[i] * centerY * 0.85f)
-                            if (i == 0) {
-                                path.moveTo(x, y)
-                            } else {
-                                path.lineTo(x, y)
-                            }
-                        }
-
-                        drawPath(
-                            path = path,
-                            color = theme.primaryColor,
-                            style = Stroke(width = 2.5f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // SPL Competition Run Card (30-second Bass Race / dB Drag Simulator)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("spl_competition_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        if (splRunState.isRunning) theme.clipAlertColor else theme.primaryColor.copy(alpha = 0.5f),
-                        theme.accentColor.copy(alpha = 0.5f)
-                    )
-                )
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.EmojiEvents,
-                            contentDescription = "Competencia SPL",
-                            tint = if (splRunState.isRunning) theme.clipAlertColor else theme.accentColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "MODO COMPETENCIA SPL (BASS RACE 30s)",
-                            color = theme.textColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    if (splRunState.isRunning) {
+                    // Distinction: REAL MODE vs INTERNAL DSP vs DEMO
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                when (sourceMode) {
+                                    AudioSourceMode.REAL_MIC -> Color(0xFF00E676).copy(alpha = 0.18f)
+                                    AudioSourceMode.INTERNAL_DSP -> theme.primaryColor.copy(alpha = 0.18f)
+                                    else -> Color(0xFFFFB300).copy(alpha = 0.18f)
+                                }
+                            )
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(theme.clipAlertColor)
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(12.dp)
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when (sourceMode) {
+                                        AudioSourceMode.REAL_MIC -> Color(0xFF00E676)
+                                        AudioSourceMode.INTERNAL_DSP -> theme.primaryColor
+                                        else -> Color(0xFFFFB300)
+                                    }
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${splRunState.timeRemainingSeconds}s",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 3 Score Digits: Live, Average, Peak
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("En Vivo:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${"%.1f".format(splRunState.currentSplDb)} dB",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = theme.textColor
+                            text = when (sourceMode) {
+                                AudioSourceMode.REAL_MIC -> "MODO REAL: MIC EN VIVO"
+                                AudioSourceMode.INTERNAL_DSP -> "MODO DSP: GENERADOR NATIVO"
+                                else -> "MODO DEMO OFFLINE"
+                            },
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = when (sourceMode) {
+                                AudioSourceMode.REAL_MIC -> Color(0xFF00E676)
+                                AudioSourceMode.INTERNAL_DSP -> theme.primaryColor
+                                else -> Color(0xFFFFB300)
+                            }
                         )
                     }
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Promedio (Avg):", fontSize = 10.sp, color = theme.textSecondaryColor)
+                    // Clipping LED Indicator
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isClippingDetected) Color(0xFFFF1744).copy(alpha = clipAlpha)
+                                    else Color(0xFF333333)
+                                )
+                                .border(1.dp, if (isClippingDetected) Color(0xFFFF1744) else Color(0xFF555555), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${"%.1f".format(splRunState.averageSplDb)} dB",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
+                            text = if (isClippingDetected) "CLIPPING ACTIVO" else "SIN CLIPPING",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isClippingDetected) Color(0xFFFF1744) else theme.textSecondaryColor
+                        )
+                    }
+                }
+
+                // Mic on/off switch & RMS level
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = onToggleMic,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isMicRta) Color(0xFF00E676) else Color(0xFF22222E)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("toggle_mic_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isMicRta) Icons.Default.Mic else Icons.Default.MicOff,
+                                contentDescription = "Micrófono RTA",
+                                tint = if (isMicRta) Color.Black else Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isMicRta) "MIC RTA ON" else "ACTIVAR MIC",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isMicRta) Color.Black else Color.White
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "RMS: %.1f dBFS".format(rmsLevelDb),
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = theme.primaryColor
                         )
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Pico Récord:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                    OutlinedButton(
+                        onClick = { showCalibrationPanel = !showCalibrationPanel },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (showCalibrationPanel) "Ocultar Calibración" else "Calibrar SPL", fontSize = 10.sp)
+                    }
+                }
+
+                // SPL Calibration Accordion Panel
+                AnimatedVisibility(visible = showCalibrationPanel) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF101018))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
-                            text = "${"%.1f".format(splRunState.maxPeakDb)} dB",
+                            text = "CALIBRACIÓN DE MICRÓFONO & PONDERACIÓN SPL",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.primaryColor
+                        )
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Offset Calibración (dBC):", fontSize = 10.sp, color = theme.textSecondaryColor)
+                            Text("%+.1f dB".format(splCalibrationSettings.micOffsetDb), fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = theme.primaryColor)
+                        }
+
+                        Slider(
+                            value = splCalibrationSettings.micOffsetDb,
+                            onValueChange = onUpdateSplCalibrationOffset,
+                            valueRange = -20f..20f,
+                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor)
+                        )
+
+                        // Weighting Chips (A, C, Z)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Ponderación:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                            SplWeighting.entries.forEach { w ->
+                                FilterChip(
+                                    selected = splCalibrationSettings.weighting == w,
+                                    onClick = { onSetSplWeighting(w) },
+                                    label = { Text(w.label, fontSize = 9.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = theme.primaryColor,
+                                        selectedLabelColor = theme.onPrimaryColor
+                                    )
+                                )
+                            }
+                        }
+
+                        // Speed Chips (FAST / SLOW)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Respuesta:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                            SplSpeed.entries.forEach { s ->
+                                FilterChip(
+                                    selected = splCalibrationSettings.speed == s,
+                                    onClick = { onSetSplSpeed(s) },
+                                    label = { Text(s.label, fontSize = 9.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = theme.primaryColor,
+                                        selectedLabelColor = theme.onPrimaryColor
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // DUAL SPL & VU METER GAUGE
+        Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "PRESIÓN SONORA (SPL METRIC)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.textSecondaryColor
+                        )
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "%.1f".format(splDb),
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (splDb > 135f) Color(0xFFFF1744) else theme.primaryColor
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "dB ${splCalibrationSettings.weighting.name} (${splCalibrationSettings.speed.name})",
+                                fontSize = 12.sp,
+                                color = theme.textSecondaryColor,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(text = "PEAK HOLD", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        Text(
+                            text = "%.1f dB".format(peakSplDb),
                             fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
                             color = theme.accentColor
                         )
                     }
                 }
 
-                // Action button: Start or Stop
-                Button(
-                    onClick = {
-                        if (splRunState.isRunning) onStopSplRun() else onStartSplRun()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .testTag("btn_spl_run_toggle"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (splRunState.isRunning) theme.clipAlertColor else theme.primaryColor,
-                        contentColor = theme.onPrimaryColor
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                // Dual VU Meters (Left / Right)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("L", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondaryColor, modifier = Modifier.width(16.dp))
+                        VuMeterBar(level = leftVu, theme = theme, modifier = Modifier.weight(1f))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("R", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondaryColor, modifier = Modifier.width(16.dp))
+                        VuMeterBar(level = rightVu, theme = theme, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
+        // REAL-TIME RTA (31-BAND ISO SPECTRUM WITH PEAK HOLD & RMS)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (splRunState.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (splRunState.isRunning) "DETENER PRUEBA SPL" else "INICIAR RONDA SPL 30s",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp
+                        text = "ANALIZADOR RTA EN TIEMPO REAL (31 BANDAS ISO)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimaryColor
+                    )
+                    Text(
+                        text = "Peak Hold & RMS",
+                        fontSize = 10.sp,
+                        color = theme.accentColor
                     )
                 }
 
-                // Run History records
-                if (splRunState.runHistory.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Historial de Récords Guardados:",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.textSecondaryColor
-                        )
-                        IconButton(
-                            onClick = onClearSplHistory,
-                            modifier = Modifier.size(24.dp)
+                // 31-Band RTA Canvas
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF090A12))
+                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                ) {
+                    RtaSpectrumCanvas31(bands = rtaBands, theme = theme)
+                }
+
+                // Octave Range Annotations
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("SUB (20-63Hz)", color = theme.primaryColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("BASS (80-250Hz)", color = theme.accentColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("MEDIOS (315-2kHz)", color = theme.textSecondaryColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("VOCES / HORN (2.5k-6.3k)", color = theme.primaryColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("AGUDOS (8k-20kHz)", color = theme.accentColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // PROFESSIONAL DIGITAL OSCILLOSCOPE
+        Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "OSCILOSCOPIO DIGITAL (DISPARO POR FLANCO)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimaryColor
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Freeze / Run button
+                        Button(
+                            onClick = onToggleOscilloscopeFreeze,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (oscilloscopeState.isFrozen) Color(0xFFFFEA00) else Color(0xFF222230)
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.size(width = 65.dp, height = 28.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Borrar historial",
-                                tint = theme.textSecondaryColor,
-                                modifier = Modifier.size(16.dp)
+                            Text(
+                                text = if (oscilloscopeState.isFrozen) "HOLD" else "RUN",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (oscilloscopeState.isFrozen) Color.Black else Color.White
                             )
                         }
                     }
+                }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        splRunState.runHistory.take(3).forEach { record ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(theme.surfaceColor, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = record.title,
-                                    fontSize = 11.sp,
-                                    color = theme.textColor,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "Avg: ${"%.1f".format(record.avgDb)} dB",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = theme.primaryColor
-                                    )
-                                    Text(
-                                        text = "Peak: ${"%.1f".format(record.peakDb)} dB",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = theme.accentColor
-                                    )
-                                }
-                            }
-                        }
+                // Timebase selector chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Base de Tiempo:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                    val timebases = listOf(0.5f, 1.0f, 2.0f, 5.0f, 10.0f)
+                    timebases.forEach { tb ->
+                        FilterChip(
+                            selected = oscilloscopeState.timebaseMs == tb,
+                            onClick = { onSetTimebase(tb) },
+                            label = { Text("${tb}ms/div", fontSize = 9.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = theme.primaryColor,
+                                selectedLabelColor = theme.onPrimaryColor
+                            )
+                        )
                     }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-fun VuBar(
-    channel: String,
-    level: Float,
-    theme: CarAudioThemeType
-) {
-    val animLevel by animateFloatAsState(targetValue = level.coerceIn(0f, 1f), label = "vuAnim")
+                // Oscilloscope Trace Canvas
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF06070B))
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val centerY = h / 2f
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = channel,
-            color = theme.textColor,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.width(18.dp)
-        )
+                    // Oscilloscope Grid Lines (horizontal and vertical)
+                    val numHorizLines = 4
+                    for (i in 1 until numHorizLines) {
+                        val y = (h / numHorizLines) * i
+                        drawLine(Color(0xFF161A28), Offset(0f, y), Offset(w, y), strokeWidth = 1f)
+                    }
+                    val numVertLines = 8
+                    for (j in 1 until numVertLines) {
+                        val x = (w / numVertLines) * j
+                        drawLine(Color(0xFF161A28), Offset(x, 0f), Offset(x, h), strokeWidth = 1f)
+                    }
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(14.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.Black.copy(alpha = 0.6f))
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val totalWidth = size.width
-                val activeWidth = totalWidth * animLevel
-                val segments = 24
-                val segmentWidth = totalWidth / segments
+                    // Center Line
+                    drawLine(Color(0xFF283048), Offset(0f, centerY), Offset(w, centerY), strokeWidth = 1.5f)
 
-                for (i in 0 until segments) {
-                    val segX = i * segmentWidth
-                    if (segX + segmentWidth <= activeWidth) {
-                        val segRatio = i.toFloat() / segments
-                        val segColor = when {
-                            segRatio > 0.85f -> theme.clipAlertColor // Red warning clip zone
-                            segRatio > 0.65f -> Color(0xFFFFB300) // Amber high level
-                            else -> theme.primaryColor // Normal operating level
+                    // Clipping threshold lines (+/- 0dBFS)
+                    drawLine(Color(0xFFFF1744).copy(alpha = 0.5f), Offset(0f, 6f), Offset(w, 6f), strokeWidth = 1f)
+                    drawLine(Color(0xFFFF1744).copy(alpha = 0.5f), Offset(0f, h - 6f), Offset(w, h - 6f), strokeWidth = 1f)
+
+                    val pcmData = if (rawOscilloscope.isNotEmpty()) rawOscilloscope else waveform
+                    if (pcmData.isNotEmpty()) {
+                        val path = Path()
+                        val step = w / (pcmData.size - 1).coerceAtLeast(1)
+
+                        pcmData.forEachIndexed { idx, s ->
+                            val x = idx * step
+                            val y = centerY - (s * centerY * 0.92f)
+                            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
                         }
 
-                        drawRoundRect(
-                            color = segColor,
-                            topLeft = Offset(segX + 1.5f, 1.5f),
-                            size = Size(segmentWidth - 3f, size.height - 3f),
-                            cornerRadius = CornerRadius(2f, 2f)
+                        drawPath(
+                            path = path,
+                            color = if (isClippingDetected) Color(0xFFFF1744) else theme.primaryColor,
+                            style = Stroke(width = 2.2.dp.toPx())
                         )
                     }
                 }
             }
         }
+
+        // SPL COMPETITION BASS RACE (30s)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("COMPETENCIA SPL (BASS RACE 30s)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textPrimaryColor)
+                    }
+
+                    if (splRunState.history.isNotEmpty()) {
+                        IconButton(onClick = onClearSplHistory, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Limpiar Historial", tint = theme.textSecondaryColor, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "Tiempo: ${splRunState.elapsedSeconds}s / 30s", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                        Text(text = "Media Actual: %.1f dB • Pico: %.1f dB".format(splRunState.averageDb, splRunState.peakDb), fontSize = 11.sp, color = theme.textSecondaryColor)
+                    }
+
+                    Button(
+                        onClick = if (splRunState.isRunning) onStopSplRun else onStartSplRun,
+                        colors = ButtonDefaults.buttonColors(containerColor = if (splRunState.isRunning) Color(0xFFFF1744) else theme.primaryColor),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(if (splRunState.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (splRunState.isRunning) "DETENER" else "START RUN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun RtaSpectrumCanvas(
-    bands: List<RtaBand>,
-    theme: CarAudioThemeType
-) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        if (bands.isEmpty()) return@Canvas
-
-        val w = size.width
-        val h = size.height
-        val barCount = bands.size
-        val barSpacing = 2.5f
-        val totalSpacing = barSpacing * (barCount - 1)
-        val barWidth = (w - totalSpacing) / barCount
-
-        val gradient = Brush.verticalGradient(
-            colors = listOf(
-                theme.clipAlertColor,
-                theme.accentColor,
-                theme.primaryColor
-            ),
-            startY = 0f,
-            endY = h
+fun VuMeterBar(level: Float, theme: CarAudioThemeType, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .height(10.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(Color(0xFF151722))
+    ) {
+        val fraction = level.coerceIn(0f, 1f)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction)
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF00E676), Color(0xFFFFEA00), Color(0xFFFF1744))
+                    )
+                )
         )
+    }
+}
 
-        for (i in bands.indices) {
-            val band = bands[i]
-            // Map -60dB .. 0dB to 0..h
-            val normLevel = ((band.levelDb + 60f) / 60f).coerceIn(0.04f, 1.0f)
-            val barHeight = h * normLevel
+@Composable
+fun RtaSpectrumCanvas31(bands: List<RtaBand>, theme: CarAudioThemeType, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val bandCount = bands.size.coerceAtLeast(1)
+        val barSpacing = 2.dp.toPx()
+        val totalSpacing = barSpacing * (bandCount - 1)
+        val barWidth = ((size.width - totalSpacing) / bandCount).coerceAtLeast(2f)
+
+        bands.forEachIndexed { i, band ->
+            val normLevel = ((band.levelDb + 65f) / 65f).coerceIn(0.04f, 1f)
+            val barHeight = size.height * normLevel
             val x = i * (barWidth + barSpacing)
-            val y = h - barHeight
+            val y = size.height - barHeight
 
-            // Draw frequency bar
+            // Bar fill
             drawRoundRect(
-                brush = gradient,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        if (band.levelDb > -5f) Color(0xFFFF1744) else theme.primaryColor,
+                        theme.primaryColor.copy(alpha = 0.4f)
+                    ),
+                    startY = y,
+                    endY = size.height
+                ),
                 topLeft = Offset(x, y),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(2f, 2f)
+                cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
             )
 
-            // Draw peak hold dot
-            val normPeak = ((band.peakDb + 60f) / 60f).coerceIn(0.04f, 1.0f)
-            val peakY = (h - (h * normPeak) - 3f).coerceAtLeast(0f)
-            drawRect(
-                color = theme.meterPeakColor,
-                topLeft = Offset(x, peakY),
-                size = Size(barWidth, 3f)
+            // Peak hold dot
+            val normPeak = ((band.peakDb + 65f) / 65f).coerceIn(0.04f, 1f)
+            val peakY = size.height - (size.height * normPeak)
+            drawLine(
+                color = theme.accentColor,
+                start = Offset(x, peakY),
+                end = Offset(x + barWidth, peakY),
+                strokeWidth = 2.dp.toPx()
             )
         }
     }

@@ -71,6 +71,11 @@ data class RtaBand(
 )
 
 // Multichannel 4-Way Crossover Routing Model
+enum class CrossoverFilterType(val label: String) {
+    BUTTERWORTH("Butterworth"),
+    LINKWITZ_RILEY("Linkwitz-Riley")
+}
+
 data class DspChannel(
     val id: Int,
     val name: String,
@@ -78,13 +83,150 @@ data class DspChannel(
     val hpfHz: Float,
     val hpfSlopeDb: Int, // 12, 24, 48 dB/oct
     val hpfEnabled: Boolean,
+    val hpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
     val lpfHz: Float,
     val lpfSlopeDb: Int,
     val lpfEnabled: Boolean,
-    val gainDb: Float, // -12 to +12 dB
+    val lpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
+    val gainDb: Float, // -24 to +12 dB
     val phaseInverted: Boolean = false,
-    val delayMs: Float = 0.0f, // 0 to 15 ms
-    val isMuted: Boolean = false
+    val delayMs: Float = 0.0f, // 0 to 25 ms
+    val delayCm: Float = delayMs * 34.3f, // Distance in cm = delayMs * 34.3
+    val isMuted: Boolean = false,
+    val isSolo: Boolean = false,
+    // Per-channel Limiter & Clipping
+    val limiterEnabled: Boolean = true,
+    val limiterThresholdDb: Float = -1.0f, // -24 to 0 dBFS
+    val limiterAttackMs: Float = 5.0f,
+    val limiterReleaseMs: Float = 50.0f,
+    val gainReductionDb: Float = 0.0f,
+    val isClipping: Boolean = false,
+    val clipCount: Int = 0
+)
+
+enum class AudioSourceMode(val label: String, val isReal: Boolean) {
+    REAL_MIC("Micrófono Real (Calibrado)", true),
+    INTERNAL_DSP("DSP / Sintetizador Interno", true),
+    DEMO_MODE("Modo Simulación Demo", false),
+    SIMULATED_DEMO("Modo Simulación Demo", false)
+}
+
+data class OscilloscopeState(
+    val isRunning: Boolean = true,
+    val isFrozen: Boolean = false,
+    val timebaseMs: Float = 2.0f, // 0.5ms to 10ms per div
+    val triggerLevel: Float = 0.0f,
+    val triggerAuto: Boolean = true,
+    val isClippingDetected: Boolean = false,
+    val peakVoltageEstimate: Float = 0.0f
+)
+
+enum class AutoTuneTarget(val label: String, val description: String) {
+    HARMAN_CAR("Curva Harman Car Audio", "Realce de graves +6dB en subgraves, medios neutros y caída suave en agudos para máxima calidez."),
+    FLAT_RTA("Acoustic Flat Lineal (0 dB)", "Respuesta perfectamente plana de 20Hz a 20kHz para calibración acústica de precisión."),
+    PANCADAO_BASS("Pancadão Som Automotivo", "Pico agresivo en 63-80Hz, corte seco de sub y realce en 2k-4kHz para voces y cornetas."),
+    SQ_AUDIOPHILE("Sound Quality (SQ Audiophile)", "Escenario acústico suave, graves articulados y extensión de armónicos para fidelidad de estudio.")
+}
+
+data class AutoTuneState(
+    val isMeasuring: Boolean = false,
+    val progress: Float = 0f,
+    val targetCurve: AutoTuneTarget = AutoTuneTarget.HARMAN_CAR,
+    val measuredCurve31: List<Float> = emptyList(),
+    val targetCurve31: List<Float> = emptyList(),
+    val proposedCorrection31: List<Float> = emptyList(),
+    val hasProposal: Boolean = false,
+    val explanation: String = ""
+)
+
+enum class SplWeighting(val label: String, val suffix: String) {
+    A_WEIGHTING("Ponderación A (dBA)", "dBA"),
+    C_WEIGHTING("Ponderación C (dBC - Car Audio)", "dBC"),
+    Z_WEIGHTING("Ponderación Z (dBZ - Plana)", "dBZ")
+}
+
+enum class SplSpeed(val label: String) {
+    FAST("Rápido (125 ms)"),
+    SLOW("Lento (1000 ms)")
+}
+
+data class SplCalibrationSettings(
+    val micOffsetDb: Float = 0.0f, // -20dB to +20dB
+    val weighting: SplWeighting = SplWeighting.C_WEIGHTING,
+    val speed: SplSpeed = SplSpeed.FAST,
+    val isCalibratedMic: Boolean = false
+)
+
+enum class EnclosureType(val label: String) {
+    VENTED_PORTED("Porteada / Ventilada (Bass Reflex)"),
+    SEALED("Sellada (Acoustic Suspension)"),
+    BANDPASS_4TH("Pasa-banda 4to Orden (4th Order)")
+}
+
+data class ThieleSmallParams(
+    val fsHz: Float = 32f,
+    val qts: Float = 0.38f,
+    val vasLiters: Float = 65f,
+    val xmaxMm: Float = 16f,
+    val sdCm2: Float = 510f,
+    val powerRmsWatts: Int = 1000,
+    val fs: Float = fsHz,
+    val vas: Float = vasLiters,
+    val xmax: Float = xmaxMm,
+    val sd: Float = sdCm2,
+    val powerRms: Int = powerRmsWatts
+)
+
+data class ProfessionalBoxDesign(
+    val enclosureType: EnclosureType = EnclosureType.VENTED_PORTED,
+    val tsParams: ThieleSmallParams = ThieleSmallParams(),
+    val netVolumeLiters: Float = 55f,
+    val grossVolumeLiters: Float = 68f,
+    val tuningFreqHz: Float = 36f,
+    val f3CutoffHz: Float = 32f,
+    // Port dimensions
+    val isSlotPort: Boolean = true,
+    val portWidthCm: Float = 5.0f,
+    val portHeightCm: Float = 36.0f,
+    val portLengthCm: Float = 42.0f,
+    val airVelocityMps: Float = 12.4f, // Warning if > 17 m/s (chuffing)
+    val isChuffingSafe: Boolean = true,
+    // Outer box physical dimensions (MDF 18mm)
+    val mdfThicknessMm: Int = 18,
+    val boxWidthCm: Float = 65.0f,
+    val boxHeightCm: Float = 40.0f,
+    val boxDepthCm: Float = 45.0f,
+    val cutListSummary: String = "Frente y Fondo: 65x40cm (x2) | Laterales: 41.4x36.4cm (x2) | Tapa y Base: 65x45cm (x2) | Ducto Baffle: 36.4x37cm"
+)
+
+enum class HardwareConnectionType(val label: String, val isRealHardware: Boolean) {
+    DSP_INTERNAL("DSP Digital Interno 32-bit (Android)", false),
+    USB_OTG("Hardware USB OTG (Serial CDC/FTDI)", true),
+    BLUETOOTH_SPP("Hardware Bluetooth SPP / BLE", true),
+    SIMULATOR_DEMO("Modo Demo / Simulación Offline", false)
+}
+
+data class HardwareBridgeState(
+    val isConnected: Boolean = false,
+    val connectionType: HardwareConnectionType = HardwareConnectionType.DSP_INTERNAL,
+    val deviceName: String = "DSP Interno Nativo 32-bit",
+    val statusMessage: String = "Procesamiento nativo en dispositivo",
+    val packetsSent: Long = 0,
+    val packetsReceived: Long = 0,
+    val lastSyncTime: Long = 0L
+)
+
+data class DspFullProfileJson(
+    val appVersion: String = "2.0",
+    val profileName: String,
+    val description: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val channels: List<DspChannel>,
+    val eq31Bands: List<Float>,
+    val parametricBands: List<ParametricBand>,
+    val masterGainDb: Float,
+    val masterLimiterEnabled: Boolean,
+    val toneGeneratorFreq: Float = 40f
 )
 
 enum class ToneMode(val label: String) {
@@ -97,10 +239,14 @@ enum class ToneMode(val label: String) {
 data class SplRunState(
     val isRunning: Boolean = false,
     val timeRemainingSeconds: Int = 30,
+    val elapsedSeconds: Int = 30 - timeRemainingSeconds,
     val currentSplDb: Float = 0f,
     val averageSplDb: Float = 0f,
+    val averageDb: Float = averageSplDb,
     val maxPeakDb: Float = 0f,
-    val runHistory: List<SplRecord> = emptyList()
+    val peakDb: Float = maxPeakDb,
+    val runHistory: List<SplRecord> = emptyList(),
+    val history: List<SplRecord> = runHistory
 )
 
 data class SplRecord(

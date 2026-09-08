@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">CarAudio DSP &amp; Player</string>
+    <string name="app_name">CarAudio DSP Pro 2.0</string>
     <string name="tab_processor">Procesador DSP</string>
     <string name="tab_analyzer">Analizador RTA</string>
     <string name="tab_player">Reproductor</string>

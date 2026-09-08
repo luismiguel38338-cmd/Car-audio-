@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
@@ -79,6 +80,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.CarAudioThemeType
 import com.example.ui.components.CarAudioSplashScreen
 import com.example.ui.components.CarAudioToolsView
+import com.example.ui.components.DashboardView
 import com.example.ui.components.DspProcessorView
 import com.example.ui.components.EqualizerProcessorView
 import com.example.ui.components.PermissionExplanationDialog
@@ -131,6 +133,10 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
     val dspChannels by viewModel.dspChannels.collectAsState()
     val selectedChannelId by viewModel.selectedChannelId.collectAsState()
     val splRunState by viewModel.splRunState.collectAsState()
+    val rmsLevelDb by viewModel.rmsLevelDb.collectAsState()
+    val sourceMode by viewModel.sourceMode.collectAsState()
+    val hardwareState by viewModel.hardwareBridgeState.collectAsState()
+    val rawOscilloscopePcm by viewModel.rawOscilloscopePcm.collectAsState()
 
     // Notification permission launcher
     var hasNotifPermission by remember {
@@ -286,10 +292,25 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                 tonalElevation = 8.dp
             ) {
                 NavigationBarItem(
+                    selected = selectedTab == AppTab.DASHBOARD,
+                    onClick = { viewModel.selectTab(AppTab.DASHBOARD) },
+                    icon = { Icon(Icons.Default.Speed, contentDescription = "Dashboard Pro") },
+                    label = { Text("Dash", fontSize = 8.5.sp, fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = currentTheme.onPrimaryColor,
+                        indicatorColor = currentTheme.primaryColor,
+                        selectedTextColor = currentTheme.primaryColor,
+                        unselectedIconColor = currentTheme.textSecondaryColor,
+                        unselectedTextColor = currentTheme.textSecondaryColor
+                    ),
+                    modifier = Modifier.testTag("nav_tab_dashboard")
+                )
+
+                NavigationBarItem(
                     selected = selectedTab == AppTab.DSP_PROCESSOR,
                     onClick = { viewModel.selectTab(AppTab.DSP_PROCESSOR) },
                     icon = { Icon(Icons.Default.Tune, contentDescription = "DSP") },
-                    label = { Text("DSP", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
+                    label = { Text("DSP", fontSize = 8.5.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = currentTheme.onPrimaryColor,
                         indicatorColor = currentTheme.primaryColor,
@@ -398,6 +419,27 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                 .padding(innerPadding)
         ) {
             when (selectedTab) {
+                AppTab.DASHBOARD -> {
+                    DashboardView(
+                        theme = currentTheme,
+                        dsp = dspSettings,
+                        channels = dspChannels,
+                        telemetry = ampTelemetry,
+                        splDb = splDb,
+                        peakSplDb = peakSplDb,
+                        rmsLevelDb = rmsLevelDb,
+                        isClipping = ampTelemetry.isClipping,
+                        sourceMode = sourceMode,
+                        hardwareState = hardwareState,
+                        rtaBands = rtaBands,
+                        rawOscilloscope = rawOscilloscopePcm,
+                        onNavigateTab = { viewModel.selectTab(it) },
+                        onPanicMute = { viewModel.panicMuteAll() },
+                        onToggleChannelMute = { viewModel.toggleChannelMute(it) },
+                        onToggleChannelSolo = { viewModel.toggleChannelSolo(it) },
+                        onQuickPreset = { viewModel.loadPreset(it) }
+                    )
+                }
                 AppTab.DSP_PROCESSOR -> {
                     DspProcessorView(
                         theme = currentTheme,

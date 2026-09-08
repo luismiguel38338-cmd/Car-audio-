@@ -10,9 +10,11 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
+import com.example.model.AudioSourceMode
 import com.example.model.AudioTrackItem
 import com.example.model.DspSettings
 import com.example.model.RtaBand
+import com.example.model.SplWeighting
 import com.example.model.ToneMode
 import com.example.model.TrackCategory
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.sin
@@ -59,6 +62,42 @@ class CarAudioEngine(private val context: Context) {
         private set
     var currentRtaBands: List<RtaBand> = createInitialRtaBands()
         private set
+
+    // Real DSP 2.0 Telemetry & Oscilloscope
+    var rmsLevelDb: Float = -24.0f
+        private set
+    var isClippingDetected: Boolean = false
+        private set
+    var clipEventsCount: Int = 0
+        private set
+    var rawOscilloscopePcm: FloatArray = FloatArray(128)
+        private set
+    var splCalibrationOffsetDb: Float = 0.0f
+    var splWeighting: SplWeighting = SplWeighting.C_WEIGHTING
+    var sourceMode: AudioSourceMode = AudioSourceMode.INTERNAL_DSP
+        private set
+
+    // Paul Kellet Pink Noise filter states
+    private var pinkB0 = 0.0
+    private var pinkB1 = 0.0
+    private var pinkB2 = 0.0
+    private var pinkB3 = 0.0
+    private var pinkB4 = 0.0
+    private var pinkB5 = 0.0
+    private var pinkB6 = 0.0
+
+    private fun generatePinkNoiseSample(): Double {
+        val white = Math.random() * 2.0 - 1.0
+        pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
+        pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
+        pinkB2 = 0.96900 * pinkB2 + white * 0.1538520
+        pinkB3 = 0.86650 * pinkB3 + white * 0.3104856
+        pinkB4 = 0.55000 * pinkB4 + white * 0.5329522
+        pinkB5 = -0.7616 * pinkB5 - white * 0.0168980
+        val pink = pinkB0 + pinkB1 + pinkB2 + pinkB3 + pinkB4 + pinkB5 + pinkB6 + white * 0.5362
+        pinkB6 = white * 0.115926
+        return pink * 0.12
+    }
 
     // Tone Generator state
     var isToneActive: Boolean = false
@@ -129,13 +168,13 @@ class CarAudioEngine(private val context: Context) {
 
         private fun createInitialRtaBands(): List<RtaBand> {
             val freqs = listOf(
-                Pair("25", 25), Pair("31", 31), Pair("40", 40), Pair("50", 50),
+                Pair("20", 20), Pair("25", 25), Pair("31.5", 31), Pair("40", 40), Pair("50", 50),
                 Pair("63", 63), Pair("80", 80), Pair("100", 100), Pair("125", 125),
                 Pair("160", 160), Pair("200", 200), Pair("250", 250), Pair("315", 315),
                 Pair("400", 400), Pair("500", 500), Pair("630", 630), Pair("800", 800),
                 Pair("1k", 1000), Pair("1.2k", 1250), Pair("1.6k", 1600), Pair("2k", 2000),
                 Pair("2.5k", 2500), Pair("3.1k", 3150), Pair("4k", 4000), Pair("5k", 5000),
-                Pair("6.3k", 6300), Pair("8k", 8000), Pair("10k", 10000), Pair("12k", 12500),
+                Pair("6.3k", 6300), Pair("8k", 8000), Pair("10k", 10000), Pair("12.5k", 12500),
                 Pair("16k", 16000), Pair("20k", 20000)
             )
             return freqs.map { RtaBand(label = it.first, freqHz = it.second, levelDb = -45f, peakDb = -40f) }
@@ -277,9 +316,8 @@ class CarAudioEngine(private val context: Context) {
                             (white * 0.3 * masterVol * Short.MAX_VALUE).toInt()
                         }
                         ToneMode.PINK_NOISE -> {
-                            // Filtered noise with 3dB/oct roll-off
-                            val white = (Math.random() * 2.0 - 1.0)
-                            (white * 0.35 * masterVol * Short.MAX_VALUE).toInt()
+                            val pink = generatePinkNoiseSample()
+                            (pink * 3.5 * masterVol * Short.MAX_VALUE).toInt()
                         }
                     }
                     chunk[i] = sampleVal.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
@@ -287,21 +325,47 @@ class CarAudioEngine(private val context: Context) {
 
                 audioTrack?.write(chunk, 0, chunk.size)
 
-                // Update visualizer spectrum for the tone
+                // Update oscilloscope and visualizer from generated PCM
                 if (!isMicRtaActive) {
-                    val dbLevel = (-12f + (masterVol.toFloat() * 10f)).coerceIn(-40f, 0f)
-                    currentSplDb = (88f + masterVol.toFloat() * 25f).coerceIn(40f, 138f)
+                    sourceMode = AudioSourceMode.INTERNAL_DSP
+                    val dbLevel = (-18f + (masterVol.toFloat() * 16f)).coerceIn(-45f, 0f)
+                    rmsLevelDb = dbLevel
+                    currentSplDb = (88f + masterVol.toFloat() * 25f + splCalibrationOffsetDb).coerceIn(40f, 138f)
                     if (currentSplDb > peakSplDb) peakSplDb = currentSplDb
 
                     leftVuLevel = (masterVol.toFloat() * 0.85f).coerceIn(0.1f, 1.0f)
                     rightVuLevel = leftVuLevel * 0.98f
 
+                    // Detect clipping in generated chunk
+                    var clipped = 0
+                    for (s in chunk) {
+                        if (abs(s.toInt()) >= 32600) clipped++
+                    }
+                    isClippingDetected = (clipped > 0)
+                    if (isClippingDetected) clipEventsCount += clipped
+
+                    // Update Oscilloscope buffer with trigger search
+                    val osc = FloatArray(128)
+                    var triggerIdx = 0
+                    for (i in 0 until (chunk.size - 128).coerceAtLeast(1)) {
+                        if (chunk[i] <= 0 && chunk[i + 1] > 0) {
+                            triggerIdx = i
+                            break
+                        }
+                    }
+                    for (i in 0 until 128) {
+                        val idx = (triggerIdx + i).coerceAtMost(chunk.size - 1)
+                        osc[i] = chunk[idx].toFloat() / Short.MAX_VALUE
+                    }
+                    rawOscilloscopePcm = osc
+                    currentWaveform = FloatArray(64) { idx -> osc[(idx * 2).coerceAtMost(127)] }
+
                     val updated = currentRtaBands.map { band ->
                         val diff = abs(log10(band.freqHz.toDouble()) - log10(effectiveFreq))
                         val closeness = (1.0 - diff * 3.0).coerceIn(0.0, 1.0).toFloat()
                         val bandLevel = when (currentToneMode) {
-                            ToneMode.WHITE_NOISE -> (-18f + Math.random().toFloat() * 4f)
-                            ToneMode.PINK_NOISE -> (-12f - (log10(band.freqHz.toFloat()) * 3f) + Math.random().toFloat() * 3f)
+                            ToneMode.WHITE_NOISE -> (-18f + Math.random().toFloat() * 3.5f)
+                            ToneMode.PINK_NOISE -> (-12f - (log10(band.freqHz.toFloat()) * 3f) + Math.random().toFloat() * 2.5f)
                             else -> (-55f + closeness * 48f)
                         }
                         val peak = if (bandLevel > band.peakDb) bandLevel else (band.peakDb - 1.5f).coerceAtLeast(-60f)
@@ -629,47 +693,132 @@ class CarAudioEngine(private val context: Context) {
     }
 
     private fun processMicPcm(buffer: ShortArray, readSize: Int) {
+        sourceMode = AudioSourceMode.REAL_MIC
         var sumSquares = 0.0
         var maxAmp = 0
+        var clippedSamples = 0
+
         for (i in 0 until readSize) {
             val sample = buffer[i].toInt()
             sumSquares += (sample * sample).toDouble()
             val absSample = abs(sample)
             if (absSample > maxAmp) maxAmp = absSample
+            if (absSample >= 32600) clippedSamples++
         }
+
         val rms = sqrt(sumSquares / readSize)
         val db = if (rms > 1) 20 * log10(rms / Short.MAX_VALUE) else -60.0
+        rmsLevelDb = db.toFloat().coerceIn(-60f, 0f)
 
-        // Approximate SPL calibration from microphone dB
-        val calculatedSpl = (90.0 + db + 35.0).toFloat().coerceIn(35f, 135f)
+        // Real clipping detection
+        if (clippedSamples > 0) {
+            isClippingDetected = true
+            clipEventsCount += clippedSamples
+        } else {
+            isClippingDetected = false
+        }
+
+        // SPL Calibration with Weighting Adjustment:
+        // C-Weighting has flat passband from 31.5Hz to 8kHz (standard for Car Audio & SPL)
+        // A-Weighting severely attenuates sub-bass to mirror human ear sensitivity at low volumes
+        // Z-Weighting is unweighted linear
+        val weightingDelta = when (splWeighting) {
+            SplWeighting.A_WEIGHTING -> if (rms > 1) -2.8f else 0f
+            SplWeighting.C_WEIGHTING -> 0.0f
+            SplWeighting.Z_WEIGHTING -> +0.7f
+            else -> 0.0f
+        }
+
+        // Calibrated SPL calculation
+        val calculatedSpl = (94.0f + db.toFloat() + 35.0f + splCalibrationOffsetDb + weightingDelta).coerceIn(35f, 145f)
         currentSplDb = calculatedSpl
         if (currentSplDb > peakSplDb) {
             peakSplDb = currentSplDb
         } else {
-            peakSplDb = (peakSplDb * 0.95f).coerceAtLeast(currentSplDb)
+            peakSplDb = (peakSplDb * 0.96f).coerceAtLeast(currentSplDb)
         }
 
         val normLevel = (maxAmp.toFloat() / Short.MAX_VALUE).coerceIn(0f, 1f)
         leftVuLevel = normLevel
         rightVuLevel = normLevel * 0.95f
 
-        // Copy waveform downsampled
-        val wave = FloatArray(64)
-        val step = (readSize / 64).coerceAtLeast(1)
-        for (i in 0 until 64) {
-            val idx = (i * step).coerceAtMost(readSize - 1)
-            wave[i] = buffer[idx].toFloat() / Short.MAX_VALUE
+        // Oscilloscope buffer extraction with zero-crossing rising-edge trigger
+        val osc = FloatArray(128)
+        var triggerOffset = 0
+        for (i in 0 until (readSize - 128).coerceAtLeast(1)) {
+            if (buffer[i] <= 0 && buffer[i + 1] > 0) {
+                triggerOffset = i
+                break
+            }
         }
-        currentWaveform = wave
+        for (i in 0 until 128) {
+            val idx = (triggerOffset + i).coerceAtMost(readSize - 1)
+            osc[i] = buffer[idx].toFloat() / Short.MAX_VALUE
+        }
+        rawOscilloscopePcm = osc
+        currentWaveform = FloatArray(64) { idx -> osc[(idx * 2).coerceAtMost(127)] }
 
-        // Distribute FFT-like energy across RTA bands
-        val updated = currentRtaBands.mapIndexed { idx, band ->
-            val weight = 1.0f - (idx.toFloat() / currentRtaBands.size.toFloat()) * 0.3f
-            val bandDb = (db.toFloat() + (Math.random().toFloat() * 10f - 5f) * weight).coerceIn(-60f, 0f)
+        // Real Discrete Fourier Transform (DFT) spectral binning across the 31 ISO bands
+        val step = (readSize / 128).coerceAtLeast(1)
+        val numSamples = readSize / step
+
+        val updated = currentRtaBands.map { band ->
+            val f = band.freqHz.toDouble()
+            val omega = 2.0 * PI * f / sampleRate
+            var realSum = 0.0
+            var imagSum = 0.0
+            var sampleIdx = 0
+            while (sampleIdx < readSize) {
+                val s = buffer[sampleIdx].toDouble()
+                val angle = omega * sampleIdx
+                realSum += s * cos(angle)
+                imagSum += s * sin(angle)
+                sampleIdx += step
+            }
+            val magnitude = sqrt(realSum * realSum + imagSum * imagSum) / numSamples
+            val rawBandDb = if (magnitude > 1.0) (20 * log10(magnitude / Short.MAX_VALUE)).toFloat() else -60f
+            // Combine microphone base noise floor with calibrated frequency response
+            val bandDb = (rawBandDb + splCalibrationOffsetDb * 0.2f).coerceIn(-60f, 0f)
             val newPeak = if (bandDb > band.peakDb) bandDb else (band.peakDb - 1.2f).coerceAtLeast(-60f)
             band.copy(levelDb = bandDb, peakDb = newPeak)
         }
         currentRtaBands = updated
+    }
+
+    fun playAcousticPing() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                val pingBufferSize = 2048
+                val pingChunk = ShortArray(pingBufferSize)
+                for (i in pingChunk.indices) {
+                    val envelope = exp(-i.toDouble() / (sampleRate * 0.015)) // 15ms sharp acoustic impulse
+                    val tone = sin(2.0 * PI * 1000.0 * i / sampleRate) // 1kHz sync tone
+                    pingChunk[i] = (tone * envelope * 0.8 * Short.MAX_VALUE).toInt().toShort()
+                }
+                val pingTrack = AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(pingBufferSize * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+                pingTrack.write(pingChunk, 0, pingChunk.size)
+                pingTrack.play()
+                delay(100)
+                pingTrack.stop()
+                pingTrack.release()
+            } catch (_: Exception) {}
+        }
     }
 
     fun release() {

@@ -1,6 +1,6 @@
 {
-  "name": "CarAudio DSP & Player",
-  "description": "Procesador DSP avanzado de Car Audio con Crossover Multivía 4-Canales, Alineación de Tiempo, Generador de Tonos, Calculador de Cajones y Cableado AWG, Competencia SPL 30s, RTA y Monitor de Planta.",
+  "name": "CarAudio DSP Pro 2.0",
+  "description": "Procesador Car Audio DSP Multicanal 2.0: Crossover 4 vías, EQ gráfico 31 bandas y paramétrico, RTA/FFT y osciloscopio real, generador de tonos, detector de clipping, limitador, alineación de tiempo, auto-tune acústico y diseñador de cajas.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

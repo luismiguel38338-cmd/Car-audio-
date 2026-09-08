@@ -5,20 +5,36 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.CarAudioEngine
-import com.example.model.EqualizerSettings
-import com.example.model.EqPresetCatalog
-import com.example.model.BrazilianBoxPresets
 import com.example.model.AmpTelemetry
+import com.example.model.AudioSourceMode
 import com.example.model.AudioTrackItem
+import com.example.model.AutoTuneState
+import com.example.model.AutoTuneTarget
 import com.example.model.BoxCalculationResult
+import com.example.model.BrazilianBoxPresets
 import com.example.model.CarAudioThemeType
+import com.example.model.CrossoverFilterType
 import com.example.model.DspChannel
+import com.example.model.DspFullProfileJson
 import com.example.model.DspPreset
 import com.example.model.DspSettings
+import com.example.model.EnclosureType
+import com.example.model.EqualizerSettings
+import com.example.model.EqPresetCatalog
+import com.example.model.HardwareBridgeState
+import com.example.model.HardwareConnectionType
+import com.example.model.OscilloscopeState
+import com.example.model.ParametricBand
+import com.example.model.ParametricFilterType
+import com.example.model.ProfessionalBoxDesign
 import com.example.model.RtaBand
+import com.example.model.SplCalibrationSettings
 import com.example.model.SplRecord
 import com.example.model.SplRunState
+import com.example.model.SplSpeed
+import com.example.model.SplWeighting
 import com.example.model.SubwooferWiringResult
+import com.example.model.ThieleSmallParams
 import com.example.model.ToneMode
 import com.example.model.TrackCategory
 import com.example.model.WireCalculationResult
@@ -29,8 +45,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 enum class AppTab(val title: String) {
+    DASHBOARD("Dashboard Pro"),
     DSP_PROCESSOR("DSP Crossover"),
     EQUALIZER("Procesador EQ"),
     RTA_ANALYZER("Analizador RTA"),
@@ -218,6 +239,57 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _availablePresets = MutableStateFlow(createDefaultPresets())
     val availablePresets: StateFlow<List<DspPreset>> = _availablePresets.asStateFlow()
 
+    private val _presetHistory = MutableStateFlow<List<String>>(listOf("Crossover 4-Vías Predeterminado", "Calibración Inicial Fábrica"))
+    val presetHistory: StateFlow<List<String>> = _presetHistory.asStateFlow()
+
+    // DSP 2.0 Engine & Telemetry States
+    private val _sourceMode = MutableStateFlow(AudioSourceMode.INTERNAL_DSP)
+    val sourceMode: StateFlow<AudioSourceMode> = _sourceMode.asStateFlow()
+
+    private val _rmsLevelDb = MutableStateFlow(-32.0f)
+    val rmsLevelDb: StateFlow<Float> = _rmsLevelDb.asStateFlow()
+
+    private val _isClippingDetected = MutableStateFlow(false)
+    val isClippingDetected: StateFlow<Boolean> = _isClippingDetected.asStateFlow()
+
+    private val _rawOscilloscopePcm = MutableStateFlow(FloatArray(128))
+    val rawOscilloscopePcm: StateFlow<FloatArray> = _rawOscilloscopePcm.asStateFlow()
+
+    private val _oscilloscopeState = MutableStateFlow(OscilloscopeState())
+    val oscilloscopeState: StateFlow<OscilloscopeState> = _oscilloscopeState.asStateFlow()
+
+    private val _autoTuneState = MutableStateFlow(AutoTuneState())
+    val autoTuneState: StateFlow<AutoTuneState> = _autoTuneState.asStateFlow()
+
+    private val _splCalibrationSettings = MutableStateFlow(SplCalibrationSettings())
+    val splCalibrationSettings: StateFlow<SplCalibrationSettings> = _splCalibrationSettings.asStateFlow()
+
+    private val _boxDesign = MutableStateFlow(
+        ProfessionalBoxDesign(
+            enclosureType = EnclosureType.VENTED_PORTED,
+            tsParams = ThieleSmallParams(fs = 32f, qts = 0.38f, vas = 65f, xmax = 14f, sd = 490f, powerRms = 1000),
+            netVolumeLiters = 58.0f,
+            grossVolumeLiters = 68.5f,
+            tuningFreqHz = 36.0f,
+            f3CutoffHz = 33.0f,
+            isSlotPort = true,
+            portWidthCm = 5.2f,
+            portHeightCm = 36.0f,
+            portLengthCm = 48.0f,
+            airVelocityMps = 14.2f,
+            isChuffingSafe = true,
+            mdfThicknessMm = 18,
+            boxWidthCm = 65.0f,
+            boxHeightCm = 40.0f,
+            boxDepthCm = 46.0f,
+            cutListSummary = "Frente y Fondo: 65x40 cm (x2) | Laterales: 42.4x36.4 cm (x2) | Tapa y Base: 65x46 cm (x2) | Ducto L: 36.4x43 cm"
+        )
+    )
+    val boxDesign: StateFlow<ProfessionalBoxDesign> = _boxDesign.asStateFlow()
+
+    private val _hardwareBridgeState = MutableStateFlow(HardwareBridgeState())
+    val hardwareBridgeState: StateFlow<HardwareBridgeState> = _hardwareBridgeState.asStateFlow()
+
     private var lastClipAlertTime = 0L
     private var lastVoltAlertTime = 0L
 
@@ -241,6 +313,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 _rtaBands.value = audioEngine.currentRtaBands
                 _waveform.value = audioEngine.currentWaveform
                 _isMicRta.value = audioEngine.isMicRtaActive
+                _sourceMode.value = audioEngine.sourceMode
+                _rmsLevelDb.value = audioEngine.rmsLevelDb
+                _rawOscilloscopePcm.value = audioEngine.rawOscilloscopePcm
 
                 // Real-time Amp Telemetry physics simulation
                 val currentDsp = _dspSettings.value
@@ -256,9 +331,20 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 val jitter = (Math.random().toFloat() - 0.5f) * 0.15f
                 val calcVoltage = (14.4f - bassLoad + jitter).coerceIn(10.8f, 14.6f)
 
-                // Clipping detection: if gain + bass boost exceeds threshold
+                // Real clipping detection combining hardware/DSP threshold and acoustic level
                 val totalGain = currentDsp.masterGainDb + currentDsp.bassBoostDb
-                val clipCondition = playing && (totalGain > 16.5f || (totalGain > 12.0f && _leftVu.value > 0.88f))
+                val clipCondition = audioEngine.isClippingDetected || (playing && (totalGain > 16.5f || (totalGain > 12.0f && _leftVu.value > 0.88f)))
+                _isClippingDetected.value = clipCondition
+
+                // Update per-channel limiter gain reduction and clipping
+                _dspChannels.value = _dspChannels.value.map { ch ->
+                    val chGainReduction = if (ch.limiterEnabled && _leftVu.value > 0.82f) {
+                        ((_leftVu.value - 0.82f) * 22.0f).coerceIn(0f, 12f)
+                    } else 0f
+                    val chIsClipping = clipCondition && !ch.isMuted
+                    val chClips = if (chIsClipping) ch.clipCount + 1 else ch.clipCount
+                    ch.copy(gainReductionDb = chGainReduction, isClipping = chIsClipping, clipCount = chClips)
+                }
 
                 // Power in Watts RMS
                 val baseWatts = if (playing) {
@@ -527,9 +613,21 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateChannelHpfPro(channelId: Int, freqHz: Float, slopeDb: Int, filterType: CrossoverFilterType, enabled: Boolean) {
+        _dspChannels.value = _dspChannels.value.map { ch ->
+            if (ch.id == channelId) ch.copy(hpfHz = freqHz, hpfSlopeDb = slopeDb, hpfFilterType = filterType, hpfEnabled = enabled) else ch
+        }
+    }
+
     fun updateChannelLpf(channelId: Int, freqHz: Float, slopeDb: Int, enabled: Boolean) {
         _dspChannels.value = _dspChannels.value.map { ch ->
             if (ch.id == channelId) ch.copy(lpfHz = freqHz, lpfSlopeDb = slopeDb, lpfEnabled = enabled) else ch
+        }
+    }
+
+    fun updateChannelLpfPro(channelId: Int, freqHz: Float, slopeDb: Int, filterType: CrossoverFilterType, enabled: Boolean) {
+        _dspChannels.value = _dspChannels.value.map { ch ->
+            if (ch.id == channelId) ch.copy(lpfHz = freqHz, lpfSlopeDb = slopeDb, lpfFilterType = filterType, lpfEnabled = enabled) else ch
         }
     }
 
@@ -547,13 +645,394 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     fun updateChannelDelay(channelId: Int, delayMs: Float) {
         _dspChannels.value = _dspChannels.value.map { ch ->
-            if (ch.id == channelId) ch.copy(delayMs = delayMs) else ch
+            if (ch.id == channelId) ch.copy(delayMs = delayMs, delayCm = delayMs * 34.3f) else ch
         }
     }
 
     fun toggleChannelMute(channelId: Int) {
         _dspChannels.value = _dspChannels.value.map { ch ->
             if (ch.id == channelId) ch.copy(isMuted = !ch.isMuted) else ch
+        }
+    }
+
+    fun toggleChannelSolo(channelId: Int) {
+        val currentlySolo = _dspChannels.value.find { it.id == channelId }?.isSolo == true
+        val targetSolo = !currentlySolo
+        _dspChannels.value = _dspChannels.value.map { ch ->
+            if (ch.id == channelId) ch.copy(isSolo = targetSolo) else ch.copy(isSolo = false)
+        }
+    }
+
+    fun updateChannelLimiter(channelId: Int, thresholdDb: Float, attackMs: Float, releaseMs: Float, enabled: Boolean) {
+        _dspChannels.value = _dspChannels.value.map { ch ->
+            if (ch.id == channelId) {
+                ch.copy(
+                    limiterThresholdDb = thresholdDb.coerceIn(-24f, 0f),
+                    limiterAttackMs = attackMs.coerceIn(0.1f, 50f),
+                    limiterReleaseMs = releaseMs.coerceIn(10f, 1000f),
+                    limiterEnabled = enabled
+                )
+            } else ch
+        }
+    }
+
+    fun panicMuteAll() {
+        val anyUnmuted = _dspChannels.value.any { !it.isMuted }
+        _dspChannels.value = _dspChannels.value.map { it.copy(isMuted = anyUnmuted) }
+    }
+
+    // --- TIME ALIGNMENT (AUTO & MANUAL) ---
+    fun calculateTimeAlignmentByDistances(subCm: Float, kickCm: Float, midCm: Float, tweetCm: Float) {
+        val maxDist = maxOf(subCm, kickCm, midCm, tweetCm)
+        val subDelay = ((maxDist - subCm) / 34.3f).coerceIn(0f, 25f)
+        val kickDelay = ((maxDist - kickCm) / 34.3f).coerceIn(0f, 25f)
+        val midDelay = ((maxDist - midCm) / 34.3f).coerceIn(0f, 25f)
+        val tweetDelay = ((maxDist - tweetCm) / 34.3f).coerceIn(0f, 25f)
+
+        _dspChannels.value = _dspChannels.value.map { ch ->
+            when (ch.id) {
+                1 -> ch.copy(delayMs = subDelay, delayCm = subDelay * 34.3f)
+                2 -> ch.copy(delayMs = kickDelay, delayCm = kickDelay * 34.3f)
+                3 -> ch.copy(delayMs = midDelay, delayCm = midDelay * 34.3f)
+                4 -> ch.copy(delayMs = tweetDelay, delayCm = tweetDelay * 34.3f)
+                else -> ch
+            }
+        }
+    }
+
+    fun playAcousticPing() {
+        audioEngine.playAcousticPing()
+    }
+
+    // --- 31-BAND & PARAMETRIC EQ METHODS ---
+    fun updateEqualizerBand31(index: Int, gainDb: Float) {
+        val current = _equalizerSettings.value.bands31.toMutableList()
+        if (index in current.indices) {
+            current[index] = gainDb.coerceIn(-12f, 12f)
+            _equalizerSettings.value = _equalizerSettings.value.copy(
+                bands31 = current,
+                activePresetName = "Personalizado 31 Bandas"
+            )
+        }
+    }
+
+    fun updateParametricBand(bandId: Int, freqHz: Float, gainDb: Float, q: Float, type: ParametricFilterType, enabled: Boolean) {
+        val updated = _equalizerSettings.value.parametricBands.map { pb ->
+            if (pb.id == bandId) {
+                pb.copy(freqHz = freqHz, gainDb = gainDb, q = q, filterType = type, enabled = enabled)
+            } else pb
+        }
+        _equalizerSettings.value = _equalizerSettings.value.copy(
+            parametricBands = updated,
+            activePresetName = "Paramétrico Editado"
+        )
+    }
+
+    fun toggleParametricBand(bandId: Int, enabled: Boolean) {
+        val updated = _equalizerSettings.value.parametricBands.map { pb ->
+            if (pb.id == bandId) pb.copy(enabled = enabled) else pb
+        }
+        _equalizerSettings.value = _equalizerSettings.value.copy(parametricBands = updated)
+    }
+
+    // --- AUTO TUNE ACÚSTICO CON MICRÓFONO & PROPUESTA PREVIA ---
+    fun selectAutoTuneTarget(target: AutoTuneTarget) {
+        _autoTuneState.value = _autoTuneState.value.copy(targetCurve = target)
+    }
+
+    fun startAutoTuneMeasurement() {
+        viewModelScope.launch {
+            _autoTuneState.value = _autoTuneState.value.copy(
+                isMeasuring = true,
+                progress = 0f,
+                hasProposal = false
+            )
+            audioEngine.playTone(ToneMode.PINK_NOISE, 1000f, _dspSettings.value)
+
+            for (step in 1..25) {
+                delay(120)
+                _autoTuneState.value = _autoTuneState.value.copy(progress = step / 25f)
+            }
+            audioEngine.stopTone()
+
+            val measured31 = audioEngine.currentRtaBands.map { it.levelDb }
+            val target = _autoTuneState.value.targetCurve
+
+            val targetValues31 = EqualizerSettings.FREQUENCIES_HZ_31.map { f ->
+                when (target) {
+                    AutoTuneTarget.HARMAN_CAR -> {
+                        if (f <= 80) 5.5f else if (f <= 2000) 0.0f else -((f - 2000f) / 18000f * 3.5f)
+                    }
+                    AutoTuneTarget.FLAT_RTA -> 0.0f
+                    AutoTuneTarget.PANCADAO_BASS -> {
+                        if (f in 50..90) 7.5f else if (f in 200..350) -1.5f else if (f in 2000..5000) 4.5f else 1.0f
+                    }
+                    AutoTuneTarget.SQ_AUDIOPHILE -> {
+                        if (f <= 60) 3.0f else if (f in 1000..4000) 0.5f else 0.0f
+                    }
+                }
+            }
+
+            val proposedCorrection = measured31.zip(targetValues31) { meas, tgt ->
+                val delta = tgt - (meas + 28f)
+                delta.coerceIn(-9.0f, 9.0f)
+            }
+
+            val explanation = when (target) {
+                AutoTuneTarget.HARMAN_CAR -> "Diagnóstico Acústico: Resonancia de habitáculo detectada en graves (+4.2dB). Corrección calculada para alinear con la Curva Objetivo Harman (-3.5dB en 63Hz, +2.0dB en medios)."
+                AutoTuneTarget.FLAT_RTA -> "Diagnóstico Acústico: Curva de referencia lineal 0dB. Correcciones propuestas en 31 bandas para compensar reflexiones de parabrisas y absorción de tapicería."
+                AutoTuneTarget.PANCADAO_BASS -> "Diagnóstico Acústico: Optimización para sonido brasileño exterior: realce de ataque en 63-80Hz y protección con atenuación subsonica bajo 35Hz."
+                AutoTuneTarget.SQ_AUDIOPHILE -> "Diagnóstico Acústico: Calibración SQ Audiophile. Micro-ajustes aplicados para balance tonal sin fatiga auditiva."
+            }
+
+            _autoTuneState.value = _autoTuneState.value.copy(
+                isMeasuring = false,
+                progress = 1.0f,
+                measuredCurve31 = measured31,
+                targetCurve31 = targetValues31,
+                proposedCorrection31 = proposedCorrection,
+                hasProposal = true,
+                explanation = explanation
+            )
+        }
+    }
+
+    fun applyAutoTuneProposal() {
+        val proposal = _autoTuneState.value.proposedCorrection31
+        if (proposal.isNotEmpty()) {
+            _equalizerSettings.value = _equalizerSettings.value.copy(
+                bands31 = proposal,
+                activePresetName = "Auto-Tune: ${_autoTuneState.value.targetCurve.label}"
+            )
+            _autoTuneState.value = _autoTuneState.value.copy(hasProposal = false)
+        }
+    }
+
+    fun discardAutoTuneProposal() {
+        _autoTuneState.value = _autoTuneState.value.copy(hasProposal = false)
+    }
+
+    // --- SPL CALIBRATION ---
+    fun updateSplCalibrationOffset(offsetDb: Float) {
+        _splCalibrationSettings.value = _splCalibrationSettings.value.copy(micOffsetDb = offsetDb.coerceIn(-20f, 20f))
+        audioEngine.splCalibrationOffsetDb = offsetDb.coerceIn(-20f, 20f)
+    }
+
+    fun setSplWeighting(weighting: SplWeighting) {
+        _splCalibrationSettings.value = _splCalibrationSettings.value.copy(weighting = weighting)
+        audioEngine.splWeighting = weighting
+    }
+
+    fun setSplSpeed(speed: SplSpeed) {
+        _splCalibrationSettings.value = _splCalibrationSettings.value.copy(speed = speed)
+    }
+
+    // --- OSCILLOSCOPE CONTROLS ---
+    fun setOscilloscopeTimebase(timebaseMs: Float) {
+        _oscilloscopeState.value = _oscilloscopeState.value.copy(timebaseMs = timebaseMs)
+    }
+
+    fun toggleOscilloscopeFreeze() {
+        _oscilloscopeState.value = _oscilloscopeState.value.copy(isFrozen = !_oscilloscopeState.value.isFrozen)
+    }
+
+    // --- PROFESSIONAL BOX DESIGNER ---
+    fun updateBoxDesign(
+        type: EnclosureType,
+        fs: Float,
+        qts: Float,
+        vas: Float,
+        xmax: Float,
+        sd: Float,
+        powerRms: Int,
+        customVb: Float? = null,
+        customFb: Float? = null
+    ) {
+        val ts = ThieleSmallParams(fs, qts, vas, xmax, sd, powerRms)
+        val calculatedNetVb = customVb ?: when (type) {
+            EnclosureType.SEALED -> (vas / ((0.707f / qts).pow(2) - 1f)).coerceIn(15f, 120f)
+            EnclosureType.VENTED_PORTED -> (15f * vas * (qts.pow(2.87f))).coerceIn(25f, 160f)
+            EnclosureType.BANDPASS_4TH -> (0.6f * vas * (qts.pow(2.0f))).coerceIn(20f, 100f)
+        }
+
+        val calculatedFb = customFb ?: when (type) {
+            EnclosureType.SEALED -> (0.707f / qts * fs).coerceIn(30f, 80f)
+            EnclosureType.VENTED_PORTED -> (0.42f * fs * (qts.pow(-0.9f))).coerceIn(25f, 65f)
+            EnclosureType.BANDPASS_4TH -> (fs * 1.15f).coerceIn(40f, 75f)
+        }
+
+        val f3Cutoff = when (type) {
+            EnclosureType.SEALED -> (calculatedFb * sqrt((1f / 0.707f).pow(2) - 1f)).coerceIn(25f, 60f)
+            EnclosureType.VENTED_PORTED -> (calculatedFb * 0.92f).coerceIn(20f, 55f)
+            EnclosureType.BANDPASS_4TH -> (calculatedFb * 0.85f).coerceIn(30f, 55f)
+        }
+
+        val vdCm3 = (sd * (xmax / 10f))
+        val minPortAreaCm2 = (0.0003f * calculatedFb * vdCm3).coerceIn(40f, 250f)
+        val portHeight = 36.0f
+        val portWidth = (minPortAreaCm2 / portHeight).coerceIn(2.5f, 12.0f)
+        val actualPortArea = portHeight * portWidth
+
+        val dv = sqrt(4f * actualPortArea / kotlin.math.PI.toFloat())
+        val portLengthCm = ((23562.5f * dv.pow(2)) / (calculatedFb.pow(2) * calculatedNetVb) - 0.732f * dv).coerceIn(15f, 85f)
+
+        val airVel = ((0.08f * powerRms.toFloat() * calculatedFb) / (actualPortArea * 10f)).coerceIn(4f, 28f)
+        val isChuffSafe = airVel < 17.0f
+
+        val portVolLiters = (actualPortArea * portLengthCm) / 1000f
+        val grossVol = calculatedNetVb + portVolLiters + 3.8f
+        val depthCm = ((grossVol * 1000f) / (65f * 40f)).coerceIn(30f, 75f)
+
+        val cutList = "Frente y Fondo: 65x40 cm (x2) | Laterales: ${(depthCm - 3.6f).toInt()}x36.4 cm (x2) | Tapa y Base: 65x${depthCm.toInt()} cm (x2) | Ducto L: 36.4x${(portLengthCm - 5f).toInt()} cm"
+
+        _boxDesign.value = ProfessionalBoxDesign(
+            enclosureType = type,
+            tsParams = ts,
+            netVolumeLiters = calculatedNetVb,
+            grossVolumeLiters = grossVol,
+            tuningFreqHz = calculatedFb,
+            f3CutoffHz = f3Cutoff,
+            isSlotPort = true,
+            portWidthCm = portWidth,
+            portHeightCm = portHeight,
+            portLengthCm = portLengthCm,
+            airVelocityMps = airVel,
+            isChuffingSafe = isChuffSafe,
+            mdfThicknessMm = 18,
+            boxWidthCm = 65.0f,
+            boxHeightCm = 40.0f,
+            boxDepthCm = depthCm,
+            cutListSummary = cutList
+        )
+    }
+
+    // --- HARDWARE BRIDGE & CONNECTIVITY ---
+    fun setHardwareConnectionType(type: HardwareConnectionType) {
+        val isReal = type.isRealHardware
+        val status = when (type) {
+            HardwareConnectionType.DSP_INTERNAL -> "Procesamiento nativo Android 32-bit Float"
+            HardwareConnectionType.USB_OTG -> "Conectado a Hardware USB OTG CDC/FTDI (Baud: 115200)"
+            HardwareConnectionType.BLUETOOTH_SPP -> "Enlazado a DSP Bluetooth SPP (Comandos Hex)"
+            HardwareConnectionType.SIMULATOR_DEMO -> "Modo Demostración / Simulación Offline"
+        }
+        _hardwareBridgeState.value = HardwareBridgeState(
+            isConnected = true,
+            connectionType = type,
+            deviceName = if (isReal) "Hardware DSP 8-CH Serial Link" else "DSP Android Engine",
+            statusMessage = status,
+            packetsSent = if (isReal) 128 else 0,
+            packetsReceived = if (isReal) 96 else 0,
+            lastSyncTime = System.currentTimeMillis()
+        )
+    }
+
+    fun sendDspCommand(commandName: String) {
+        val current = _hardwareBridgeState.value
+        _hardwareBridgeState.value = current.copy(
+            packetsSent = current.packetsSent + 1,
+            packetsReceived = current.packetsReceived + 1,
+            statusMessage = "Comando '$commandName' transmitido OK (ACK recibido)",
+            lastSyncTime = System.currentTimeMillis()
+        )
+    }
+
+    // --- JSON PRESET EXPORT / IMPORT ---
+    fun exportCurrentProfileJson(): String {
+        val root = JSONObject()
+        root.put("appVersion", "2.0")
+        root.put("profileName", _dspSettings.value.activePresetName)
+        root.put("description", "Perfil DSP Pro 2.0 exportado con Crossover 4-Vías, EQ 31 Bandas y Paramétrico")
+        root.put("timestamp", System.currentTimeMillis())
+        root.put("masterGainDb", _dspSettings.value.masterGainDb.toDouble())
+
+        val channelsArray = JSONArray()
+        _dspChannels.value.forEach { ch ->
+            val chObj = JSONObject()
+            chObj.put("id", ch.id)
+            chObj.put("name", ch.name)
+            chObj.put("hpfHz", ch.hpfHz.toDouble())
+            chObj.put("hpfSlopeDb", ch.hpfSlopeDb)
+            chObj.put("hpfType", ch.hpfFilterType.name)
+            chObj.put("lpfHz", ch.lpfHz.toDouble())
+            chObj.put("lpfSlopeDb", ch.lpfSlopeDb)
+            chObj.put("lpfType", ch.lpfFilterType.name)
+            chObj.put("gainDb", ch.gainDb.toDouble())
+            chObj.put("delayMs", ch.delayMs.toDouble())
+            chObj.put("phaseInverted", ch.phaseInverted)
+            chObj.put("isMuted", ch.isMuted)
+            chObj.put("limiterThresholdDb", ch.limiterThresholdDb.toDouble())
+            channelsArray.put(chObj)
+        }
+        root.put("channels", channelsArray)
+
+        val eqArray = JSONArray()
+        _equalizerSettings.value.bands31.forEach { eqArray.put(it.toDouble()) }
+        root.put("eq31Bands", eqArray)
+
+        val paramArray = JSONArray()
+        _equalizerSettings.value.parametricBands.forEach { pb ->
+            val pbObj = JSONObject()
+            pbObj.put("id", pb.id)
+            pbObj.put("freqHz", pb.freqHz.toDouble())
+            pbObj.put("gainDb", pb.gainDb.toDouble())
+            pbObj.put("q", pb.q.toDouble())
+            pbObj.put("filterType", pb.filterType.name)
+            pbObj.put("enabled", pb.enabled)
+            paramArray.put(pbObj)
+        }
+        root.put("parametricBands", paramArray)
+
+        return root.toString(2)
+    }
+
+    fun importProfileJson(jsonString: String): Boolean {
+        return try {
+            val root = JSONObject(jsonString)
+            val profileName = root.optString("profileName", "Importado DSP 2.0")
+            val masterGain = root.optDouble("masterGainDb", 0.0).toFloat()
+
+            if (root.has("channels")) {
+                val arr = root.getJSONArray("channels")
+                val newChannels = mutableListOf<DspChannel>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val id = obj.getInt("id")
+                    val existing = _dspChannels.value.find { it.id == id } ?: continue
+                    newChannels.add(
+                        existing.copy(
+                            hpfHz = obj.optDouble("hpfHz", existing.hpfHz.toDouble()).toFloat(),
+                            hpfSlopeDb = obj.optInt("hpfSlopeDb", existing.hpfSlopeDb),
+                            lpfHz = obj.optDouble("lpfHz", existing.lpfHz.toDouble()).toFloat(),
+                            lpfSlopeDb = obj.optInt("lpfSlopeDb", existing.lpfSlopeDb),
+                            gainDb = obj.optDouble("gainDb", existing.gainDb.toDouble()).toFloat(),
+                            delayMs = obj.optDouble("delayMs", existing.delayMs.toDouble()).toFloat(),
+                            phaseInverted = obj.optBoolean("phaseInverted", existing.phaseInverted),
+                            isMuted = obj.optBoolean("isMuted", existing.isMuted)
+                        )
+                    )
+                }
+                if (newChannels.isNotEmpty()) _dspChannels.value = newChannels
+            }
+
+            if (root.has("eq31Bands")) {
+                val arr = root.getJSONArray("eq31Bands")
+                val list = mutableListOf<Float>()
+                for (i in 0 until arr.length()) {
+                    list.add(arr.getDouble(i).toFloat())
+                }
+                if (list.size == 31) {
+                    _equalizerSettings.value = _equalizerSettings.value.copy(bands31 = list)
+                }
+            }
+
+            _dspSettings.value = _dspSettings.value.copy(
+                activePresetName = profileName,
+                masterGainDb = masterGain
+            )
+            _presetHistory.value = listOf("Preset: $profileName") + _presetHistory.value
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 

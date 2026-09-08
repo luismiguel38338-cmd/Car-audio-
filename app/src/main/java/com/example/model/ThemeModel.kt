@@ -185,5 +185,7 @@ enum class CarAudioThemeType(
         textColor = Color(0xFFFFEBE5),
         textSecondaryColor = Color(0xFFB8857B),
         meterPeakColor = Color(0xFFDD2C00)
-    )
+    );
+
+    val textPrimaryColor: Color get() = textColor
 }

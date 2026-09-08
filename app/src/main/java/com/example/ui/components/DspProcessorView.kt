@@ -24,12 +24,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreTime
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.VolumeMute
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Waves
@@ -40,9 +44,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -56,6 +62,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +78,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.CarAudioThemeType
+import com.example.model.CrossoverFilterType
 import com.example.model.DspChannel
 import com.example.model.DspSettings
 
@@ -84,19 +92,41 @@ fun DspProcessorView(
     selectedChannelId: Int = 1,
     onSelectChannel: (Int) -> Unit = {},
     onUpdateChannelHpf: (Int, Float, Int, Boolean) -> Unit = { _, _, _, _ -> },
+    onUpdateChannelHpfPro: (Int, Float, Int, CrossoverFilterType, Boolean) -> Unit = { _, _, _, _, _ -> },
     onUpdateChannelLpf: (Int, Float, Int, Boolean) -> Unit = { _, _, _, _ -> },
+    onUpdateChannelLpfPro: (Int, Float, Int, CrossoverFilterType, Boolean) -> Unit = { _, _, _, _, _ -> },
     onUpdateChannelGain: (Int, Float) -> Unit = { _, _ -> },
     onToggleChannelPhase: (Int) -> Unit = {},
     onUpdateChannelDelay: (Int, Float) -> Unit = { _, _ -> },
     onToggleChannelMute: (Int) -> Unit = {},
+    onToggleChannelSolo: (Int) -> Unit = {},
+    onUpdateChannelLimiter: (Int, Float, Float, Float, Boolean) -> Unit = { _, _, _, _, _ -> },
+    onCalculateTimeAlignment: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
+    onPlayPing: () -> Unit = {},
+    onExportJson: () -> String = { "" },
+    onImportJson: (String) -> Boolean = { false },
+    presetHistory: List<String> = emptyList(),
     onSaveCustomPreset: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
-    var dspModeTab by remember { mutableIntStateOf(0) }
+    var dspModeTab by remember { mutableIntStateOf(0) } // 0: 4 Vías Multicanal, 1: Master Crossover & EQ, 2: Time Align & Presets JSON
     var showSavePresetDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var showTimeAlignDialog by remember { mutableStateOf(false) }
+    var exportedJsonText by remember { mutableStateOf("") }
+    var importJsonText by remember { mutableStateOf("") }
+    var importStatusMsg by remember { mutableStateOf("") }
+
     var newPresetName by remember { mutableStateOf("") }
     var newPresetDesc by remember { mutableStateOf("") }
+
+    // Distance States for Time Alignment
+    var distSubCm by remember { mutableFloatStateOf(240f) }
+    var distKickCm by remember { mutableFloatStateOf(160f) }
+    var distMidCm by remember { mutableFloatStateOf(120f) }
+    var distTweetCm by remember { mutableFloatStateOf(105f) }
 
     val presets = listOf(
         "Open Show Pro",
@@ -106,6 +136,7 @@ fun DspProcessorView(
         "Rock & Metal Punch"
     )
 
+    // Save Preset Dialog
     if (showSavePresetDialog) {
         AlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
@@ -118,13 +149,15 @@ fun DspProcessorView(
                         value = newPresetName,
                         onValueChange = { newPresetName = it },
                         label = { Text("Nombre del Preset") },
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = newPresetDesc,
                         onValueChange = { newPresetDesc = it },
-                        label = { Text("Descripción") },
-                        singleLine = true
+                        label = { Text("Descripción (opcional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
@@ -132,7 +165,7 @@ fun DspProcessorView(
                 Button(
                     onClick = {
                         if (newPresetName.isNotBlank()) {
-                            onSaveCustomPreset(newPresetName.trim(), newPresetDesc.trim().ifBlank { "Preset de usuario" })
+                            onSaveCustomPreset(newPresetName, newPresetDesc)
                             showSavePresetDialog = false
                             newPresetName = ""
                             newPresetDesc = ""
@@ -140,12 +173,153 @@ fun DspProcessorView(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
                 ) {
-                    Text("Guardar", color = theme.onPrimaryColor, fontWeight = FontWeight.Bold)
+                    Text("Guardar", color = theme.onPrimaryColor)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSavePresetDialog = false }) {
-                    Text("Cancelar", color = theme.textSecondaryColor)
+                    Text("Cancelar", color = theme.textColor)
+                }
+            }
+        )
+    }
+
+    // Export JSON Dialog
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            containerColor = theme.surfaceColor,
+            title = { Text("Exportar Perfil DSP en JSON", color = theme.textColor, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Copia o comparte la configuración completa del procesador:", fontSize = 11.sp, color = theme.textSecondaryColor)
+                    OutlinedTextField(
+                        value = exportedJsonText,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showExportDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Cerrar", color = theme.onPrimaryColor)
+                }
+            }
+        )
+    }
+
+    // Import JSON Dialog
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            containerColor = theme.surfaceColor,
+            title = { Text("Importar Perfil DSP desde JSON", color = theme.textColor, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pega el texto JSON de configuración del DSP:", fontSize = 11.sp, color = theme.textSecondaryColor)
+                    OutlinedTextField(
+                        value = importJsonText,
+                        onValueChange = { importJsonText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    )
+                    if (importStatusMsg.isNotBlank()) {
+                        Text(importStatusMsg, fontSize = 11.sp, color = if (importStatusMsg.contains("OK")) Color(0xFF00E676) else Color(0xFFFF5252))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val success = onImportJson(importJsonText)
+                        if (success) {
+                            importStatusMsg = "¡Perfil importado con éxito!"
+                            showImportDialog = false
+                            importJsonText = ""
+                        } else {
+                            importStatusMsg = "Error: formato JSON no válido."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Cargar Perfil", color = theme.onPrimaryColor)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("Cancelar", color = theme.textColor)
+                }
+            }
+        )
+    }
+
+    // Time Alignment Automatic Dialog
+    if (showTimeAlignDialog) {
+        AlertDialog(
+            onDismissRequest = { showTimeAlignDialog = false },
+            containerColor = theme.surfaceColor,
+            title = { Text("Time Alignment Automático", color = theme.textColor, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Introduce las distancias físicas desde la posición del conductor (o punto de escucha) hasta cada componente:",
+                        fontSize = 11.sp,
+                        color = theme.textSecondaryColor
+                    )
+
+                    // Subwoofer Distance
+                    Text("Distancia al Subwoofer: ${distSubCm.toInt()} cm", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                    Slider(value = distSubCm, onValueChange = { distSubCm = it }, valueRange = 50f..400f)
+
+                    // Kick Bass Distance
+                    Text("Distancia al Kick Bass / Medios Bajos: ${distKickCm.toInt()} cm", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                    Slider(value = distKickCm, onValueChange = { distKickCm = it }, valueRange = 30f..300f)
+
+                    // Driver / Horn Distance
+                    Text("Distancia a Driver / Corneta: ${distMidCm.toInt()} cm", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                    Slider(value = distMidCm, onValueChange = { distMidCm = it }, valueRange = 30f..250f)
+
+                    // Tweeter Distance
+                    Text("Distancia a Super Tweeter: ${distTweetCm.toInt()} cm", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                    Slider(value = distTweetCm, onValueChange = { distTweetCm = it }, valueRange = 30f..250f)
+
+                    Button(
+                        onClick = onPlayPing,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282835)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Emitir Ping Acústico de Comprobación", fontSize = 10.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onCalculateTimeAlignment(distSubCm, distKickCm, distMidCm, distTweetCm)
+                        showTimeAlignDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Calcular y Aplicar", color = theme.onPrimaryColor)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimeAlignDialog = false }) {
+                    Text("Cerrar", color = theme.textColor)
                 }
             }
         )
@@ -155,470 +329,287 @@ fun DspProcessorView(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // DSP Mode Switcher Tab
+        // Master Gain & DSP Power Bar
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("dsp_master_gain_card"),
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(16.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor)))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(theme.primaryColor.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(text = "PROCESADOR DSP 2.0 (4-VÍAS)", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                            Text(text = "Preset Activo: ${dsp.activePresetName}", color = theme.textSecondaryColor, fontSize = 10.sp)
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        IconButton(onClick = {
+                            exportedJsonText = onExportJson()
+                            showExportDialog = true
+                        }) {
+                            Icon(Icons.Default.Upload, contentDescription = "Exportar JSON", tint = theme.primaryColor, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = { showImportDialog = true }) {
+                            Icon(Icons.Default.Download, contentDescription = "Importar JSON", tint = theme.accentColor, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Master Gain Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Ganancia Master DSP", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "${if (dsp.masterGainDb > 0) "+" else ""}${"%.1f".format(dsp.masterGainDb)} dB",
+                        color = theme.primaryColor,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Slider(
+                    value = dsp.masterGainDb,
+                    onValueChange = { onDspChange(dsp.copy(masterGainDb = it)) },
+                    valueRange = -18f..18f,
+                    colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.cardColor)
+                )
+            }
+        }
+
+        // Sub-Navigation Tabs
         TabRow(
             selectedTabIndex = dspModeTab,
             containerColor = theme.surfaceColor,
             contentColor = theme.primaryColor,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[dspModeTab]),
-                    color = theme.primaryColor,
-                    height = 3.dp
+                    Modifier.tabIndicatorOffset(tabPositions[dspModeTab]),
+                    color = theme.primaryColor
                 )
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .border(1.dp, theme.primaryColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            modifier = Modifier.clip(RoundedCornerShape(12.dp))
         ) {
             Tab(
                 selected = dspModeTab == 0,
                 onClick = { dspModeTab = 0 },
-                text = { Text("PROCESADOR MAESTRO", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                text = { Text("4 Vías Multicanal", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.AltRoute, contentDescription = null, modifier = Modifier.size(16.dp)) }
             )
             Tab(
                 selected = dspModeTab == 1,
                 onClick = { dspModeTab = 1 },
-                text = { Text("CROSSOVER 4-VÍAS PRO", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.AltRoute, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                text = { Text("Master Crossover", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.FilterAlt, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            )
+            Tab(
+                selected = dspModeTab == 2,
+                onClick = { dspModeTab = 2 },
+                text = { Text("Time Align & JSON", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.MoreTime, contentDescription = null, modifier = Modifier.size(16.dp)) }
             )
         }
 
-        if (dspModeTab == 1 && dspChannels.isNotEmpty()) {
-            MultichannelDspSection(
+        // TAB 0: 4-WAY MULTICHANNEL DSP STRIP
+        if (dspModeTab == 0 && dspChannels.isNotEmpty()) {
+            MultichannelDspSectionPro(
                 theme = theme,
                 channels = dspChannels,
                 selectedChannelId = selectedChannelId,
                 onSelectChannel = onSelectChannel,
                 onUpdateHpf = onUpdateChannelHpf,
+                onUpdateHpfPro = onUpdateChannelHpfPro,
                 onUpdateLpf = onUpdateChannelLpf,
+                onUpdateLpfPro = onUpdateChannelLpfPro,
                 onUpdateGain = onUpdateChannelGain,
                 onTogglePhase = onToggleChannelPhase,
                 onUpdateDelay = onUpdateChannelDelay,
-                onToggleMute = onToggleChannelMute
+                onToggleMute = onToggleChannelMute,
+                onToggleSolo = onToggleChannelSolo,
+                onUpdateLimiter = onUpdateChannelLimiter,
+                onOpenTimeAlignCalculator = { showTimeAlignDialog = true }
             )
-        } else {
-            // Presets Selector Row
+        } else if (dspModeTab == 1) {
+            // Master Crossover Section
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("dsp_presets_card"),
+                modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = theme.cardColor),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(text = "FILTROS CROSSOVER MASTER", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                    CrossoverControlItem(
+                        name = "HPF Paso Alto Master",
+                        freqText = "${dsp.hpfFrequencyHz.toInt()} Hz",
+                        slopeText = "${dsp.hpfSlopeDb} dB/oct",
+                        sliderValue = dsp.hpfFrequencyHz,
+                        range = 20f..250f,
+                        enabled = dsp.hpfEnabled,
+                        onToggle = { onDspChange(dsp.copy(hpfEnabled = it)) },
+                        onValueChange = { onDspChange(dsp.copy(hpfFrequencyHz = it)) },
+                        theme = theme
+                    )
+
+                    CrossoverControlItem(
+                        name = "LPF Paso Bajo Master",
+                        freqText = "${dsp.lpfFrequencyHz.toInt()} Hz",
+                        slopeText = "${dsp.lpfSlopeDb} dB/oct",
+                        sliderValue = dsp.lpfFrequencyHz,
+                        range = 40f..300f,
+                        enabled = dsp.lpfEnabled,
+                        onToggle = { onDspChange(dsp.copy(lpfEnabled = it)) },
+                        onValueChange = { onDspChange(dsp.copy(lpfFrequencyHz = it)) },
+                        theme = theme
+                    )
+
+                    CrossoverControlItem(
+                        name = "Filtro Subsónico de Seguridad",
+                        freqText = "${dsp.subsonicFrequencyHz.toInt()} Hz",
+                        slopeText = "24 dB/oct",
+                        sliderValue = dsp.subsonicFrequencyHz,
+                        range = 10f..50f,
+                        enabled = dsp.subsonicEnabled,
+                        onToggle = { onDspChange(dsp.copy(subsonicEnabled = it)) },
+                        onValueChange = { onDspChange(dsp.copy(subsonicFrequencyHz = it)) },
+                        theme = theme
+                    )
+                }
+            }
+        } else if (dspModeTab == 2) {
+            // Time Alignment & JSON Presets Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = "Presets",
-                                tint = theme.primaryColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "PRESETS DE PROCESADOR CAR AUDIO",
-                                color = theme.textColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showSavePresetDialog = true },
-                            modifier = Modifier.size(28.dp)
+                        Text(text = "ALINEACIÓN DE TIEMPO & PRESETS JSON", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { showTimeAlignDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.BookmarkAdd,
-                                contentDescription = "Guardar Preset",
-                                tint = theme.accentColor,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Text("Calculadora Acústica", fontSize = 10.sp, color = theme.onPrimaryColor)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(presets) { preset ->
-                            val isSelected = preset == dsp.activePresetName
+                    // Presets chips
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(presets) { p ->
                             FilterChip(
-                                selected = isSelected,
-                                onClick = { onSelectPreset(preset) },
-                                label = {
-                                    Text(
-                                        text = preset,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
+                                selected = p == dsp.activePresetName,
+                                onClick = { onSelectPreset(p) },
+                                label = { Text(p, fontSize = 10.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = theme.primaryColor,
-                                    selectedLabelColor = theme.onPrimaryColor,
-                                    containerColor = theme.surfaceColor,
-                                    labelColor = theme.textColor
+                                    selectedLabelColor = theme.onPrimaryColor
                                 )
                             )
                         }
                     }
-                }
-            }
 
-        // Crossover Section (HPF, LPF, Subsonic)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("crossover_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.FilterAlt,
-                            contentDescription = "Crossover",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "FILTROS CROSSOVER DIGITAL",
-                            color = theme.textColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // HPF (High-Pass Filter)
-                CrossoverControlItem(
-                    name = "HPF (Paso Alto - Medios y Voces)",
-                    freqText = "${dsp.hpfFrequencyHz.toInt()} Hz",
-                    slopeText = "${dsp.hpfSlopeDb} dB/oct",
-                    sliderValue = dsp.hpfFrequencyHz,
-                    range = 20f..250f,
-                    enabled = dsp.hpfEnabled,
-                    onToggle = { onDspChange(dsp.copy(hpfEnabled = it)) },
-                    onValueChange = { onDspChange(dsp.copy(hpfFrequencyHz = it)) },
-                    theme = theme
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // LPF (Low-Pass Filter)
-                CrossoverControlItem(
-                    name = "LPF (Paso Bajo - Subwoofer)",
-                    freqText = "${dsp.lpfFrequencyHz.toInt()} Hz",
-                    slopeText = "${dsp.lpfSlopeDb} dB/oct",
-                    sliderValue = dsp.lpfFrequencyHz,
-                    range = 40f..300f,
-                    enabled = dsp.lpfEnabled,
-                    onToggle = { onDspChange(dsp.copy(lpfEnabled = it)) },
-                    onValueChange = { onDspChange(dsp.copy(lpfFrequencyHz = it)) },
-                    theme = theme
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Subsonic Filter
-                CrossoverControlItem(
-                    name = "Filtro Subsónico (Cajón Porteado)",
-                    freqText = "${dsp.subsonicFrequencyHz.toInt()} Hz",
-                    slopeText = "24 dB/oct",
-                    sliderValue = dsp.subsonicFrequencyHz,
-                    range = 10f..50f,
-                    enabled = dsp.subsonicEnabled,
-                    onToggle = { onDspChange(dsp.copy(subsonicEnabled = it)) },
-                    onValueChange = { onDspChange(dsp.copy(subsonicFrequencyHz = it)) },
-                    theme = theme
-                )
-            }
-        }
-
-        // Bass Engine & Time Alignment Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("bass_engine_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Waves,
-                        contentDescription = "Bass Engine",
-                        tint = theme.primaryColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "BASS BOOST & ALINEACIÓN DE TIEMPO",
-                        color = theme.textColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Bass Boost
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Refuerzo de Graves (Bass Boost)", color = theme.textColor, fontSize = 12.sp)
-                    Text(
-                        text = "+${"%.1f".format(dsp.bassBoostDb)} dB @ ${dsp.bassBoostFreqHz.toInt()}Hz",
-                        color = theme.primaryColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Slider(
-                    value = dsp.bassBoostDb,
-                    onValueChange = { onDspChange(dsp.copy(bassBoostDb = it)) },
-                    valueRange = 0f..18f,
-                    modifier = Modifier.testTag("bass_boost_slider"),
-                    colors = SliderDefaults.colors(
-                        thumbColor = theme.primaryColor,
-                        activeTrackColor = theme.primaryColor,
-                        inactiveTrackColor = theme.surfaceColor
-                    )
-                )
-
-                // Frequency selection chips for Bass Boost
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Frecuencia Central:", color = theme.textSecondaryColor, fontSize = 11.sp)
-                    listOf(35f, 45f, 55f).forEach { freq ->
-                        val isSelected = dsp.bassBoostFreqHz == freq
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onDspChange(dsp.copy(bassBoostFreqHz = freq)) },
-                            label = { Text("${freq.toInt()}Hz", fontSize = 10.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = theme.accentColor,
-                                selectedLabelColor = theme.onPrimaryColor
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Time Alignment Delay
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Retardo / Alineación (Time Alignment)", color = theme.textColor, fontSize = 12.sp)
-                    val distanceCm = (dsp.timeAlignmentMs * 34.3f).toInt()
-                    Text(
-                        text = "${"%.1f".format(dsp.timeAlignmentMs)} ms ($distanceCm cm)",
-                        color = theme.accentColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Slider(
-                    value = dsp.timeAlignmentMs,
-                    onValueChange = { onDspChange(dsp.copy(timeAlignmentMs = it)) },
-                    valueRange = 0f..15f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = theme.accentColor,
-                        activeTrackColor = theme.accentColor,
-                        inactiveTrackColor = theme.surfaceColor
-                    )
-                )
-
-                // Phase inverter
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Fase de Subwoofer (Phase)",
-                        color = theme.textColor,
-                        fontSize = 12.sp
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { onDspChange(dsp.copy(phaseDegrees = 0)) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (dsp.phaseDegrees == 0) theme.primaryColor else theme.surfaceColor,
-                                contentColor = if (dsp.phaseDegrees == 0) theme.onPrimaryColor else theme.textColor
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("0° (Normal)", fontSize = 11.sp)
-                        }
-                        Button(
-                            onClick = { onDspChange(dsp.copy(phaseDegrees = 180)) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (dsp.phaseDegrees == 180) theme.primaryColor else theme.surfaceColor,
-                                contentColor = if (dsp.phaseDegrees == 180) theme.onPrimaryColor else theme.textColor
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("180° (Invertida)", fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // 8-Band Graphic Equalizer Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("graphic_eq_card"),
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Equalizer,
-                            contentDescription = "EQ",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "ECUALIZADOR PARAMÉTRICO (8 BANDAS)",
-                            color = theme.textColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            onDspChange(dsp.copy(eqBands = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)))
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = theme.surfaceColor,
-                            contentColor = theme.textSecondaryColor
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.RestartAlt, contentDescription = "Flat", modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Plano (0dB)", fontSize = 10.sp)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                val bandLabels = listOf(
-                    Pair("35Hz", "Sub"),
-                    Pair("80Hz", "Bass"),
-                    Pair("160Hz", "Punch"),
-                    Pair("400Hz", "L-Mid"),
-                    Pair("1kHz", "Voz"),
-                    Pair("2.5kHz", "Claridad"),
-                    Pair("6.3kHz", "Brillo"),
-                    Pair("16kHz", "Agudo")
-                )
-
-                bandLabels.forEachIndexed { index, (freq, desc) ->
-                    val gain = dsp.eqBands.getOrElse(index) { 0f }
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "$freq ($desc)",
-                                color = theme.textColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${if (gain > 0) "+" else ""}${"%.1f".format(gain)} dB",
-                                color = if (gain > 0) theme.primaryColor else if (gain < 0) theme.accentColor else theme.textSecondaryColor,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Slider(
-                            value = gain,
-                            onValueChange = { newVal ->
-                                val updated = dsp.eqBands.toMutableList()
-                                updated[index] = newVal
-                                onDspChange(dsp.copy(eqBands = updated))
+                            onClick = {
+                                exportedJsonText = onExportJson()
+                                showExportDialog = true
                             },
-                            valueRange = -12f..12f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = theme.primaryColor,
-                                activeTrackColor = theme.primaryColor,
-                                inactiveTrackColor = theme.surfaceColor
-                            )
-                        )
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E28)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Exportar JSON", fontSize = 10.sp)
+                        }
+
+                        Button(
+                            onClick = { showImportDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E28)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Importar JSON", fontSize = 10.sp)
+                        }
+                    }
+
+                    // Preset History
+                    if (presetHistory.isNotEmpty()) {
+                        Text("Historial de Presets Guardados / Cargados:", fontSize = 10.sp, color = theme.textSecondaryColor)
+                        presetHistory.take(4).forEach { item ->
+                            Text("• $item", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = theme.textPrimaryColor)
+                        }
                     }
                 }
             }
-        }
         }
     }
 }
 
 @Composable
-fun MultichannelDspSection(
+fun MultichannelDspSectionPro(
     theme: CarAudioThemeType,
     channels: List<DspChannel>,
     selectedChannelId: Int,
     onSelectChannel: (Int) -> Unit,
     onUpdateHpf: (Int, Float, Int, Boolean) -> Unit,
+    onUpdateHpfPro: (Int, Float, Int, CrossoverFilterType, Boolean) -> Unit,
     onUpdateLpf: (Int, Float, Int, Boolean) -> Unit,
+    onUpdateLpfPro: (Int, Float, Int, CrossoverFilterType, Boolean) -> Unit,
     onUpdateGain: (Int, Float) -> Unit,
     onTogglePhase: (Int) -> Unit,
     onUpdateDelay: (Int, Float) -> Unit,
-    onToggleMute: (Int) -> Unit
+    onToggleMute: (Int) -> Unit,
+    onToggleSolo: (Int) -> Unit,
+    onUpdateLimiter: (Int, Float, Float, Float, Boolean) -> Unit,
+    onOpenTimeAlignCalculator: () -> Unit
 ) {
     val currentChannel = channels.find { it.id == selectedChannelId } ?: channels.firstOrNull() ?: return
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Channel Selector Tabs
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "SELECCIÓN DE VÍA / CANAL ACTIVO",
+                    text = "CANAL SELECCIONADO PARA AJUSTE",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = theme.textSecondaryColor
@@ -641,7 +632,7 @@ fun MultichannelDspSection(
                                 selectedContainerColor = theme.primaryColor,
                                 selectedLabelColor = theme.onPrimaryColor,
                                 containerColor = theme.surfaceColor,
-                                labelColor = if (ch.isMuted) theme.errorColor else theme.textColor
+                                labelColor = if (ch.isMuted) Color(0xFFFF5252) else theme.textColor
                             )
                         )
                     }
@@ -653,7 +644,7 @@ fun MultichannelDspSection(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(
                 brush = Brush.horizontalGradient(listOf(theme.primaryColor.copy(alpha = 0.6f), theme.accentColor.copy(alpha = 0.6f)))
             )
@@ -661,121 +652,89 @@ fun MultichannelDspSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Header of Channel
+                // Channel Top Strip with Mute, Solo & Phase
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(
-                            text = currentChannel.name,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            color = theme.textColor
-                        )
-                        Text(
-                            text = "Rango de Trabajo: ${currentChannel.typeName}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = theme.accentColor
-                        )
+                        Text(text = currentChannel.name, fontSize = 15.sp, fontWeight = FontWeight.Black, color = theme.textColor)
+                        Text(text = "Vía: ${currentChannel.typeName}", fontSize = 11.sp, color = theme.accentColor)
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Solo button
+                        Button(
+                            onClick = { onToggleSolo(currentChannel.id) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentChannel.isSolo) Color(0xFFFFEA00) else Color(0xFF282835)
+                            ),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("SOLO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (currentChannel.isSolo) Color.Black else Color.White)
+                        }
+
                         // Mute button
                         Button(
                             onClick = { onToggleMute(currentChannel.id) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentChannel.isMuted) theme.errorColor else theme.cardColor,
-                                contentColor = if (currentChannel.isMuted) Color.White else theme.textColor
+                                containerColor = if (currentChannel.isMuted) Color(0xFFFF1744) else Color(0xFF282835)
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
-                            Icon(
-                                imageVector = if (currentChannel.isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
-                                contentDescription = "Mute",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (currentChannel.isMuted) "MUTED" else "ACTIVO", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(if (currentChannel.isMuted) "MUTED" else "MUTE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
 
-                        // Phase 0 / 180 button
+                        // Phase 0/180
                         Button(
                             onClick = { onTogglePhase(currentChannel.id) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentChannel.phaseInverted) theme.accentColor else theme.cardColor,
-                                contentColor = if (currentChannel.phaseInverted) Color.Black else theme.textColor
+                                containerColor = if (currentChannel.phaseInverted) theme.accentColor else Color(0xFF282835)
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text(if (currentChannel.phaseInverted) "180°" else "0°", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(if (currentChannel.phaseInverted) "180°" else "0°", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (currentChannel.phaseInverted) Color.Black else Color.White)
                         }
-                    }
-                }
-
-                // Time Alignment (Delay)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.MoreTime, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Alineación de Tiempo (Time Alignment)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
-                            }
-                            val distanceCm = (currentChannel.delayMs * 34.3f).toInt()
-                            Text("${"%.1f".format(currentChannel.delayMs)} ms ($distanceCm cm)", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = theme.primaryColor)
-                        }
-
-                        Slider(
-                            value = currentChannel.delayMs,
-                            onValueChange = { onUpdateDelay(currentChannel.id, it) },
-                            valueRange = 0f..15f,
-                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.surfaceColor)
-                        )
                     }
                 }
 
                 // Individual Gain Slider
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Ganancia Individual de Salida", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
-                            Text("${if (currentChannel.gainDb > 0) "+" else ""}${"%.1f".format(currentChannel.gainDb)} dB", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = theme.primaryColor)
-                        }
-
-                        Slider(
-                            value = currentChannel.gainDb,
-                            onValueChange = { onUpdateGain(currentChannel.id, it) },
-                            valueRange = -12f..12f,
-                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.surfaceColor)
-                        )
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Ganancia Individual Canal", fontSize = 11.sp, color = theme.textColor)
+                    Text("${if (currentChannel.gainDb > 0) "+" else ""}${"%.1f".format(currentChannel.gainDb)} dB", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = theme.primaryColor)
                 }
+                Slider(
+                    value = currentChannel.gainDb,
+                    onValueChange = { onUpdateGain(currentChannel.id, it) },
+                    valueRange = -18f..12f,
+                    colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor)
+                )
 
-                // HPF Cut Filter for this Channel
+                // Time Alignment (Delay)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Delay / Time Alignment", fontSize = 11.sp, color = theme.textColor)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("(Calc)", fontSize = 9.sp, color = theme.primaryColor, modifier = Modifier.clickable { onOpenTimeAlignCalculator() })
+                    }
+                    Text("${"%.1f".format(currentChannel.delayMs)} ms (${currentChannel.delayCm.toInt()} cm)", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = theme.primaryColor)
+                }
+                Slider(
+                    value = currentChannel.delayMs,
+                    onValueChange = { onUpdateDelay(currentChannel.id, it) },
+                    valueRange = 0f..25f,
+                    colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor)
+                )
+
+                // HPF Control
                 CrossoverControlItem(
-                    name = "Filtro Paso Alto (HPF)",
+                    name = "HPF Paso Alto (Corte Bajo)",
                     freqText = "${currentChannel.hpfHz.toInt()} Hz",
-                    slopeText = "${currentChannel.hpfSlopeDb} dB/Oct",
+                    slopeText = "${currentChannel.hpfSlopeDb} dB (${currentChannel.hpfFilterType.name})",
                     sliderValue = currentChannel.hpfHz,
                     range = 10f..8000f,
                     enabled = currentChannel.hpfEnabled,
@@ -784,11 +743,11 @@ fun MultichannelDspSection(
                     theme = theme
                 )
 
-                // LPF Cut Filter for this Channel
+                // LPF Control
                 CrossoverControlItem(
-                    name = "Filtro Paso Bajo (LPF)",
+                    name = "LPF Paso Bajo (Corte Alto)",
                     freqText = "${currentChannel.lpfHz.toInt()} Hz",
-                    slopeText = "${currentChannel.lpfSlopeDb} dB/Oct",
+                    slopeText = "${currentChannel.lpfSlopeDb} dB (${currentChannel.lpfFilterType.name})",
                     sliderValue = currentChannel.lpfHz,
                     range = 40f..20000f,
                     enabled = currentChannel.lpfEnabled,
@@ -796,6 +755,65 @@ fun MultichannelDspSection(
                     onValueChange = { onUpdateLpf(currentChannel.id, it, currentChannel.lpfSlopeDb, currentChannel.lpfEnabled) },
                     theme = theme
                 )
+
+                // Per-Channel Limiter Section
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF101018))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("LIMITER POR CANAL (PROTECCIÓN)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                        }
+
+                        Switch(
+                            checked = currentChannel.limiterEnabled,
+                            onCheckedChange = {
+                                onUpdateLimiter(
+                                    currentChannel.id,
+                                    currentChannel.limiterThresholdDb,
+                                    currentChannel.limiterAttackMs,
+                                    currentChannel.limiterReleaseMs,
+                                    it
+                                )
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor)
+                        )
+                    }
+
+                    if (currentChannel.limiterEnabled) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Threshold (Umbral)", fontSize = 10.sp, color = theme.textSecondaryColor)
+                            Text("${"%.1f".format(currentChannel.limiterThresholdDb)} dBFS", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = theme.primaryColor)
+                        }
+                        Slider(
+                            value = currentChannel.limiterThresholdDb,
+                            onValueChange = {
+                                onUpdateLimiter(currentChannel.id, it, currentChannel.limiterAttackMs, currentChannel.limiterReleaseMs, true)
+                            },
+                            valueRange = -24f..0f
+                        )
+
+                        if (currentChannel.gainReductionDb > 0.1f) {
+                            Text(
+                                "Reducción de Ganancia: -${"%.1f".format(currentChannel.gainReductionDb)} dB",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFEA00)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -817,7 +835,7 @@ fun CrossoverControlItem(
         modifier = Modifier
             .fillMaxWidth()
             .background(theme.surfaceColor, RoundedCornerShape(12.dp))
-            .padding(12.dp)
+            .padding(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -825,27 +843,13 @@ fun CrossoverControlItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    text = name,
-                    color = theme.textColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Corte: $freqText • Pendiente: $slopeText",
-                    color = theme.primaryColor,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                Text(text = name, color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Corte: $freqText • $slopeText", color = theme.primaryColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
             }
             Switch(
                 checked = enabled,
                 onCheckedChange = onToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = theme.onPrimaryColor,
-                    checkedTrackColor = theme.primaryColor,
-                    uncheckedTrackColor = theme.backgroundColor
-                )
+                colors = SwitchDefaults.colors(checkedThumbColor = theme.onPrimaryColor, checkedTrackColor = theme.primaryColor, uncheckedTrackColor = theme.backgroundColor)
             )
         }
 
@@ -854,11 +858,7 @@ fun CrossoverControlItem(
                 value = sliderValue,
                 onValueChange = onValueChange,
                 valueRange = range,
-                colors = SliderDefaults.colors(
-                    thumbColor = theme.primaryColor,
-                    activeTrackColor = theme.primaryColor,
-                    inactiveTrackColor = theme.backgroundColor
-                )
+                colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor, inactiveTrackColor = theme.backgroundColor)
             )
         }
     }
