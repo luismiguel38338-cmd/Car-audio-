@@ -67,7 +67,7 @@ import com.example.model.TrackCategory
 fun PlayerView(
     theme: CarAudioThemeType,
     tracks: List<AudioTrackItem>,
-    currentTrack: AudioTrackItem,
+    currentTrack: AudioTrackItem?,
     isPlaying: Boolean,
     playbackSeconds: Int,
     onPlayPause: () -> Unit,
@@ -132,13 +132,14 @@ fun PlayerView(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = when (currentTrack.category) {
+                            text = when (currentTrack?.category) {
                                 TrackCategory.SUB_BASS_TEST -> "SUB BASS TEST"
                                 TrackCategory.OPEN_SHOW -> "OPEN SHOW CHUCHERO"
                                 TrackCategory.SPL_COMPETITION -> "SPL COMPETICIÓN"
                                 TrackCategory.SQL_AUDIOPHILE -> "SQL CALIDAD DE SONIDO"
                                 TrackCategory.CALIBRATION_PINK_NOISE -> "CALIBRACIÓN RTA"
                                 TrackCategory.USER_CUSTOM -> "AUDIO LOCAL"
+                                null -> "SIN PISTA"
                             },
                             color = theme.onPrimaryColor,
                             fontSize = 9.sp,
@@ -151,7 +152,7 @@ fun PlayerView(
 
                 // Track Title & Artist
                 Text(
-                    text = currentTrack.title,
+                    text = currentTrack?.title ?: "Sin Pista Seleccionada",
                     color = theme.textColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -159,14 +160,14 @@ fun PlayerView(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = currentTrack.artist,
+                    text = currentTrack?.artist ?: "Toca 'Cargar Audio' para reproducir",
                     color = theme.accentColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = currentTrack.frequencyDescription,
+                    text = currentTrack?.frequencyDescription ?: "DSP Master Ready",
                     color = theme.textSecondaryColor,
                     fontSize = 10.sp,
                     maxLines = 1
@@ -175,11 +176,12 @@ fun PlayerView(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Seek bar
-                val duration = currentTrack.durationSeconds.coerceAtLeast(1)
+                val duration = currentTrack?.durationSeconds?.coerceAtLeast(1) ?: 100
                 Slider(
                     value = playbackSeconds.toFloat().coerceIn(0f, duration.toFloat()),
                     onValueChange = { onSeek(it.toInt()) },
                     valueRange = 0f..duration.toFloat(),
+                    enabled = currentTrack != null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("player_seek_slider"),
@@ -319,94 +321,146 @@ fun PlayerView(
                 .fillMaxWidth()
                 .testTag("load_audio_file_button"),
             colors = ButtonDefaults.buttonColors(
-                containerColor = theme.surfaceColor,
-                contentColor = theme.primaryColor
+                containerColor = theme.primaryColor,
+                contentColor = theme.onPrimaryColor
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Default.FolderOpen, contentDescription = "Abrir archivo")
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Cargar Audio de mi Equipo / Celular",
+                text = "CARGAR MÚSICA DE MI DISPOSITIVO",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        // Playlist / Test Tracks Header
-        Text(
-            text = "PISTAS Y TONOS DE PRUEBA CAR AUDIO",
-            color = theme.textSecondaryColor,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        // Track List
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Playlist Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(tracks) { track ->
-                val isSelected = track.id == currentTrack.id
-                Card(
+            Text(
+                text = "PISTAS LOCALES CARGADAS (${tracks.size})",
+                color = theme.textSecondaryColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "DSP DIRECT INPUT",
+                color = theme.primaryColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        if (tracks.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor)
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onTrackSelect(track) }
-                        .testTag("track_item_${track.id}"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) theme.surfaceColor else theme.cardColor
-                    ),
-                    border = if (isSelected) CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor))) else null
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Row(
+                    Icon(
+                        imageVector = Icons.Default.Audiotrack,
+                        contentDescription = null,
+                        tint = theme.primaryColor.copy(alpha = 0.6f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No hay canciones cargadas",
+                        color = theme.textPrimaryColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Selecciona tus propios archivos de música (MP3, FLAC, WAV) desde el almacenamiento de tu celular para procesarlos en tiempo real con el DSP.",
+                        color = theme.textSecondaryColor,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+        } else {
+            // Track List
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(tracks) { track ->
+                    val isSelected = track.id == currentTrack?.id
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .clickable { onTrackSelect(track) }
+                            .testTag("track_item_${track.id}"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) theme.surfaceColor else theme.cardColor
+                        ),
+                        border = if (isSelected) CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor))) else null
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) theme.primaryColor else theme.backgroundColor),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = if (isSelected && isPlaying) Icons.Default.GraphicEq else Icons.Default.Audiotrack,
-                                contentDescription = null,
-                                tint = if (isSelected) theme.onPrimaryColor else theme.primaryColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) theme.primaryColor else theme.backgroundColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelected && isPlaying) Icons.Default.GraphicEq else Icons.Default.Audiotrack,
+                                    contentDescription = null,
+                                    tint = if (isSelected) theme.onPrimaryColor else theme.primaryColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = track.title,
-                                color = if (isSelected) theme.primaryColor else theme.textColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "${track.artist} • ${track.durationSeconds / 60}:%02d".format(track.durationSeconds % 60),
-                                color = theme.textSecondaryColor,
-                                fontSize = 10.sp
-                            )
-                        }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = track.title,
+                                    color = if (isSelected) theme.primaryColor else theme.textColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "${track.artist} • ${track.durationSeconds / 60}:%02d".format(track.durationSeconds % 60),
+                                    color = theme.textSecondaryColor,
+                                    fontSize = 10.sp
+                                )
+                            }
 
-                        if (isSelected && isPlaying) {
-                            Text(
-                                text = "EN PLAY",
-                                color = theme.primaryColor,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            if (isSelected && isPlaying) {
+                                Text(
+                                    text = "EN PLAY",
+                                    color = theme.primaryColor,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }

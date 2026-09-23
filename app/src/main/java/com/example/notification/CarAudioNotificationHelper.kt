@@ -66,9 +66,9 @@ object CarAudioNotificationHelper {
         context: Context,
         trackTitle: String,
         isPlaying: Boolean,
-        voltage: Float,
-        temperatureC: Float,
-        isClipping: Boolean
+        voltage: Float? = null,
+        temperatureC: Float? = null,
+        isClipping: Boolean = false
     ) {
         if (!hasNotificationPermission(context)) return
 
@@ -84,15 +84,17 @@ object CarAudioNotificationHelper {
 
         val clipText = if (isClipping) "⚠️ CLIP ACTIVO" else "✅ Señal Limpia"
         val playState = if (isPlaying) "▶️ Reproduciendo" else "⏸️ Pausado"
+        val voltStr = if (voltage != null) "${"%.1f".format(voltage)}V" else "N/A"
+        val tempStr = if (temperatureC != null) "${temperatureC.toInt()}°C" else "N/A"
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_STATUS)
             .setSmallIcon(R.drawable.car_audio_icon_1788805964010)
             .setContentTitle("CarAudio DSP • $trackTitle")
-            .setContentText("$playState | Voltaje: ${"%.1f".format(voltage)}V | Temp: ${temperatureC.toInt()}°C | $clipText")
+            .setContentText("$playState | Voltaje: $voltStr | Temp: $tempStr | $clipText")
             .setStyle(
                 NotificationCompat.BigTextStyle().bigText(
                     "Pista: $trackTitle ($playState)\n" +
-                    "Planta: ${"%.1f".format(voltage)}V • ${temperatureC.toInt()}°C • $clipText\n" +
+                    "Planta: $voltStr • $tempStr • $clipText\n" +
                     "DSP Crossover activo con protección de transistores."
                 )
             )

@@ -75,81 +75,117 @@ data class EqPresetItem(
     val description: String,
     val bands: List<Float>,
     val bands31: List<Float> = emptyList(),
-    val paramFreq: Float,
-    val paramGain: Float,
-    val paramQ: Float
+    val paramFreq: Float = 60f,
+    val paramGain: Float = 0f,
+    val paramQ: Float = 1.4f,
+    val isCustom: Boolean = false
 )
 
 object EqPresetCatalog {
     val presets: List<EqPresetItem> = listOf(
         EqPresetItem(
-            name = "🇧🇷 Pancadão Som Automotivo",
-            description = "Graves secos y contundentes en 63Hz, ataque de medios altos para corneteras brasileñas.",
-            bands = listOf(2f, 4f, 7f, 3f, 0f, -1f, 1f, 2.5f, 4f, 4.5f, 3f, 2.5f, 3.5f, 5f, 4f),
-            bands31 = listOf(
-                1f, 2f, 3f, 4f, 5.5f, 7.5f, 6.0f, 4f, 2.5f, 1f,
-                0f, -1f, -0.5f, 0.5f, 1.5f, 2.5f, 3.5f, 4f, 4.5f, 5f,
-                4.5f, 3.5f, 3f, 2.5f, 3f, 3.5f, 4.5f, 5f, 4.5f, 4f, 3.5f
-            ),
-            paramFreq = 63f,
-            paramGain = 4.5f,
-            paramQ = 1.8f
+            name = "Flat",
+            description = "Respuesta plana y lineal 0 dB en todas las bandas.",
+            bands = List(15) { 0.0f },
+            bands31 = List(31) { 0.0f },
+            paramFreq = 1000f,
+            paramGain = 0f,
+            paramQ = 1.0f
         ),
         EqPresetItem(
-            name = "🔊 Subão Grave Pesado",
-            description = "Excursión profunda de subwoofers en 35Hz-50Hz con caída suave en medios para bajos expansivos.",
+            name = "Bass",
+            description = "Realce controlado de graves 40Hz-100Hz (+5dB) con medios equilibrados.",
+            bands = listOf(4f, 5f, 4f, 2f, 0f, 0f, 0f, 1f, 1.5f, 2f, 2f, 2f, 2.5f, 3f, 2.5f),
+            bands31 = listOf(
+                2f, 3f, 4.5f, 5.5f, 5.0f, 4.0f, 3.0f, 2.0f, 1f, 0f,
+                0f, 0f, 0f, 0f, 0.5f, 1f, 1.2f, 1.5f, 1.8f, 2f,
+                2f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 2.5f, 2f, 1.5f
+            ),
+            paramFreq = 50f,
+            paramGain = 4.0f,
+            paramQ = 1.4f
+        ),
+        EqPresetItem(
+            name = "Deep Bass",
+            description = "Excursión profunda y pesada en sub-frecuencias 31.5Hz-50Hz (+8dB) para subwoofers.",
             bands = listOf(6f, 8f, 6.5f, 3f, 0f, -2f, -1f, 0f, 1f, 1f, 1.5f, 2f, 2.5f, 3f, 3f),
             bands31 = listOf(
                 4f, 5.5f, 7f, 8.5f, 8f, 6.5f, 4.5f, 3f, 1f, 0f,
                 -1f, -2f, -1.5f, -1f, 0f, 0.5f, 1f, 1f, 1.2f, 1.5f,
                 1.8f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 3f, 2.5f, 2f
             ),
-            paramFreq = 42f,
-            paramGain = 6f,
+            paramFreq = 38f,
+            paramGain = 7.0f,
+            paramQ = 1.6f
+        ),
+        EqPresetItem(
+            name = "SPL",
+            description = "Configuración para competencia de presión acústica: pico de potencia en 50Hz-63Hz.",
+            bands = listOf(3f, 6f, 9f, 4f, 1f, 0f, 0.5f, 1.5f, 2f, 3f, 2.5f, 2f, 2.5f, 3f, 2.5f),
+            bands31 = listOf(
+                1f, 3f, 5.5f, 7.5f, 9.5f, 8.0f, 5.5f, 3f, 1.5f, 0f,
+                0f, 0f, 0.5f, 0.8f, 1.2f, 1.8f, 2.2f, 2.5f, 2.8f, 3f,
+                2.8f, 2.5f, 2.5f, 2.8f, 3f, 3.2f, 3f, 2.8f, 2.5f, 2f, 1.5f
+            ),
+            paramFreq = 55f,
+            paramGain = 8.5f,
+            paramQ = 2.2f
+        ),
+        EqPresetItem(
+            name = "Vocal",
+            description = "Máxima claridad y presencia en voces humanas y cornetas (800Hz - 3.15kHz).",
+            bands = listOf(-4f, -2f, 0f, 1f, 2f, 3f, 4.5f, 5.5f, 6f, 5.5f, 4.5f, 3.5f, 3f, 3f, 2f),
+            bands31 = listOf(
+                -6f, -5f, -4f, -3f, -1.5f, 0f, 0.5f, 1f, 1.5f, 2f,
+                2.5f, 3f, 3.8f, 4.5f, 5.2f, 5.8f, 6.2f, 6.5f, 6.0f, 5.5f,
+                5.0f, 4.5f, 4.0f, 3.5f, 3.5f, 3.2f, 3.0f, 2.8f, 2.5f, 2.0f, 1.5f
+            ),
+            paramFreq = 1200f,
+            paramGain = 5.0f,
             paramQ = 1.2f
         ),
         EqPresetItem(
-            name = "🎤 Voz Chuchero / Open Show",
-            description = "Corte de subgraves para protección, máxima proyección en voces y drivers de titanio.",
-            bands = listOf(-6f, -4f, -2f, 0f, 1f, 2f, 3.5f, 5f, 6f, 6.5f, 5.5f, 4f, 4.5f, 5f, 4f),
+            name = "Latin",
+            description = "Pegada rítmica limpia en 80Hz y brillo en percusiones y metales latinos.",
+            bands = listOf(2f, 3.5f, 5f, 3.5f, 1.5f, 0.5f, 1.5f, 2.5f, 3.5f, 4f, 4.5f, 4f, 4.5f, 5f, 4f),
             bands31 = listOf(
-                -9f, -8f, -7f, -5f, -3f, -1.5f, 0f, 0.5f, 1f, 1.5f,
-                2f, 2.5f, 3f, 3.5f, 4.2f, 5f, 5.8f, 6.2f, 6.5f, 6.5f,
-                6f, 5.5f, 4.5f, 4f, 4.2f, 4.5f, 4.8f, 5f, 4.5f, 4f, 3.5f
-            ),
-            paramFreq = 1200f,
-            paramGain = 5f,
-            paramQ = 1.0f
-        ),
-        EqPresetItem(
-            name = "🎶 Forró & Piseiro Brasil",
-            description = "Especial para teclado, zabumba y acordeón: pegada seca y medios cristalinos.",
-            bands = listOf(1f, 3f, 5.5f, 4f, 1f, 0f, 1.5f, 3f, 3.5f, 4f, 3f, 3f, 4f, 4.5f, 3.5f),
-            bands31 = listOf(
-                0f, 1f, 2f, 3.5f, 4.5f, 6f, 5.5f, 4f, 2f, 1f,
-                0.5f, 0f, 0.5f, 1.2f, 2f, 3f, 3.2f, 3.8f, 4f, 4f,
-                3.5f, 3f, 3f, 3.2f, 3.8f, 4f, 4.2f, 4.5f, 4f, 3.5f, 3f
+                0.5f, 1.5f, 2.5f, 3.8f, 4.8f, 5.5f, 4.8f, 3.5f, 2f, 1f,
+                0.8f, 1f, 1.5f, 2f, 2.8f, 3.5f, 4f, 4.5f, 4.8f, 4.5f,
+                4.2f, 4f, 4.2f, 4.5f, 4.8f, 5.2f, 5f, 4.8f, 4.2f, 3.8f, 3f
             ),
             paramFreq = 75f,
-            paramGain = 3.5f,
+            paramGain = 4.0f,
             paramQ = 1.5f
         ),
         EqPresetItem(
-            name = "⚡ Batidão Funk Brasil",
-            description = "Subgrave redondo con agudos súper estirados para platillos y percusión sintética.",
-            bands = listOf(5f, 7f, 6f, 2f, -1f, -1.5f, 0f, 1f, 2f, 3f, 2.5f, 3f, 5f, 6.5f, 5.5f),
+            name = "Reggaeton",
+            description = "Sub-grave 40Hz-55Hz demoledor para dembow urbano con voces al frente.",
+            bands = listOf(5f, 7f, 6.5f, 3f, 0.5f, 0f, 1f, 2.5f, 3.5f, 4f, 3.5f, 3f, 4f, 5f, 4f),
             bands31 = listOf(
-                3.5f, 5f, 6.5f, 7.5f, 7f, 5.8f, 3.5f, 2f, 0.5f, -1f,
-                -1.5f, -1.5f, -1f, 0f, 0.5f, 1.5f, 2f, 2.5f, 3f, 3f,
-                2.8f, 2.5f, 2.8f, 3f, 4f, 5f, 6f, 6.8f, 6.5f, 5.5f, 4.5f
+                3f, 4.5f, 6.5f, 8f, 7.5f, 6f, 4f, 2f, 1f, 0.5f,
+                0f, 0.5f, 1f, 1.5f, 2.5f, 3.2f, 3.8f, 4.2f, 4.2f, 4f,
+                3.5f, 3.2f, 3.5f, 3.8f, 4.2f, 4.8f, 5.2f, 5f, 4.5f, 3.8f, 3f
             ),
-            paramFreq = 50f,
-            paramGain = 5f,
+            paramFreq = 48f,
+            paramGain = 6.0f,
+            paramQ = 1.7f
+        ),
+        EqPresetItem(
+            name = "Dance",
+            description = "Curva en V enérgica con bombos contundentes y agudos electrónicos extendidos.",
+            bands = listOf(4.5f, 6.5f, 5f, 2f, -0.5f, -1f, 0f, 1f, 2f, 3f, 3.5f, 4f, 5.5f, 6.5f, 5f),
+            bands31 = listOf(
+                3f, 4.5f, 6.2f, 7f, 6.5f, 5f, 3f, 1.5f, 0f, -0.8f,
+                -1f, -0.8f, 0f, 0.5f, 1.2f, 2f, 2.5f, 3f, 3.2f, 3.5f,
+                3.8f, 4f, 4.5f, 5f, 5.8f, 6.5f, 6.8f, 6.2f, 5.5f, 4.5f, 3.5f
+            ),
+            paramFreq = 52f,
+            paramGain = 5.0f,
             paramQ = 1.3f
         ),
         EqPresetItem(
-            name = "🎸 Rock & SQL Punch",
-            description = "Bombo apretado en 80Hz, cuerpo de bajo en 250Hz y ataque de guitarras en 2.5kHz.",
+            name = "Rock",
+            description = "Cuerpo en 80-250Hz, garra de bajo y ataque agresivo en guitarras eléctricas.",
             bands = listOf(2f, 3.5f, 4.5f, 3f, 2f, 1.5f, 0.5f, 1f, 2f, 2.5f, 3.5f, 3f, 3.5f, 4f, 3.5f),
             bands31 = listOf(
                 1f, 2f, 2.8f, 3.5f, 4.2f, 4.8f, 4.5f, 3f, 2.5f, 2f,
@@ -157,17 +193,18 @@ object EqPresetCatalog {
                 3.2f, 3.5f, 3.2f, 3f, 3.2f, 3.5f, 3.8f, 4f, 3.8f, 3.5f, 3f
             ),
             paramFreq = 80f,
-            paramGain = 3f,
+            paramGain = 3.5f,
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "📏 RTA Flat / Lineal",
-            description = "Curva completamente plana a 0 dB para calibración acústica con micrófono RTA.",
-            bands = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f),
+            name = "Custom",
+            description = "Perfil personalizado libre guardado por el usuario.",
+            bands = List(15) { 0.0f },
             bands31 = List(31) { 0.0f },
-            paramFreq = 1000f,
+            paramFreq = 60f,
             paramGain = 0f,
-            paramQ = 1.0f
+            paramQ = 1.4f,
+            isCustom = true
         )
     )
 }

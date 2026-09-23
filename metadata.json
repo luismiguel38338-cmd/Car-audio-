@@ -1,6 +1,6 @@
 {
-  "name": "CarAudio DSP Pro 2.0",
-  "description": "Procesador Car Audio DSP Multicanal 2.0: Crossover 4 vías, EQ gráfico 31 bandas y paramétrico, RTA/FFT y osciloscopio real, generador de tonos, detector de clipping, limitador, alineación de tiempo, auto-tune acústico y diseñador de cajas.",
+  "name": "CAR AUDIO DSP PRO",
+  "description": "Procesador Car Audio DSP Multicanal Profesional: Control DSP real, ecualizador gráfico y paramétrico de 31 bandas con curva en tiempo real, analizador RTA FFT, filtros crossover HPF/LPF, efectos de audio y reproductor limpio.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

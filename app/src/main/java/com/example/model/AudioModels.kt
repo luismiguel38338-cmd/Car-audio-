@@ -5,12 +5,14 @@ import android.net.Uri
 data class AudioTrackItem(
     val id: String,
     val title: String,
-    val artist: String,
-    val durationSeconds: Int,
-    val category: TrackCategory,
-    val frequencyDescription: String,
-    val isSynthesized: Boolean = true,
-    val customUri: Uri? = null
+    val artist: String = "Desconocido",
+    val album: String = "Archivo Local",
+    val durationSeconds: Int = 0,
+    val category: TrackCategory = TrackCategory.USER_CUSTOM,
+    val frequencyDescription: String = "Audio del Usuario",
+    val isSynthesized: Boolean = false,
+    val customUri: Uri? = null,
+    val albumArtUri: Uri? = null
 )
 
 enum class TrackCategory {
@@ -23,36 +25,85 @@ enum class TrackCategory {
 }
 
 data class DspSettings(
-    val hpfFrequencyHz: Float = 20f,
-    val hpfSlopeDb: Int = 24, // 12, 24, 48 dB/oct
+    // Master DSP State
+    val dspMasterEnabled: Boolean = true,
+    val inputGainDb: Float = 0.0f, // -12 to +12 dB
+    val outputGainDb: Float = 0.0f, // -12 to +12 dB
+    val preampDb: Float = 0.0f, // -12 to +12 dB
+    val bassGainDb: Float = 2.0f, // -12 to +12 dB
+    val midGainDb: Float = 0.0f, // -12 to +12 dB
+    val trebleGainDb: Float = 1.5f, // -12 to +12 dB
+    val headroomDb: Float = 6.0f,
+    val sampleRate: Int = 48000,
+
+    // Crossover Filters
+    val hpfFrequencyHz: Float = 25f,
+    val hpfSlopeDb: Int = 24, // 6, 12, 18, 24, 36, 48 dB/oct
     val hpfEnabled: Boolean = true,
-    
-    val lpfFrequencyHz: Float = 120f,
-    val lpfSlopeDb: Int = 24,
+    val hpfQ: Float = 0.707f,
+
+    val lpfFrequencyHz: Float = 18000f,
+    val lpfSlopeDb: Int = 24, // 6, 12, 18, 24, 36, 48 dB/oct
     val lpfEnabled: Boolean = true,
-    
+    val lpfQ: Float = 0.707f,
+
+    val bandPassEnabled: Boolean = false,
+    val bandPassCenterHz: Float = 1000f,
+    val bandPassWidthHz: Float = 800f,
+    val bandPassSlopeDb: Int = 12,
+    val bandPassQ: Float = 1.0f,
+
     val subsonicFrequencyHz: Float = 28f,
     val subsonicEnabled: Boolean = true,
-    
-    val bassBoostDb: Float = 6f, // 0 to 18 dB
+
+    // Audio FX Controls
+    val bassBoostEnabled: Boolean = true,
+    val bassBoostDb: Float = 4.0f, // 0 to 18 dB
     val bassBoostFreqHz: Float = 45f, // 35Hz, 45Hz, 55Hz
-    
+
+    val subBassEnabled: Boolean = false,
+    val subBassBoostDb: Float = 3.0f,
+    val subBassFreqHz: Float = 35f,
+
+    val loudnessEnabled: Boolean = false,
+    val loudnessGainDb: Float = 4.0f,
+
+    val stereoWidthPercent: Float = 100f, // 0 to 200%
+    val balancePan: Float = 0.0f, // -1.0 (Left) to +1.0 (Right)
+
+    val compressorEnabled: Boolean = false,
+    val compressorThresholdDb: Float = -12f,
+    val compressorRatio: Float = 4.0f,
+    val compressorAttackMs: Float = 10f,
+    val compressorReleaseMs: Float = 100f,
+
+    val limiterEnabled: Boolean = true,
+    val limiterCeilingDb: Float = -0.5f,
+    val clippingThresholdPercent: Float = 92f,
+
+    val exciterEnabled: Boolean = false,
+    val exciterLevel: Float = 3.0f,
+
+    val presenceEnabled: Boolean = false,
+    val presenceLevel: Float = 2.0f,
+
+    val clarityEnabled: Boolean = false,
+    val clarityLevel: Float = 2.5f,
+
     val phaseDegrees: Int = 0, // 0 or 180
     val timeAlignmentMs: Float = 1.2f, // 0 to 15 ms
-    
     val masterGainDb: Float = 0f, // -24 to +6 dB
-    val limiterEnabled: Boolean = true,
-    val clippingThresholdPercent: Float = 92f,
-    
-    // 8-band EQ: 35Hz, 80Hz, 160Hz, 400Hz, 1kHz, 2.5kHz, 6.3kHz, 16kHz
+
+    // 8-band EQ (backward compatibility)
     val eqBands: List<Float> = listOf(4.0f, 2.0f, 0.0f, -1.0f, 1.0f, 3.0f, 4.5f, 5.0f),
-    val activePresetName: String = "Open Show Pro"
+    val activePresetName: String = "Flat"
 )
 
 data class AmpTelemetry(
-    val voltage: Float = 14.4f,
-    val temperatureC: Float = 44f,
-    val outputPowerWatts: Int = 1450,
+    val voltage: Float? = null, // Null indicates N/A (no real OBD/CAN sensor)
+    val isVoltageAvailable: Boolean = false,
+    val temperatureC: Float? = null,
+    val outputPowerWatts: Int = 0,
     val maxRatedWatts: Int = 3000,
     val impedanceOhms: Float = 1.0f,
     val isClipping: Boolean = false,
@@ -60,7 +111,7 @@ data class AmpTelemetry(
     val isOverheated: Boolean = false,
     val isLowVoltage: Boolean = false,
     val protectionModeActive: Boolean = false,
-    val isPlantaConnected: Boolean = true
+    val isPlantaConnected: Boolean = false
 )
 
 data class RtaBand(
@@ -157,48 +208,6 @@ data class SplCalibrationSettings(
     val isCalibratedMic: Boolean = false
 )
 
-enum class EnclosureType(val label: String) {
-    VENTED_PORTED("Porteada / Ventilada (Bass Reflex)"),
-    SEALED("Sellada (Acoustic Suspension)"),
-    BANDPASS_4TH("Pasa-banda 4to Orden (4th Order)")
-}
-
-data class ThieleSmallParams(
-    val fsHz: Float = 32f,
-    val qts: Float = 0.38f,
-    val vasLiters: Float = 65f,
-    val xmaxMm: Float = 16f,
-    val sdCm2: Float = 510f,
-    val powerRmsWatts: Int = 1000,
-    val fs: Float = fsHz,
-    val vas: Float = vasLiters,
-    val xmax: Float = xmaxMm,
-    val sd: Float = sdCm2,
-    val powerRms: Int = powerRmsWatts
-)
-
-data class ProfessionalBoxDesign(
-    val enclosureType: EnclosureType = EnclosureType.VENTED_PORTED,
-    val tsParams: ThieleSmallParams = ThieleSmallParams(),
-    val netVolumeLiters: Float = 55f,
-    val grossVolumeLiters: Float = 68f,
-    val tuningFreqHz: Float = 36f,
-    val f3CutoffHz: Float = 32f,
-    // Port dimensions
-    val isSlotPort: Boolean = true,
-    val portWidthCm: Float = 5.0f,
-    val portHeightCm: Float = 36.0f,
-    val portLengthCm: Float = 42.0f,
-    val airVelocityMps: Float = 12.4f, // Warning if > 17 m/s (chuffing)
-    val isChuffingSafe: Boolean = true,
-    // Outer box physical dimensions (MDF 18mm)
-    val mdfThicknessMm: Int = 18,
-    val boxWidthCm: Float = 65.0f,
-    val boxHeightCm: Float = 40.0f,
-    val boxDepthCm: Float = 45.0f,
-    val cutListSummary: String = "Frente y Fondo: 65x40cm (x2) | Laterales: 41.4x36.4cm (x2) | Tapa y Base: 65x45cm (x2) | Ducto Baffle: 36.4x37cm"
-)
-
 enum class HardwareConnectionType(val label: String, val isRealHardware: Boolean) {
     DSP_INTERNAL("DSP Digital Interno 32-bit (Android)", false),
     USB_OTG("Hardware USB OTG (Serial CDC/FTDI)", true),
@@ -262,37 +271,5 @@ data class DspPreset(
     val description: String,
     val dspSettings: DspSettings,
     val isUserCreated: Boolean = false
-)
-
-// Car Audio Box Calculator Model
-data class BoxCalculationResult(
-    val grossVolumeLiters: Float,
-    val grossVolumeCuFt: Float,
-    val netVolumeLiters: Float,
-    val netVolumeCuFt: Float,
-    val portTuningHz: Float,
-    val recommendedSubSizeInches: String,
-    val description: String
-)
-
-// AWG Wire Gauge Calculator Model
-data class WireCalculationResult(
-    val maxAmps: Float,
-    val recommendedAwg: String,
-    val recommendedFuseAmps: Int,
-    val voltageDropVolts: Float,
-    val voltageDropPercent: Float,
-    val isSafe: Boolean,
-    val notes: String
-)
-
-// Subwoofer Wiring Model
-data class SubwooferWiringResult(
-    val numWoofers: Int,
-    val coilType: String,
-    val wiringMode: String,
-    val finalImpedanceOhms: Float,
-    val ampSafetyLevel: String, // "Estable 1Ω / 2Ω", "Cuidado 0.5Ω", etc.
-    val diagramExplanation: String
 )
 

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -86,6 +87,18 @@ import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.pow
 
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import com.example.model.EqPresetItem
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EqualizerProcessorView(
@@ -101,6 +114,13 @@ fun EqualizerProcessorView(
     onToggleParametricBand: (bandId: Int, enabled: Boolean) -> Unit = { _, _ -> },
     onSelectPreset: (String) -> Unit,
     onResetFlat: () -> Unit,
+    eqPresets: List<EqPresetItem> = EqPresetCatalog.presets,
+    onSelectPresetItem: (EqPresetItem) -> Unit = {},
+    onSaveCustomPreset: (name: String, desc: String) -> Unit = { _, _ -> },
+    onDeletePreset: (EqPresetItem) -> Unit = {},
+    onRenamePreset: (oldName: String, newName: String) -> Unit = { _, _ -> },
+    onExportJson: () -> String = { "" },
+    onImportJson: (String) -> Boolean = { false },
     autoTuneState: AutoTuneState = AutoTuneState(),
     onStartAutoTune: () -> Unit = {},
     onSelectAutoTuneTarget: (AutoTuneTarget) -> Unit = {},
@@ -110,10 +130,154 @@ fun EqualizerProcessorView(
 ) {
     val verticalScroll = rememberScrollState()
     val horizontalFaderScroll = rememberScrollState()
+    val horizontalFaderScroll15 = rememberScrollState()
 
-    var activeEqModeTab by remember { mutableIntStateOf(0) } // 0: 31-Bandas ISO, 1: Paramétrico 5-Vías, 2: Auto-Tune Acústico
-    var selectedOctaveFilter by remember { mutableIntStateOf(0) } // 0: Todas, 1: Sub/Graves, 2: Medios Bajos, 3: Medios, 4: Agudos
+    var activeEqModeTab by remember { mutableIntStateOf(0) } // 0: 31-Bandas, 1: 15-Bandas, 2: Paramétrico, 3: Auto-Tune
+    var selectedOctaveFilter by remember { mutableIntStateOf(0) }
     var selectedParametricBandId by remember { mutableIntStateOf(1) }
+
+    // Dialog states for Presets
+    var showSavePresetDialog by remember { mutableStateOf(false) }
+    var newPresetName by remember { mutableStateOf("") }
+    var newPresetDesc by remember { mutableStateOf("") }
+
+    var showRenameDialog by remember { mutableStateOf<EqPresetItem?>(null) }
+    var renamePresetText by remember { mutableStateOf("") }
+
+    var showExportImportDialog by remember { mutableStateOf(false) }
+    var exportImportText by remember { mutableStateOf("") }
+    var importStatusMessage by remember { mutableStateOf<String?>(null) }
+
+    // Dialog: Save Preset
+    if (showSavePresetDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePresetDialog = false },
+            title = { Text("Guardar Preset de Ecualización", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Introduce un nombre para guardar la curva actual:")
+                    OutlinedTextField(
+                        value = newPresetName,
+                        onValueChange = { newPresetName = it },
+                        label = { Text("Nombre del Preset") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newPresetDesc,
+                        onValueChange = { newPresetDesc = it },
+                        label = { Text("Descripción (opcional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPresetName.isNotBlank()) {
+                            onSaveCustomPreset(newPresetName.trim(), newPresetDesc.trim())
+                            showSavePresetDialog = false
+                            newPresetName = ""
+                            newPresetDesc = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Guardar", color = theme.onPrimaryColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavePresetDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Dialog: Rename Preset
+    showRenameDialog?.let { presetToRename ->
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = null },
+            title = { Text("Renombrar Preset", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nuevo nombre para '${presetToRename.name}':")
+                    OutlinedTextField(
+                        value = renamePresetText,
+                        onValueChange = { renamePresetText = it },
+                        label = { Text("Nombre") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (renamePresetText.isNotBlank()) {
+                            onRenamePreset(presetToRename.name, renamePresetText.trim())
+                            showRenameDialog = null
+                            renamePresetText = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Renombrar", color = theme.onPrimaryColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Dialog: Export / Import JSON
+    if (showExportImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportImportDialog = false },
+            title = { Text("Exportar / Importar Presets", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Formato JSON para compartir o restaurar presets:")
+                    OutlinedTextField(
+                        value = exportImportText,
+                        onValueChange = { exportImportText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        label = { Text("JSON de Presets") }
+                    )
+                    importStatusMessage?.let {
+                        Text(it, fontSize = 11.sp, color = theme.primaryColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            val success = onImportJson(exportImportText)
+                            importStatusMessage = if (success) "¡Presets importados con éxito!" else "Error al importar JSON"
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                    ) {
+                        Text("Importar", color = theme.onPrimaryColor)
+                    }
+                    Button(
+                        onClick = {
+                            exportImportText = onExportJson()
+                            importStatusMessage = "JSON generado listo para copiar"
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2838))
+                    ) {
+                        Text("Generar Export")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportImportDialog = false }) { Text("Cerrar") }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -235,7 +399,135 @@ fun EqualizerProcessorView(
             }
         }
 
-        // Navigation Tabs: 31 Bandas ISO vs Paramétrico vs Auto-Tune
+        // PRESETS MANAGEMENT CARD
+        Card(
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, theme.primaryColor.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PRESETS DE ECUALIZACIÓN",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        letterSpacing = 1.sp
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Reset Flat Button
+                        Button(
+                            onClick = onResetFlat,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2838)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("FLAT", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Save Preset Button
+                        Button(
+                            onClick = { showSavePresetDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp), tint = theme.onPrimaryColor)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("GUARDAR", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.onPrimaryColor)
+                        }
+
+                        // Export/Import JSON Button
+                        IconButton(
+                            onClick = {
+                                exportImportText = onExportJson()
+                                showExportImportDialog = true
+                            },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "JSON", tint = theme.primaryColor, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
+                // Preset Chips Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    eqPresets.forEach { preset ->
+                        val isSelected = eqSettings.activePresetName == preset.name
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) theme.primaryColor else Color(0xFF101622))
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) theme.primaryColor else Color(0xFF263238),
+                                    shape = RoundedCornerShape(20.dp)
+                                )
+                                .clickable {
+                                    onSelectPreset(preset.name)
+                                    onSelectPresetItem(preset)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = preset.name,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
+                                    color = if (isSelected) theme.onPrimaryColor else Color.White
+                                )
+
+                                if (preset.isCustom) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    // Edit / Rename icon
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Renombrar",
+                                        tint = if (isSelected) Color.Black else Color.Gray,
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clickable {
+                                                renamePresetText = preset.name
+                                                showRenameDialog = preset
+                                            }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    // Delete icon
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar",
+                                        tint = if (isSelected) Color.Black else Color(0xFFFF5252),
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clickable { onDeletePreset(preset) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Navigation Tabs: 31 Bandas vs 15 Bandas vs Paramétrico vs Auto-Tune
         TabRow(
             selectedTabIndex = activeEqModeTab,
             containerColor = theme.surfaceColor,
@@ -253,20 +545,26 @@ fun EqualizerProcessorView(
             Tab(
                 selected = activeEqModeTab == 0,
                 onClick = { activeEqModeTab = 0 },
-                text = { Text("EQ 31 ISO", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                text = { Text("EQ 31 ISO", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(14.dp)) }
             )
             Tab(
                 selected = activeEqModeTab == 1,
                 onClick = { activeEqModeTab = 1 },
-                text = { Text("Paramétrico (5)", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                text = { Text("EQ 15 Bandas", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Equalizer, contentDescription = null, modifier = Modifier.size(14.dp)) }
             )
             Tab(
                 selected = activeEqModeTab == 2,
                 onClick = { activeEqModeTab = 2 },
-                text = { Text("Auto-Tune Real", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                text = { Text("Paramétrico", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp)) }
+            )
+            Tab(
+                selected = activeEqModeTab == 3,
+                onClick = { activeEqModeTab = 3 },
+                text = { Text("Auto-Tune", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp)) }
             )
         }
 
@@ -348,20 +646,55 @@ fun EqualizerProcessorView(
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
-                                // Fader Slider
+                                // Fader Slider (-15dB to +15dB)
                                 Slider(
                                     value = currentGain,
                                     onValueChange = { onUpdateBand31(bandIdx, it) },
-                                    valueRange = -12f..12f,
+                                    valueRange = -15f..15f,
                                     colors = SliderDefaults.colors(
-                                        thumbColor = theme.primaryColor,
-                                        activeTrackColor = theme.primaryColor,
+                                        thumbColor = if (currentGain > 6f) theme.accentColor else theme.primaryColor,
+                                        activeTrackColor = if (currentGain > 6f) theme.accentColor else theme.primaryColor,
                                         inactiveTrackColor = Color(0xFF222230)
                                     ),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("eq_band31_$bandIdx")
                                 )
+
+                                // Micro-step adjustment buttons: -0.5dB, 0dB reset, +0.5dB
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand31(bandIdx, (currentGain - 0.5f).coerceIn(-15f, 15f)) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("-", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand31(bandIdx, 0f) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("0", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand31(bandIdx, (currentGain + 0.5f).coerceIn(-15f, 15f)) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("+", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                    }
+                                }
                             }
                         }
                     }
@@ -385,8 +718,112 @@ fun EqualizerProcessorView(
             }
         }
 
-        // TAB 1: 5-BAND PARAMETRIC EQUALIZER
+        // TAB 1: 15-BAND GRAPHIC EQUALIZER
         if (activeEqModeTab == 1) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, theme.primaryColor.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "ECUALIZADOR GRÁFICO DE 15 BANDAS (2/3 OCTAVA)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimaryColor
+                    )
+
+                    val freqs15 = EqualizerSettings.FREQUENCIES_HZ
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(horizontalFaderScroll15),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        freqs15.forEachIndexed { bandIdx, freqHz ->
+                            val freqLabel = if (freqHz >= 1000) "${(freqHz / 1000f).toInt()}k" else "${freqHz.toInt()}"
+                            val currentGain = eqSettings.bands15.getOrElse(bandIdx) { 0f }
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .width(56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF101018))
+                                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                            ) {
+                                Text(
+                                    text = freqLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = theme.primaryColor
+                                )
+                                Text(
+                                    text = "%+.1fdB".format(currentGain),
+                                    fontSize = 9.sp,
+                                    color = if (currentGain != 0f) theme.accentColor else theme.textSecondaryColor
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Slider(
+                                    value = currentGain,
+                                    onValueChange = { onUpdateBand(bandIdx, it) },
+                                    valueRange = -15f..15f,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = if (currentGain > 6f) theme.accentColor else theme.primaryColor,
+                                        activeTrackColor = if (currentGain > 6f) theme.accentColor else theme.primaryColor,
+                                        inactiveTrackColor = Color(0xFF263238)
+                                    ),
+                                    modifier = Modifier.height(130.dp)
+                                )
+
+                                // Micro-step buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand(bandIdx, (currentGain - 0.5f).coerceIn(-15f, 15f)) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("-", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand(bandIdx, 0f) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("0", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF1E2838))
+                                            .clickable { onUpdateBand(bandIdx, (currentGain + 0.5f).coerceIn(-15f, 15f)) }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("+", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // TAB 2: 5-BAND PARAMETRIC EQUALIZER
+        if (activeEqModeTab == 2) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
                 shape = RoundedCornerShape(14.dp),
@@ -469,18 +906,56 @@ fun EqualizerProcessorView(
                             colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor)
                         )
 
-                        // Gain Slider
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = "Ganancia", fontSize = 11.sp, color = theme.textSecondaryColor)
-                            Text(text = "%+.1f dB".format(selectedBand.gainDb), fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = theme.primaryColor)
+                        // Gain Slider (-18dB to +18dB)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "Ganancia de Banda", fontSize = 11.sp, color = theme.textSecondaryColor)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF1E2838))
+                                        .clickable {
+                                            onUpdateParametricBand(selectedBand.id, selectedBand.freqHz, (selectedBand.gainDb - 1f).coerceIn(-18f, 18f), selectedBand.q, selectedBand.filterType, selectedBand.enabled)
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("-1", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF1E2838))
+                                        .clickable {
+                                            onUpdateParametricBand(selectedBand.id, selectedBand.freqHz, 0f, selectedBand.q, selectedBand.filterType, selectedBand.enabled)
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("0", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF1E2838))
+                                        .clickable {
+                                            onUpdateParametricBand(selectedBand.id, selectedBand.freqHz, (selectedBand.gainDb + 1f).coerceIn(-18f, 18f), selectedBand.q, selectedBand.filterType, selectedBand.enabled)
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("+1", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Text(text = "%+.1f dB".format(selectedBand.gainDb), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = theme.primaryColor)
+                            }
                         }
                         Slider(
                             value = selectedBand.gainDb,
                             onValueChange = {
                                 onUpdateParametricBand(selectedBand.id, selectedBand.freqHz, it, selectedBand.q, selectedBand.filterType, selectedBand.enabled)
                             },
-                            valueRange = -15f..15f,
-                            colors = SliderDefaults.colors(thumbColor = theme.primaryColor, activeTrackColor = theme.primaryColor)
+                            valueRange = -18f..18f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = if (selectedBand.gainDb > 6f) theme.accentColor else theme.primaryColor,
+                                activeTrackColor = if (selectedBand.gainDb > 6f) theme.accentColor else theme.primaryColor
+                            )
                         )
 
                         // Q Factor Slider
@@ -501,8 +976,8 @@ fun EqualizerProcessorView(
             }
         }
 
-        // TAB 2: AUTO-TUNE ACÚSTICO CON MICRÓFONO & PANTALLA DE PROPUESTA PREVIA
-        if (activeEqModeTab == 2) {
+        // TAB 3: AUTO-TUNE ACÚSTICO CON MICRÓFONO & PANTALLA DE PROPUESTA PREVIA
+        if (activeEqModeTab == 3) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
                 shape = RoundedCornerShape(14.dp),
