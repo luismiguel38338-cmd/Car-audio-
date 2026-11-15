@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAR AUDIO DSP PRO — Procesador de Audio y Bajos para Android</title>
+  <meta name="description" content="CAR AUDIO DSP PRO v6.0.0: Reproductor local real, Sistema de Bajos dedicado, Ecualizador de 31/15 bandas y Paramétrico, Procesador DSP y alertas en tiempo real." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090203;
+      --surface: #140507;
+      --card: #20080c;
+      --card-hover: #2a0b10;
+      --primary: #ff172b;
+      --accent: #ff5252;
+      --text: #ffecee;
+      --muted: #c98d94;
+      --border: rgba(255, 23, 43, 0.28);
+      --glow: 0 0 36px rgba(255, 23, 43, 0.28);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 18% 0%, rgba(255, 23, 43, 0.16), transparent 44%),
+        radial-gradient(circle at 85% 22%, rgba(255, 82, 82, 0.10), transparent 38%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, .display {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      letter-spacing: -0.02em;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 22px;
+    }
+
+    /* Navbar */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(9, 2, 3, 0.82);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 70px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #8c0614);
+      border: 1.5px solid var(--accent);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: var(--glow);
+    }
+
+    .brand-text strong {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-text span {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 22px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #cc0e20);
+      color: #fff;
+      box-shadow: 0 10px 28px rgba(255, 23, 43, 0.35);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 14px 34px rgba(255, 23, 43, 0.5);
+    }
+
+    .btn-outline {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .btn-outline:hover {
+      background: var(--card);
+      border-color: var(--primary);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 64px 0 48px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 36px;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 23, 43, 0.14);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.1rem, 4.4vw, 3.45rem);
+      line-height: 1.08;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 span {
+      color: var(--primary);
+    }
+
+    .hero p {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .specs-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .spec-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .spec-box strong {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      color: var(--text);
+    }
+
+    .spec-box span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Interactive DSP Simulator Card */
+    .dsp-preview {
+      background: linear-gradient(180deg, var(--surface), #0d0305);
+      border: 1.5px solid var(--border);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: var(--glow);
+    }
+
+    .dsp-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .dsp-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 23, 43, 0.16);
+      color: var(--accent);
+      border: 1px solid var(--border);
+    }
+
+    canvas#curveCanvas {
+      width: 100%;
+      height: 180px;
+      display: block;
+      background: #070102;
+      border: 1px solid rgba(255, 23, 43, 0.22);
+      border-radius: 14px;
+      margin-bottom: 16px;
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .mode-btn {
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--muted);
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .mode-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(255, 23, 43, 0.35);
+    }
+
+    .sim-sliders {
+      display: grid;
+      gap: 10px;
+    }
+
+    .sim-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+    }
+
+    .sim-slider-row label {
+      width: 110px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .sim-slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+    }
+
+    .sim-slider-row span {
+      width: 56px;
+      text-align: right;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    /* Sections */
+    section {
+      padding: 58px 0;
+    }
+
+    .section-head {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 38px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(1.65rem, 3vw, 2.35rem);
+      margin-bottom: 10px;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    /* 5 Panels Grid */
+    .panels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .panel-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+    }
+
+    .panel-num {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(255, 23, 43, 0.14);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    .panel-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .panel-card p {
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    /* Highlights 2-col */
+    .highlights {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .highlight-card {
+      background: linear-gradient(155deg, var(--surface), var(--card));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .highlight-card h3 {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .highlight-list {
+      list-style: none;
+      display: grid;
+      gap: 9px;
+      margin-top: 12px;
+    }
+
+    .highlight-list li {
+      font-size: 14px;
+      color: var(--muted);
+      padding-left: 18px;
+      position: relative;
+    }
+
+    .highlight-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    /* UI Preview Mockups */
+    .shots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+    }
+
+    .shot-card {
+      background: linear-gradient(180deg, #160609, #090203);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mock-screen {
+      background: #070102;
+      border: 1px solid rgba(255, 23, 43, 0.25);
+      border-radius: 14px;
+      padding: 12px;
+      min-height: 170px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .mock-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .mock-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 68px;
+      padding-top: 6px;
+    }
+
+    .mock-bars span {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, var(--primary), rgba(255, 82, 82, 0.35));
+    }
+
+    .mock-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .mock-chip {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid rgba(255, 23, 43, 0.28);
+    }
+
+    .shot-card > strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .shot-card > span {
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    /* CTA Footer Box */
+    .cta-box {
+      background: linear-gradient(135deg, #24070c, #120406);
+      border: 1.5px solid var(--primary);
+      border-radius: 24px;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: var(--glow);
+    }
+
+    .cta-box h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      margin-bottom: 10px;
+    }
+
+    .cta-box p {
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 22px;
+      font-size: 15px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid,
+      .highlights {
+        grid-template-columns: 1fr;
+      }
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="#inicio" class="brand">
+        <div class="brand-mark mono">DSP</div>
+        <div class="brand-text">
+          <strong>CAR AUDIO DSP PRO</strong>
+          <span class="mono">v6.0.0 • Android Studio Edition</span>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="#paneles">Paneles</a>
+        <a href="#bajos">Bajos &amp; Calidad</a>
+        <a href="#capturas">Capturas</a>
+        <a href="#descarga">Descargar APK</a>
+      </nav>
+      <a href="#descarga" class="btn btn-primary">Obtener App</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="pill">
+            <span class="pill-dot"></span>
+            SISTEMA REAL DE MÚSICA, BAJOS Y ALERTAS DSP
+          </div>
+          <h1>Potencia de <span>Estudio y Subwoofer</span> en tu Teléfono Android</h1>
+          <p>
+            Reproduce tu música real con extracción de formato y bitrate, moldea cada frecuencia con 31 bandas ISO, controla un sistema completo de bajos y recibe notificaciones inmediatas si algo falla.
+          </p>
+          <div class="hero-actions">
+            <a href="#descarga" class="btn btn-primary">Descargar APK v6.0.0</a>
+            <a href="#paneles" class="btn btn-outline">Explorar los 5 Paneles</a>
+          </div>
+          <div class="specs-row">
+            <div class="spec-box">
+              <strong>31 / 15</strong>
+              <span>Bandas ISO + Paramétrico</span>
+            </div>
+            <div class="spec-box">
+              <strong>20–250 Hz</strong>
+              <span>Sistema Dedicado de Bajos</span>
+            </div>
+            <div class="spec-box">
+              <strong>AudioFX</strong>
+              <span>Alertas y Protección Activa</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dsp-preview">
+          <div class="dsp-top">
+            <span class="mono" style="font-size:12px;font-weight:700;">SIMULADOR DE CURVA DSP</span>
+            <span class="dsp-badge mono" id="curveModeLabel">BAJOS + PUNCH</span>
+          </div>
+          <canvas id="curveCanvas" width="460" height="180" aria-label="Gráfica interactiva de respuesta en frecuencia"></canvas>
+          <div class="mode-tabs">
+            <button type="button" class="mode-btn active" data-preset="bass">Bajos Pro</button>
+            <button type="button" class="mode-btn" data-preset="vocal">Claridad HD</button>
+            <button type="button" class="mode-btn" data-preset="flat">Flat Studio</button>
+          </div>
+          <div class="sim-sliders">
+            <div class="sim-slider-row">
+              <label for="slSub">Sub-Bass (35Hz)</label>
+              <input id="slSub" type="range" min="0" max="18" step="0.5" value="10">
+              <span class="mono" id="valSub">+10.0 dB</span>
+            </div>
+            <div class="sim-slider-row">
+              <label for="slPunch">Punch (75Hz)</label>
+              <input id="slPunch" type="range" min="0" max="10" step="0.5" value="6">
+              <span class="mono" id="valPunch">+6.0 dB</span>
+            </div>
+            <div class="sim-slider-row">
+              <label for="slClarity">Claridad (12kHz)</label>
+              <input id="slClarity" type="range" min="-6" max="12" step="0.5" value="4.5">
+              <span class="mono" id="valClarity">+4.5 dB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="paneles">
+      <div class="container">
+        <div class="section-head">
+          <h2>5 Paneles Organizados para Control Total</h2>
+          <p>Desde la bienvenida guiada con tutorial hasta la calibración fina de subwoofer, ecualizador y diagnóstico del sistema.</p>
+        </div>
+        <div class="panels-grid">
+          <article class="panel-card">
+            <span class="panel-num mono">01 • MÚSICA</span>
+            <h3>Reproductor Real</h3>
+            <p>Escaneo automático de tu biblioteca local y carga directa de archivos FLAC, WAV, MP3 y AAC con lectura real de bitrate, favoritos y carátulas.</p>
+          </article>
+          <article class="panel-card">
+            <span class="panel-num mono">02 • BAJOS</span>
+            <h3>Sistema Subwoofer</h3>
+            <p>Curva en vivo de 20–250 Hz, Sub-Bass profundo, Impacto/Punch, Loudness dinámico, filtro subsónico protector, fase 0°/180° y delay en ms.</p>
+          </article>
+          <article class="panel-card">
+            <span class="panel-num mono">03 • EQ</span>
+            <h3>Ecualizador 31B / 15B</h3>
+            <p>Alterna entre 31 bandas ISO de precisión, 15 bandas rápidas y ecualizador paramétrico de 5 bandas con selector de tipo de filtro y presets.</p>
+          </article>
+          <article class="panel-card">
+            <span class="panel-num mono">04 • DSP</span>
+            <h3>Procesador Maestro</h3>
+            <p>Medidores L/R, analizador RTA, Preamp, Estéreo, Limitador anti-clipping, Compresor multibanda, crossovers HPF/LPF y Motor de Fidelidad HD.</p>
+          </article>
+          <article class="panel-card">
+            <span class="panel-num mono">05 • AJUSTES</span>
+            <h3>Diagnóstico y VIP</h3>
+            <p>Centro de diagnóstico en tiempo real con registro de fallos, permisos, estilos visuales, burbuja flotante y desbloqueo discreto VIP Studio.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="bajos">
+      <div class="container highlights">
+        <div class="highlight-card">
+          <h3>Alertas Inteligentes Cuando Algo Falla</h3>
+          <p style="color:var(--muted);font-size:14px;">Monitoreo continuo para que nunca pierdas audio ni dañes tus bocinas sin saber por qué:</p>
+          <ul class="highlight-list">
+            <li>Notificaciones del sistema y banner interactivo ante errores de lectura o archivos dañados.</li>
+            <li>Avisos inmediatos si falta permiso de música local o de notificaciones.</li>
+            <li>Detección de desconexión de audífonos / Bluetooth y fallos de inicialización AudioFX.</li>
+            <li>Protección anti-clipping con acceso directo para activar el limitador al instante.</li>
+          </ul>
+        </div>
+        <div class="highlight-card">
+          <h3>Modo VIP Studio y Calidad Hi-Res</h3>
+          <p style="color:var(--muted);font-size:14px;">Acceso oculto integrado dentro de la app para desbloquear herramientas avanzadas de calidad sonora:</p>
+          <ul class="highlight-list">
+            <li>Motor Hi-Res Studio con curva audiófila y Calidez Analógica (Tube Warmth).</li>
+            <li>Presencia Vocal, Claridad HD en agudos y Excitador Armónico.</li>
+            <li>Pendientes de crossover de 36 y 48 dB/oct, Compresor avanzado y perfiles SPL / Hairtrick 32Hz.</li>
+            <li>Presets Master VIP y colección ampliada de temas visuales exclusivos.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="capturas">
+      <div class="container">
+        <div class="section-head">
+          <h2>Vista Previa de la Interfaz</h2>
+          <p>Diseño oscuro de alto contraste optimizado para uso en cabina, audífonos y pantallas de automóvil.</p>
+        </div>
+        <div class="shots-grid">
+          <div class="shot-card">
+            <div class="mock-screen">
+              <div class="mock-header"><span>REPRODUCTOR REAL</span><span class="mono">FLAC • 960 kbps</span></div>
+              <div>
+                <div style="font-size:13px;font-weight:700;">Noche de Baile (Bass Mix)</div>
+                <div style="font-size:11px;color:var(--muted);">Bluetooth Car Audio • AudioFX</div>
+              </div>
+              <div class="mock-chips">
+                <span class="mock-chip">Cargar Música</span>
+                <span class="mock-chip">Favoritas</span>
+                <span class="mock-chip">VIP Hi-Res</span>
+              </div>
+            </div>
+            <strong>Panel de Música Real</strong>
+            <span>Lectura de metadatos reales, formato, bitrate y controles DSP rápidos.</span>
+          </div>
+
+          <div class="shot-card">
+            <div class="mock-screen">
+              <div class="mock-header"><span>SISTEMA DE BAJOS</span><span class="mono">35 Hz • 0°</span></div>
+              <div class="mock-bars">
+                <span style="height:42%"></span><span style="height:82%"></span><span style="height:95%"></span>
+                <span style="height:88%"></span><span style="height:70%"></span><span style="height:52%"></span>
+                <span style="height:35%"></span><span style="height:20%"></span>
+              </div>
+              <div class="mock-chips">
+                <span class="mock-chip">Sub-Bass +12dB</span>
+                <span class="mock-chip">Subsónico 28Hz</span>
+              </div>
+            </div>
+            <strong>Panel Dedicado de Bajos</strong>
+            <span>Curva 20–250 Hz, Punch, Loudness dinámico, Fase y Alineación Temporal.</span>
+          </div>
+
+          <div class="shot-card">
+            <div class="mock-screen">
+              <div class="mock-header"><span>EQ 31B &amp; DSP HD</span><span class="mono">LIMITER ON</span></div>
+              <div class="mock-bars">
+                <span style="height:76%"></span><span style="height:64%"></span><span style="height:48%"></span>
+                <span style="height:42%"></span><span style="height:55%"></span><span style="height:68%"></span>
+                <span style="height:82%"></span><span style="height:74%"></span>
+              </div>
+              <div class="mock-chips">
+                <span class="mock-chip">31 / 15 Bandas</span>
+                <span class="mock-chip">Paramétrico 5B</span>
+                <span class="mock-chip">Tube Warmth</span>
+              </div>
+            </div>
+            <strong>Ecualizador &amp; Calidad HD</strong>
+            <span>31 bandas ISO, filtros paramétricos, Hi-Res Studio y Excitador Armónico.</span>
+          </div>
+
+          <div class="shot-card">
+            <div class="mock-screen">
+              <div class="mock-header"><span>DIAGNÓSTICO ACTIVO</span><span class="mono">24/7</span></div>
+              <div style="background:rgba(255,23,43,0.14);border:1px solid var(--primary);border-radius:8px;padding:8px;font-size:11px;">
+                <strong style="display:block;color:var(--accent);">Alerta de Sistema</strong>
+                Notificación inmediata si falla un archivo, permiso o hay clipping.
+              </div>
+              <div class="mock-chips">
+                <span class="mock-chip">AudioFX OK</span>
+                <span class="mock-chip">Acceso VIP</span>
+              </div>
+            </div>
+            <strong>Alertas y Ajustes Pro</strong>
+            <span>Notificaciones de fallos, temas exclusivos y bienvenida con tutorial guiado.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="descarga">
+      <div class="container">
+        <div class="cta-box">
+          <h2>Listo para Instalar en Android</h2>
+          <p>
+            Descarga el paquete APK generado desde la pestaña de Releases o Actions del repositorio en GitHub y disfruta de sonido limpio con potencia real.
+          </p>
+          <div class="hero-actions" style="justify-content:center;margin-bottom:0;">
+            <a href="#inicio" class="btn btn-primary" onclick="alert('Publica este repositorio en GitHub y habilita GitHub Actions / Releases para enlazar aquí tu APK compilado.'); return false;">Descargar CarAudio-DSP-Pro-v6.0.0.apk</a>
+            <a href="#paneles" class="btn btn-outline">Ver Especificaciones</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      CAR AUDIO DSP PRO • Versión 6.0.0 • Página oficial de presentación del proyecto
+    </div>
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('curveCanvas');
+    const ctx = canvas.getContext('2d');
+    const slSub = document.getElementById('slSub');
+    const slPunch = document.getElementById('slPunch');
+    const slClarity = document.getElementById('slClarity');
+    const valSub = document.getElementById('valSub');
+    const valPunch = document.getElementById('valPunch');
+    const valClarity = document.getElementById('valClarity');
+    const modeLabel = document.getElementById('curveModeLabel');
+    const modeButtons = document.querySelectorAll('.mode-btn');
+
+    function drawCurve() {
+      const sub = parseFloat(slSub.value);
+      const punch = parseFloat(slPunch.value);
+      const clarity = parseFloat(slClarity.value);
+
+      valSub.textContent = (sub >= 0 ? '+' : '') + sub.toFixed(1) + ' dB';
+      valPunch.textContent = (punch >= 0 ? '+' : '') + punch.toFixed(1) + ' dB';
+      valClarity.textContent = (clarity >= 0 ? '+' : '') + clarity.toFixed(1) + ' dB';
+
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (h / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // 0 dB center line
+      const midY = h * 0.56;
+      ctx.strokeStyle = 'rgba(255, 23, 43, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(w, midY);
+      ctx.stroke();
+
+      // Response points across log freq 20Hz -> 20kHz
+      const pts = [];
+      const steps = 60;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const freq = 20 * Math.pow(1000, t);
+        const subGain = sub * Math.exp(-Math.pow(Math.log2(freq / 38) / 0.85, 2));
+        const punchGain = punch * Math.exp(-Math.pow(Math.log2(freq / 78) / 0.65, 2));
+        const clarityGain = clarity * (1 / (1 + Math.exp(-(Math.log2(freq / 4500)) * 2.2)));
+        const subsonicCut = freq < 26 ? -10 * ((26 - freq) / 10) : 0;
+        const totalDb = Math.max(-14, Math.min(20, subGain + punchGain + clarityGain + subsonicCut));
+        const x = t * w;
+        const y = midY - (totalDb / 22) * (h * 0.72);
+        pts.push({ x, y });
+      }
+
+      const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
+      fillGrad.addColorStop(0, 'rgba(255, 23, 43, 0.42)');
+      fillGrad.addColorStop(1, 'rgba(255, 23, 43, 0.0)');
+
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      pts.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.lineTo(w, midY);
+      ctx.closePath();
+      ctx.fillStyle = fillGrad;
+      ctx.fill();
+
+      ctx.beginPath();
+      pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.strokeStyle = '#ff3648';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    [slSub, slPunch, slClarity].forEach(el => el.addEventListener('input', drawCurve));
+
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        modeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = btn.dataset.preset;
+        if (p === 'bass') {
+          slSub.value = 10; slPunch.value = 6; slClarity.value = 4.5;
+          modeLabel.textContent = 'BAJOS + PUNCH';
+        } else if (p === 'vocal') {
+          slSub.value = 3.5; slPunch.value = 2; slClarity.value = 9;
+          modeLabel.textContent = 'CLARIDAD HD';
+        } else {
+          slSub.value = 0; slPunch.value = 0; slClarity.value = 0;
+          modeLabel.textContent = 'FLAT STUDIO';
+        }
+        drawCurve();
+      });
+    });
+
+    drawCurve();
+  </script>
+</body>
+</html>
