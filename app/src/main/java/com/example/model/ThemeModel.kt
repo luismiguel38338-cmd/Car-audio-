@@ -34,17 +34,17 @@ enum class CarAudioThemeType(
     ),
     CRIMSON_RED(
         id = "crimson_red",
-        displayName = "Taramps Crimson Red",
-        subtitle = "Estilo Stetsom & Taramps Brasil",
-        primaryColor = Color(0xFFFF1E27),
-        accentColor = Color(0xFFFF6B6B),
-        backgroundColor = Color(0xFF0F0708),
-        surfaceColor = Color(0xFF1C0E10),
-        cardColor = Color(0xFF2B1417),
+        displayName = "Crimson Studio Red",
+        subtitle = "Edición Todo Rojo Pro (Predeterminado)",
+        primaryColor = Color(0xFFFF172B),
+        accentColor = Color(0xFFFF5252),
+        backgroundColor = Color(0xFF090203),
+        surfaceColor = Color(0xFF140507),
+        cardColor = Color(0xFF20080C),
         onPrimaryColor = Color(0xFFFFFFFF),
-        textColor = Color(0xFFFFEBEB),
-        textSecondaryColor = Color(0xFFB57D81),
-        meterPeakColor = Color(0xFFFF1E27)
+        textColor = Color(0xFFFFECEE),
+        textSecondaryColor = Color(0xFFD18A92),
+        meterPeakColor = Color(0xFFFF172B)
     ),
     ELECTRIC_BLUE(
         id = "electric_blue",

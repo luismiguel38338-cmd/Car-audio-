@@ -16,36 +16,35 @@ import com.example.R
 object CarAudioNotificationHelper {
     const val CHANNEL_ID_STATUS = "car_audio_status_channel"
     const val CHANNEL_ID_ALERTS = "car_audio_alerts_channel"
-    
+
     const val NOTIFICATION_ID_MONITOR = 1001
     const val NOTIFICATION_ID_CLIP_ALERT = 1002
-    const val NOTIFICATION_ID_VOLT_ALERT = 1003
+
+    private const val CRIMSON_NOTIF_COLOR = 0xFFFF172B.toInt()
 
     fun initNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
-            // Monitor status channel
+
             val statusChannel = NotificationChannel(
                 CHANNEL_ID_STATUS,
-                "Monitor Planta Car Audio & Player",
+                "Reproductor y Ecualizador DSP",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Muestra el estado activo de la planta car audio, voltajes y reproductor"
+                description = "Muestra la pista activa y el estado del procesador DSP"
                 setShowBadge(false)
             }
-            
-            // Critical alerts channel (Clipping & Low Voltage)
+
             val alertChannel = NotificationChannel(
                 CHANNEL_ID_ALERTS,
-                "Alertas Críticas de Planta Car Audio",
+                "Alertas de Clipping de Audio",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alertas de clipping, sobrecalentamiento y bajón de voltaje de batería"
+                description = "Avisa cuando la ganancia provoca recorte o distorsión en la salida"
                 enableVibration(true)
                 setShowBadge(true)
             }
-            
+
             manager.createNotificationChannel(statusChannel)
             manager.createNotificationChannel(alertChannel)
         }
@@ -66,8 +65,6 @@ object CarAudioNotificationHelper {
         context: Context,
         trackTitle: String,
         isPlaying: Boolean,
-        voltage: Float? = null,
-        temperatureC: Float? = null,
         isClipping: Boolean = false
     ) {
         if (!hasNotificationPermission(context)) return
@@ -82,22 +79,14 @@ object CarAudioNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val clipText = if (isClipping) "⚠️ CLIP ACTIVO" else "✅ Señal Limpia"
-        val playState = if (isPlaying) "▶️ Reproduciendo" else "⏸️ Pausado"
-        val voltStr = if (voltage != null) "${"%.1f".format(voltage)}V" else "N/A"
-        val tempStr = if (temperatureC != null) "${temperatureC.toInt()}°C" else "N/A"
+        val clipText = if (isClipping) "CLIP ACTIVO" else "Señal Limpia"
+        val playState = if (isPlaying) "Reproduciendo" else "Pausado"
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_STATUS)
-            .setSmallIcon(R.drawable.car_audio_icon_1788805964010)
-            .setContentTitle("CarAudio DSP • $trackTitle")
-            .setContentText("$playState | Voltaje: $voltStr | Temp: $tempStr | $clipText")
-            .setStyle(
-                NotificationCompat.BigTextStyle().bigText(
-                    "Pista: $trackTitle ($playState)\n" +
-                    "Planta: $voltStr • $tempStr • $clipText\n" +
-                    "DSP Crossover activo con protección de transistores."
-                )
-            )
+            .setSmallIcon(R.drawable.ic_notification_dsp)
+            .setColor(CRIMSON_NOTIF_COLOR)
+            .setContentTitle("CAR AUDIO DSP • $trackTitle")
+            .setContentText("$playState • $clipText")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(isPlaying)
             .setContentIntent(pendingIntent)
@@ -106,7 +95,6 @@ object CarAudioNotificationHelper {
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_MONITOR, notification)
         } catch (_: SecurityException) {
-            // Permission rejected
         }
     }
 
@@ -122,16 +110,10 @@ object CarAudioNotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
-            .setSmallIcon(R.drawable.car_audio_icon_1788805964010)
-            .setContentTitle("⚠️ ¡ALERTA DE CLIPPING EN PLANTA!")
-            .setContentText("Distorsión armónica detectada ($clipCount eventos). Baja la ganancia para no quemar las bobinas.")
-            .setStyle(
-                NotificationCompat.BigTextStyle().bigText(
-                    "Se ha detectado recorte de señal (Clipping) en la salida de tu amplificador.\n" +
-                    "Riesgo de sobrecalentamiento de bobinas en subwoofers o drivers de agudos.\n" +
-                    "Acción recomendada: Reducir Bass Boost o atenuar la ganancia (Gain) en el procesador."
-                )
-            )
+            .setSmallIcon(R.drawable.ic_notification_dsp)
+            .setColor(CRIMSON_NOTIF_COLOR)
+            .setContentTitle("Alerta de Clipping en Salida")
+            .setContentText("Distorsión detectada ($clipCount eventos). Reduce la ganancia o activa el Limitador.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
@@ -139,38 +121,6 @@ object CarAudioNotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_CLIP_ALERT, notification)
-        } catch (_: SecurityException) {
-        }
-    }
-
-    fun showVoltageAlertNotification(context: Context, voltage: Float) {
-        if (!hasNotificationPermission(context)) return
-
-        val intent = Intent(context, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            2,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
-            .setSmallIcon(R.drawable.car_audio_icon_1788805964010)
-            .setContentTitle("🔋 ¡BAJÓN DE VOLTAJE DE BATERÍA!")
-            .setContentText("Voltaje crítico: ${"%.1f".format(voltage)}V. Riesgo de protección de la planta car audio.")
-            .setStyle(
-                NotificationCompat.BigTextStyle().bigText(
-                    "El voltaje del sistema cayó a ${"%.1f".format(voltage)}V (mínimo seguro: 12.0V - 14.4V con alternador).\n" +
-                    "El amplificador puede entrar en modo PROTECT o distorsionar fuertemente."
-                )
-            )
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        try {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_VOLT_ALERT, notification)
         } catch (_: SecurityException) {
         }
     }
