@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CAR AUDIO DSP PRO — Procesador de Audio y Bajos para Android</title>
-  <meta name="description" content="CAR AUDIO DSP PRO v6.0.0: Reproductor local real, Sistema de Bajos dedicado, Ecualizador de 31/15 bandas y Paramétrico, Procesador DSP y alertas en tiempo real." />
+  <title>CAR AUDIO DSP PRO — Descargar APK, Funciones y Política de Privacidad</title>
+  <meta name="description" content="Página oficial de CAR AUDIO DSP PRO v6.0.0 para Android: Reproductor de música real, Sistema de Bajos, Ecualizador 31/15/Paramétrico, Procesador DSP, Alertas de Fallos, descarga de APK y Política de Privacidad." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -13,7 +13,6 @@
       --bg: #090203;
       --surface: #140507;
       --card: #20080c;
-      --card-hover: #2a0b10;
       --primary: #ff172b;
       --accent: #ff5252;
       --text: #ffecee;
@@ -60,13 +59,12 @@
       padding: 0 22px;
     }
 
-    /* Navbar */
     header {
       position: sticky;
       top: 0;
       z-index: 50;
       backdrop-filter: blur(14px);
-      background: rgba(9, 2, 3, 0.82);
+      background: rgba(9, 2, 3, 0.85);
       border-bottom: 1px solid var(--border);
     }
 
@@ -115,13 +113,13 @@
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 22px;
+      gap: 20px;
     }
 
     .nav-links a {
       color: var(--muted);
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 600;
       transition: color 0.2s;
     }
@@ -156,7 +154,7 @@
     }
 
     .btn-primary:hover {
-      box-shadow: 0 14px 34px rgba(255, 23, 43, 0.5);
+      box-shadow: 0 14px 34px rgba(255, 23, 43, 0.52);
     }
 
     .btn-outline {
@@ -170,9 +168,8 @@
       border-color: var(--primary);
     }
 
-    /* Hero */
     .hero {
-      padding: 64px 0 48px;
+      padding: 60px 0 44px;
     }
 
     .hero-grid {
@@ -205,7 +202,7 @@
     }
 
     .hero h1 {
-      font-size: clamp(2.1rem, 4.4vw, 3.45rem);
+      font-size: clamp(2.1rem, 4.4vw, 3.4rem);
       line-height: 1.08;
       margin-bottom: 18px;
     }
@@ -215,17 +212,17 @@
     }
 
     .hero p {
-      font-size: 17px;
+      font-size: 16.5px;
       color: var(--muted);
       max-width: 560px;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
 
     .hero-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
 
     .specs-row {
@@ -244,7 +241,7 @@
     .spec-box strong {
       display: block;
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 20px;
+      font-size: 19px;
       color: var(--text);
     }
 
@@ -253,7 +250,6 @@
       color: var(--muted);
     }
 
-    /* Interactive DSP Simulator Card */
     .dsp-preview {
       background: linear-gradient(180deg, var(--surface), #0d0305);
       border: 1.5px solid var(--border);
@@ -327,7 +323,7 @@
     }
 
     .sim-slider-row label {
-      width: 110px;
+      width: 115px;
       color: var(--muted);
       font-weight: 600;
     }
@@ -338,25 +334,24 @@
     }
 
     .sim-slider-row span {
-      width: 56px;
+      width: 58px;
       text-align: right;
       color: var(--text);
       font-weight: 700;
     }
 
-    /* Sections */
     section {
-      padding: 58px 0;
+      padding: 54px 0;
     }
 
     .section-head {
       text-align: center;
-      max-width: 680px;
-      margin: 0 auto 38px;
+      max-width: 700px;
+      margin: 0 auto 36px;
     }
 
     .section-head h2 {
-      font-size: clamp(1.65rem, 3vw, 2.35rem);
+      font-size: clamp(1.65rem, 3vw, 2.3rem);
       margin-bottom: 10px;
     }
 
@@ -365,7 +360,6 @@
       font-size: 15px;
     }
 
-    /* 5 Panels Grid */
     .panels-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -406,7 +400,6 @@
       color: var(--muted);
     }
 
-    /* Highlights 2-col */
     .highlights {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -423,7 +416,6 @@
     .highlight-card h3 {
       font-size: 20px;
       margin-bottom: 10px;
-      color: var(--text);
     }
 
     .highlight-list {
@@ -448,7 +440,6 @@
       font-weight: 900;
     }
 
-    /* UI Preview Mockups */
     .shots-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -525,7 +516,7 @@
       color: var(--muted);
     }
 
-    /* CTA Footer Box */
+    /* Download Box */
     .cta-box {
       background: linear-gradient(135deg, #24070c, #120406);
       border: 1.5px solid var(--primary);
@@ -542,9 +533,60 @@
 
     .cta-box p {
       color: var(--muted);
-      max-width: 600px;
+      max-width: 660px;
       margin: 0 auto 22px;
       font-size: 15px;
+    }
+
+    .install-steps {
+      max-width: 680px;
+      margin: 22px auto 0;
+      text-align: left;
+      background: rgba(9, 2, 3, 0.65);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    .install-steps strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* Privacy Section */
+    .privacy-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    .privacy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin: 20px 0 24px;
+    }
+
+    .privacy-item {
+      background: var(--card);
+      border: 1px solid rgba(255, 23, 43, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .privacy-item h3 {
+      font-size: 15px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .privacy-item p {
+      font-size: 13px;
+      color: var(--muted);
     }
 
     footer {
@@ -553,6 +595,16 @@
       text-align: center;
       color: var(--muted);
       font-size: 13px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
     }
 
     @media (max-width: 900px) {
@@ -573,16 +625,16 @@
         <div class="brand-mark mono">DSP</div>
         <div class="brand-text">
           <strong>CAR AUDIO DSP PRO</strong>
-          <span class="mono">v6.0.0 • Android Studio Edition</span>
+          <span class="mono">v6.0.0 • Android 7.0+ (SDK 24+)</span>
         </div>
       </a>
       <nav class="nav-links">
         <a href="#paneles">Paneles</a>
-        <a href="#bajos">Bajos &amp; Calidad</a>
-        <a href="#capturas">Capturas</a>
+        <a href="#funciones">Funciones</a>
         <a href="#descarga">Descargar APK</a>
+        <a href="#privacidad">Privacidad</a>
       </nav>
-      <a href="#descarga" class="btn btn-primary">Obtener App</a>
+      <a href="#descarga" class="btn btn-primary">Descargar APK</a>
     </div>
   </header>
 
@@ -592,35 +644,35 @@
         <div>
           <div class="pill">
             <span class="pill-dot"></span>
-            SISTEMA REAL DE MÚSICA, BAJOS Y ALERTAS DSP
+            CAR AUDIO DSP PRO v6.0.0 • REPRODUCTOR + BAJOS + DSP REAL
           </div>
-          <h1>Potencia de <span>Estudio y Subwoofer</span> en tu Teléfono Android</h1>
+          <h1>Sonido de <span>Estudio y Subwoofer</span> Directo en tu Android</h1>
           <p>
-            Reproduce tu música real con extracción de formato y bitrate, moldea cada frecuencia con 31 bandas ISO, controla un sistema completo de bajos y recibe notificaciones inmediatas si algo falla.
+            Aplicación nativa hecha para car audio, audífonos y Bluetooth: reproduce tu música real desde el teléfono, ajusta un sistema dedicado de bajos y ecualización de precisión, recibe notificaciones si algo falla y desbloquea mejoras VIP de fidelidad HD.
           </p>
           <div class="hero-actions">
-            <a href="#descarga" class="btn btn-primary">Descargar APK v6.0.0</a>
-            <a href="#paneles" class="btn btn-outline">Explorar los 5 Paneles</a>
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">Descargar APK v6.0.0</a>
+            <a href="#privacidad" class="btn btn-outline">Política de Privacidad</a>
           </div>
           <div class="specs-row">
             <div class="spec-box">
-              <strong>31 / 15</strong>
-              <span>Bandas ISO + Paramétrico</span>
+              <strong>5 Paneles</strong>
+              <span>Música, Bajos, EQ, DSP, Ajustes</span>
             </div>
             <div class="spec-box">
-              <strong>20–250 Hz</strong>
-              <span>Sistema Dedicado de Bajos</span>
+              <strong>31 / 15 / 5B</strong>
+              <span>ISO + Paramétrico en Vivo</span>
             </div>
             <div class="spec-box">
-              <strong>AudioFX</strong>
-              <span>Alertas y Protección Activa</span>
+              <strong>100% Local</strong>
+              <span>Sin anuncios ni rastreo</span>
             </div>
           </div>
         </div>
 
         <div class="dsp-preview">
           <div class="dsp-top">
-            <span class="mono" style="font-size:12px;font-weight:700;">SIMULADOR DE CURVA DSP</span>
+            <span class="mono" style="font-size:12px;font-weight:700;">RESPUESTA EN FRECUENCIA DSP</span>
             <span class="dsp-badge mono" id="curveModeLabel">BAJOS + PUNCH</span>
           </div>
           <canvas id="curveCanvas" width="460" height="180" aria-label="Gráfica interactiva de respuesta en frecuencia"></canvas>
@@ -653,59 +705,59 @@
     <section id="paneles">
       <div class="container">
         <div class="section-head">
-          <h2>5 Paneles Organizados para Control Total</h2>
-          <p>Desde la bienvenida guiada con tutorial hasta la calibración fina de subwoofer, ecualizador y diagnóstico del sistema.</p>
+          <h2>Todo lo que Incluye la Aplicación Real</h2>
+          <p>Comienza con una pantalla de bienvenida y un tutorial rápido de 4 pasos antes de entrar a los 5 paneles principales.</p>
         </div>
         <div class="panels-grid">
           <article class="panel-card">
             <span class="panel-num mono">01 • MÚSICA</span>
-            <h3>Reproductor Real</h3>
-            <p>Escaneo automático de tu biblioteca local y carga directa de archivos FLAC, WAV, MP3 y AAC con lectura real de bitrate, favoritos y carátulas.</p>
+            <h3>Reproductor Local Real</h3>
+            <p>Escanea automáticamente la música del teléfono (<span class="mono">MediaStore</span>) o carga pistas <span class="mono">FLAC, WAV, MP3, AAC, OGG</span> mostrando formato, bitrate en kbps, carátulas, búsqueda, favoritas, shuffle y repetir.</p>
           </article>
           <article class="panel-card">
             <span class="panel-num mono">02 • BAJOS</span>
-            <h3>Sistema Subwoofer</h3>
-            <p>Curva en vivo de 20–250 Hz, Sub-Bass profundo, Impacto/Punch, Loudness dinámico, filtro subsónico protector, fase 0°/180° y delay en ms.</p>
+            <h3>Sistema de Bajos</h3>
+            <p>Curva en vivo de <span class="mono">20–250 Hz</span>, Bass Boost, Sub-Bass profundo (<span class="mono">30–80 Hz</span>), Impacto/Punch (<span class="mono">63–85 Hz</span>), Loudness dinámico, filtro subsónico protector, LPF, fase <span class="mono">0°/180°</span> y delay en ms.</p>
           </article>
           <article class="panel-card">
             <span class="panel-num mono">03 • EQ</span>
-            <h3>Ecualizador 31B / 15B</h3>
-            <p>Alterna entre 31 bandas ISO de precisión, 15 bandas rápidas y ecualizador paramétrico de 5 bandas con selector de tipo de filtro y presets.</p>
+            <h3>Ecualizador Profesional</h3>
+            <p>Cambia al instante entre <strong>31 bandas ISO</strong>, <strong>15 bandas rápidas</strong> y <strong>Paramétrico de 5 bandas</strong>, con guardado de presets propios y presets VIP.</p>
           </article>
           <article class="panel-card">
             <span class="panel-num mono">04 • DSP</span>
-            <h3>Procesador Maestro</h3>
-            <p>Medidores L/R, analizador RTA, Preamp, Estéreo, Limitador anti-clipping, Compresor multibanda, crossovers HPF/LPF y Motor de Fidelidad HD.</p>
+            <h3>Procesador Maestro &amp; HD</h3>
+            <p>Medidores <span class="mono">L/R</span>, analizador <span class="mono">RTA</span>, Preamp, Amplitud Estéreo, Balance, Compresor, Limitador anti-clipping, HPF/LPF y Motor VIP de Calidad HD.</p>
           </article>
           <article class="panel-card">
             <span class="panel-num mono">05 • AJUSTES</span>
-            <h3>Diagnóstico y VIP</h3>
-            <p>Centro de diagnóstico en tiempo real con registro de fallos, permisos, estilos visuales, burbuja flotante y desbloqueo discreto VIP Studio.</p>
+            <h3>Diagnóstico, Temas y VIP</h3>
+            <p>Centro de diagnóstico en tiempo real, historial de fallos, permisos, modo ligero, burbuja flotante, estilos visuales y desbloqueo discreto VIP Studio.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="bajos">
+    <section id="funciones">
       <div class="container highlights">
         <div class="highlight-card">
-          <h3>Alertas Inteligentes Cuando Algo Falla</h3>
-          <p style="color:var(--muted);font-size:14px;">Monitoreo continuo para que nunca pierdas audio ni dañes tus bocinas sin saber por qué:</p>
+          <h3>Notificaciones y Alertas Cuando Algo Falla</h3>
+          <p style="color:var(--muted);font-size:14px;">La app vigila la estabilidad de reproducción y te avisa de inmediato con notificaciones y un banner interno:</p>
           <ul class="highlight-list">
-            <li>Notificaciones del sistema y banner interactivo ante errores de lectura o archivos dañados.</li>
-            <li>Avisos inmediatos si falta permiso de música local o de notificaciones.</li>
-            <li>Detección de desconexión de audífonos / Bluetooth y fallos de inicialización AudioFX.</li>
-            <li>Protección anti-clipping con acceso directo para activar el limitador al instante.</li>
+            <li>Error al leer, abrir o reproducir un archivo de audio dañado o sin permiso.</li>
+            <li>Aviso si falta permiso de música local o de notificaciones en Android 13+.</li>
+            <li>Alertas ante desconexión de audífonos/Bluetooth o fallo del motor <span class="mono">AudioFX</span>.</li>
+            <li>Detección de clipping/distorsión con botón directo para activar el limitador.</li>
           </ul>
         </div>
         <div class="highlight-card">
-          <h3>Modo VIP Studio y Calidad Hi-Res</h3>
-          <p style="color:var(--muted);font-size:14px;">Acceso oculto integrado dentro de la app para desbloquear herramientas avanzadas de calidad sonora:</p>
+          <h3>Mejoras VIP de Calidad y Fidelidad Musical</h3>
+          <p style="color:var(--muted);font-size:14px;">Al ingresar tu clave privada VIP dentro de la app se desbloquean módulos avanzados de audio y estética:</p>
           <ul class="highlight-list">
-            <li>Motor Hi-Res Studio con curva audiófila y Calidez Analógica (Tube Warmth).</li>
-            <li>Presencia Vocal, Claridad HD en agudos y Excitador Armónico.</li>
-            <li>Pendientes de crossover de 36 y 48 dB/oct, Compresor avanzado y perfiles SPL / Hairtrick 32Hz.</li>
-            <li>Presets Master VIP y colección ampliada de temas visuales exclusivos.</li>
+            <li><strong>Modo Hi-Res Studio</strong> y <strong>Calidez Analógica (Tube Warmth)</strong>.</li>
+            <li><strong>Presencia Vocal</strong>, <strong>Claridad HD</strong> y <strong>Excitador Armónico</strong>.</li>
+            <li>Compresor con Umbral, Ratio, Attack y Release + pendientes de <span class="mono">36 / 48 dB/oct</span>.</li>
+            <li>Perfiles de subwoofer (<span class="mono">Hairtrick 32Hz</span>, <span class="mono">SPL Competencia</span>, <span class="mono">SQL Audiófilo</span>), presets Master VIP y temas exclusivos.</li>
           </ul>
         </div>
       </div>
@@ -714,25 +766,25 @@
     <section id="capturas">
       <div class="container">
         <div class="section-head">
-          <h2>Vista Previa de la Interfaz</h2>
-          <p>Diseño oscuro de alto contraste optimizado para uso en cabina, audífonos y pantallas de automóvil.</p>
+          <h2>Resumen Visual de los Paneles</h2>
+          <p>Interfaz diseñada en alto contraste para leer rápido desde el tablero del auto o en modo portátil.</p>
         </div>
         <div class="shots-grid">
           <div class="shot-card">
             <div class="mock-screen">
               <div class="mock-header"><span>REPRODUCTOR REAL</span><span class="mono">FLAC • 960 kbps</span></div>
               <div>
-                <div style="font-size:13px;font-weight:700;">Noche de Baile (Bass Mix)</div>
-                <div style="font-size:11px;color:var(--muted);">Bluetooth Car Audio • AudioFX</div>
+                <div style="font-size:13px;font-weight:700;">Pista Local en Reproducción</div>
+                <div style="font-size:11px;color:var(--muted);">Bluetooth Car Audio • AudioFX Activo</div>
               </div>
               <div class="mock-chips">
                 <span class="mock-chip">Cargar Música</span>
                 <span class="mock-chip">Favoritas</span>
-                <span class="mock-chip">VIP Hi-Res</span>
+                <span class="mock-chip">MediaSession</span>
               </div>
             </div>
-            <strong>Panel de Música Real</strong>
-            <span>Lectura de metadatos reales, formato, bitrate y controles DSP rápidos.</span>
+            <strong>Panel MÚSICA</strong>
+            <span>Reproducción en segundo plano, carátulas, formato real y mezcla rápida.</span>
           </div>
 
           <div class="shot-card">
@@ -744,12 +796,13 @@
                 <span style="height:35%"></span><span style="height:20%"></span>
               </div>
               <div class="mock-chips">
-                <span class="mock-chip">Sub-Bass +12dB</span>
-                <span class="mock-chip">Subsónico 28Hz</span>
+                <span class="mock-chip">Sub-Bass</span>
+                <span class="mock-chip">Subsónico</span>
+                <span class="mock-chip">Punch 63-85Hz</span>
               </div>
             </div>
-            <strong>Panel Dedicado de Bajos</strong>
-            <span>Curva 20–250 Hz, Punch, Loudness dinámico, Fase y Alineación Temporal.</span>
+            <strong>Panel BAJOS</strong>
+            <span>Curva subgrave 20–250 Hz, protección infrasónica, fase y delay en ms.</span>
           </div>
 
           <div class="shot-card">
@@ -763,27 +816,27 @@
               <div class="mock-chips">
                 <span class="mock-chip">31 / 15 Bandas</span>
                 <span class="mock-chip">Paramétrico 5B</span>
-                <span class="mock-chip">Tube Warmth</span>
+                <span class="mock-chip">Hi-Res Studio</span>
               </div>
             </div>
-            <strong>Ecualizador &amp; Calidad HD</strong>
-            <span>31 bandas ISO, filtros paramétricos, Hi-Res Studio y Excitador Armónico.</span>
+            <strong>Paneles EQ y DSP</strong>
+            <span>Control multibanda completo, RTA en vivo, Tube Warmth y Claridad HD.</span>
           </div>
 
           <div class="shot-card">
             <div class="mock-screen">
               <div class="mock-header"><span>DIAGNÓSTICO ACTIVO</span><span class="mono">24/7</span></div>
               <div style="background:rgba(255,23,43,0.14);border:1px solid var(--primary);border-radius:8px;padding:8px;font-size:11px;">
-                <strong style="display:block;color:var(--accent);">Alerta de Sistema</strong>
-                Notificación inmediata si falla un archivo, permiso o hay clipping.
+                <strong style="display:block;color:var(--accent);">Notificación de Fallos</strong>
+                Aviso automático ante archivos dañados, permisos o clipping.
               </div>
               <div class="mock-chips">
                 <span class="mock-chip">AudioFX OK</span>
                 <span class="mock-chip">Acceso VIP</span>
               </div>
             </div>
-            <strong>Alertas y Ajustes Pro</strong>
-            <span>Notificaciones de fallos, temas exclusivos y bienvenida con tutorial guiado.</span>
+            <strong>Panel AJUSTES</strong>
+            <span>Historial de alertas, estilos visuales, burbuja flotante y bienvenida.</span>
           </div>
         </div>
       </div>
@@ -792,13 +845,58 @@
     <section id="descarga">
       <div class="container">
         <div class="cta-box">
-          <h2>Listo para Instalar en Android</h2>
+          <h2>Descargar CAR AUDIO DSP PRO (APK)</h2>
           <p>
-            Descarga el paquete APK generado desde la pestaña de Releases o Actions del repositorio en GitHub y disfruta de sonido limpio con potencia real.
+            Descarga el instalador oficial compilado para Android (versión 6.0.0, compatible con Android 7.0 o superior) directamente desde GitHub Releases o desde las compilaciones de GitHub Actions.
           </p>
           <div class="hero-actions" style="justify-content:center;margin-bottom:0;">
-            <a href="#inicio" class="btn btn-primary" onclick="alert('Publica este repositorio en GitHub y habilita GitHub Actions / Releases para enlazar aquí tu APK compilado.'); return false;">Descargar CarAudio-DSP-Pro-v6.0.0.apk</a>
-            <a href="#paneles" class="btn btn-outline">Ver Especificaciones</a>
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">
+              Descargar APK Directo (v6.0.0)
+            </a>
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases" target="_blank" rel="noopener" class="btn btn-outline">
+              Ver Todos los Releases en GitHub
+            </a>
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/actions" target="_blank" rel="noopener" class="btn btn-outline">
+              Ver Builds en GitHub Actions
+            </a>
+          </div>
+          <div class="install-steps">
+            <strong>Cómo instalar el archivo APK en tu teléfono Android:</strong>
+            1. Pulsa <em>Descargar APK Directo</em> (si aún no has creado un Release con etiqueta <span class="mono">v6.0.0</span>, abre <em>Ver Builds en GitHub Actions</em> y descarga el artefacto <span class="mono">CarAudio-DSP-Pro-v6.0.0-APK</span>).<br />
+            2. Abre el archivo descargado desde tu carpeta de Descargas y permite la instalación desde tu navegador o gestor de archivos.<br />
+            3. Al abrir la app, sigue la Bienvenida y el Tutorial rápido para conceder permiso de música local y notificaciones.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacidad">
+      <div class="container">
+        <div class="privacy-box">
+          <div class="section-head" style="margin-bottom:24px;">
+            <h2>Política de Privacidad</h2>
+            <p>Transparencia total: CAR AUDIO DSP PRO procesa tu música de manera 100% local en tu teléfono sin recopilar ni vender datos.</p>
+          </div>
+          <div class="privacy-grid">
+            <div class="privacy-item">
+              <h3>Sin Cuentas ni Servidores</h3>
+              <p>No pedimos registro ni enviamos tu biblioteca musical, historial de escucha o datos personales a ningún servidor externo.</p>
+            </div>
+            <div class="privacy-item">
+              <h3>Permisos Reales de Audio</h3>
+              <p>Solo usamos permisos de música local, AudioFX, servicio multimedia, notificaciones de fallos, micrófono opcional para RTA y burbuja flotante opcional.</p>
+            </div>
+            <div class="privacy-item">
+              <h3>Ajustes en tu Dispositivo</h3>
+              <p>Tus curvas de EQ, bajos, temas y favoritas se guardan localmente en tu teléfono y se borran al restablecer o desinstalar la app.</p>
+            </div>
+            <div class="privacy-item">
+              <h3>Contacto Oficial</h3>
+              <p>Para soporte o consultas de privacidad escribe a <a href="mailto:luismiguel38338@gmail.com" style="color:var(--accent);font-weight:700;">luismiguel38338@gmail.com</a>.</p>
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <a href="privacidad.html" class="btn btn-outline">Leer Política de Privacidad Completa</a>
           </div>
         </div>
       </div>
@@ -807,7 +905,10 @@
 
   <footer>
     <div class="container">
-      CAR AUDIO DSP PRO • Versión 6.0.0 • Página oficial de presentación del proyecto
+      CAR AUDIO DSP PRO v6.0.0 •
+      <a href="privacidad.html">Política de Privacidad</a> •
+      <a href="https://github.com/luismiguel38338-cmd/Car-audio-" target="_blank" rel="noopener">GitHub</a> •
+      <a href="mailto:luismiguel38338@gmail.com">Contacto</a>
     </div>
   </footer>
 
@@ -836,7 +937,6 @@
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      // Grid
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
       for (let i = 1; i < 4; i++) {
@@ -847,7 +947,6 @@
         ctx.stroke();
       }
 
-      // 0 dB center line
       const midY = h * 0.56;
       ctx.strokeStyle = 'rgba(255, 23, 43, 0.35)';
       ctx.beginPath();
@@ -855,7 +954,6 @@
       ctx.lineTo(w, midY);
       ctx.stroke();
 
-      // Response points across log freq 20Hz -> 20kHz
       const pts = [];
       const steps = 60;
       for (let i = 0; i <= steps; i++) {
