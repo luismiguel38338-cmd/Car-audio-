@@ -70,46 +70,51 @@ fun CarAudioSplashScreen(
     onEnterApp: () -> Unit,
     onSetDontShowAgain: (Boolean) -> Unit,
     initialDontShowAgain: Boolean = false,
+    liteVisuals: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var dontShowAgain by remember { mutableStateOf(initialDontShowAgain) }
-    var bootProgress by remember { mutableFloatStateOf(0.15f) }
-    var bootStage by remember { mutableStateOf("Inicializando motor Rojo Studio...") }
+    var bootProgress by remember { mutableFloatStateOf(0.25f) }
+    var bootStage by remember { mutableStateOf("Iniciando motor Rojo Studio v6.0...") }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "crimson_dial")
-    val sweepAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(animation = tween(2200, easing = LinearEasing)),
-        label = "sweep"
-    )
+    val sweepAngle = if (liteVisuals) {
+        45f
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "crimson_dial")
+        val anim by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(animation = tween(2200, easing = LinearEasing)),
+            label = "sweep"
+        )
+        anim
+    }
 
     LaunchedEffect(Unit) {
         onStartSound()
-        bootProgress = 0.45f
-        bootStage = "Cargando ecualizador de audio en vivo..."
-        delay(350)
-        bootProgress = 0.80f
-        bootStage = "Conectando música local y YouTube..."
-        delay(350)
+        bootProgress = 0.65f
+        bootStage = "Enlazando AudioFX y biblioteca..."
+        delay(220)
         bootProgress = 1.0f
-        bootStage = "Listo • CAR AUDIO DSP PRO v5.0.0"
-        delay(300)
+        bootStage = "Listo • CAR AUDIO DSP PRO v6.0"
+        delay(180)
         onEnterApp()
+    }
+
+    val bgBrush = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFF0A0203),
+                Color(0xFF1A0508),
+                Color(0xFF070102)
+            )
+        )
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF0A0203),
-                        Color(0xFF1A0508),
-                        Color(0xFF070102)
-                    )
-                )
-            )
+            .background(bgBrush)
             .testTag("car_audio_splash_screen"),
         contentAlignment = Alignment.Center
     ) {
@@ -121,7 +126,7 @@ fun CarAudioSplashScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.size(185.dp),
+                modifier = Modifier.size(180.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -175,13 +180,13 @@ fun CarAudioSplashScreen(
                     contentDescription = "Crimson Studio Logo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(106.dp)
+                        .size(104.dp)
                         .clip(CircleShape)
                         .border(2.dp, Color(0xFFFF172B), CircleShape)
                 )
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
             Text(
                 text = "CAR AUDIO DSP PRO",
@@ -196,7 +201,7 @@ fun CarAudioSplashScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "EDICIÓN TODO ROJO • v5.0.0",
+                text = "EDICIÓN TODO ROJO • v6.0",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -205,7 +210,7 @@ fun CarAudioSplashScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
             LinearProgressIndicator(
                 progress = { bootProgress },
@@ -217,7 +222,7 @@ fun CarAudioSplashScreen(
                 trackColor = Color(0xFF2B0B10),
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = bootStage,
@@ -227,7 +232,7 @@ fun CarAudioSplashScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Button(
                 onClick = onEnterApp,

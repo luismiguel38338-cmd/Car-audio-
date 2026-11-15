@@ -1,7 +1,9 @@
 package com.example.model
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 
+@Immutable
 data class AudioTrackItem(
     val id: String,
     val title: String,
@@ -12,7 +14,8 @@ data class AudioTrackItem(
     val frequencyDescription: String = "Audio del Usuario",
     val isSynthesized: Boolean = false,
     val customUri: Uri? = null,
-    val albumArtUri: Uri? = null
+    val albumArtUri: Uri? = null,
+    val isFavorite: Boolean = false
 )
 
 enum class TrackCategory {
@@ -24,15 +27,51 @@ enum class TrackCategory {
     USER_CUSTOM
 }
 
+enum class RepeatMode(val label: String) {
+    OFF("Normal"),
+    ALL("Repetir Todo"),
+    ONE("Repetir 1")
+}
+
+enum class OutputKind {
+    SPEAKER,
+    WIRED_HEADSET,
+    BLUETOOTH,
+    USB_AUDIO,
+    OTHER
+}
+
+@Immutable
+data class OutputDeviceStatus(
+    val label: String = "Altavoz del Teléfono",
+    val kind: OutputKind = OutputKind.SPEAKER
+)
+
+enum class AudioSessionTarget(val label: String, val detail: String) {
+    INTERNAL_PLAYER(
+        "AudioFX Directo (Reproductor Local)",
+        "Procesamiento hardware 100% garantizado en tu música cargada"
+    ),
+    EXTERNAL_APP(
+        "Sesión Externa Detectada",
+        "AudioFX enlazado a la sesión compartida por el reproductor externo"
+    ),
+    GLOBAL_MIX_BEST_EFFORT(
+        "Sesión Global (Sistema)",
+        "Modo compatibilidad: Android y YouTube pueden restringir efectos externos según el fabricante"
+    )
+}
+
+@Immutable
 data class DspSettings(
     // Master DSP State
     val dspMasterEnabled: Boolean = true,
     val inputGainDb: Float = 0.0f, // -12 to +12 dB
     val outputGainDb: Float = 0.0f, // -12 to +12 dB
-    val preampDb: Float = 0.0f, // -12 to +12 dB
-    val bassGainDb: Float = 2.0f, // -12 to +12 dB
-    val midGainDb: Float = 0.0f, // -12 to +12 dB
-    val trebleGainDb: Float = 1.5f, // -12 to +12 dB
+    val preampDb: Float = 0.0f, // -12 to +18 dB
+    val bassGainDb: Float = 2.0f, // -18 to +18 dB
+    val midGainDb: Float = 0.0f, // -18 to +18 dB
+    val trebleGainDb: Float = 1.5f, // -18 to +18 dB
     val headroomDb: Float = 6.0f,
     val sampleRate: Int = 48000,
 
@@ -58,7 +97,7 @@ data class DspSettings(
 
     // Audio FX Controls
     val bassBoostEnabled: Boolean = true,
-    val bassBoostDb: Float = 4.0f, // 0 to 18 dB
+    val bassBoostDb: Float = 4.0f, // 0 to 24 dB
     val bassBoostFreqHz: Float = 45f, // 35Hz, 45Hz, 55Hz
 
     val subBassEnabled: Boolean = false,
@@ -68,7 +107,7 @@ data class DspSettings(
     val loudnessEnabled: Boolean = false,
     val loudnessGainDb: Float = 4.0f,
 
-    val stereoWidthPercent: Float = 100f, // 0 to 200%
+    val stereoWidthPercent: Float = 100f, // 100 to 250%
     val balancePan: Float = 0.0f, // -1.0 (Left) to +1.0 (Right)
 
     val compressorEnabled: Boolean = false,
@@ -92,15 +131,16 @@ data class DspSettings(
 
     val phaseDegrees: Int = 0, // 0 or 180
     val timeAlignmentMs: Float = 1.2f, // 0 to 15 ms
-    val masterGainDb: Float = 0f, // -24 to +6 dB
+    val masterGainDb: Float = 0f, // -24 to +18 dB
 
     // 8-band EQ (backward compatibility)
     val eqBands: List<Float> = listOf(4.0f, 2.0f, 0.0f, -1.0f, 1.0f, 3.0f, 4.5f, 5.0f),
     val activePresetName: String = "Flat"
 )
 
+@Immutable
 data class AmpTelemetry(
-    val voltage: Float? = null, // Null indicates N/A (no real OBD/CAN sensor)
+    val voltage: Float? = null,
     val isVoltageAvailable: Boolean = false,
     val temperatureC: Float? = null,
     val outputPowerWatts: Int = 0,
@@ -114,6 +154,7 @@ data class AmpTelemetry(
     val isPlantaConnected: Boolean = false
 )
 
+@Immutable
 data class RtaBand(
     val label: String,
     val freqHz: Int,
@@ -121,33 +162,32 @@ data class RtaBand(
     val peakDb: Float
 )
 
-// Multichannel 4-Way Crossover Routing Model
 enum class CrossoverFilterType(val label: String) {
     BUTTERWORTH("Butterworth"),
     LINKWITZ_RILEY("Linkwitz-Riley")
 }
 
+@Immutable
 data class DspChannel(
     val id: Int,
     val name: String,
     val typeName: String,
     val hpfHz: Float,
-    val hpfSlopeDb: Int, // 12, 24, 48 dB/oct
+    val hpfSlopeDb: Int,
     val hpfEnabled: Boolean,
     val hpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
     val lpfHz: Float,
     val lpfSlopeDb: Int,
     val lpfEnabled: Boolean,
     val lpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
-    val gainDb: Float, // -24 to +12 dB
+    val gainDb: Float,
     val phaseInverted: Boolean = false,
-    val delayMs: Float = 0.0f, // 0 to 25 ms
-    val delayCm: Float = delayMs * 34.3f, // Distance in cm = delayMs * 34.3
+    val delayMs: Float = 0.0f,
+    val delayCm: Float = delayMs * 34.3f,
     val isMuted: Boolean = false,
     val isSolo: Boolean = false,
-    // Per-channel Limiter & Clipping
     val limiterEnabled: Boolean = true,
-    val limiterThresholdDb: Float = -1.0f, // -24 to 0 dBFS
+    val limiterThresholdDb: Float = -1.0f,
     val limiterAttackMs: Float = 5.0f,
     val limiterReleaseMs: Float = 50.0f,
     val gainReductionDb: Float = 0.0f,
@@ -162,10 +202,11 @@ enum class AudioSourceMode(val label: String, val isReal: Boolean) {
     SIMULATED_DEMO("Modo Simulación Demo", false)
 }
 
+@Immutable
 data class OscilloscopeState(
     val isRunning: Boolean = true,
     val isFrozen: Boolean = false,
-    val timebaseMs: Float = 2.0f, // 0.5ms to 10ms per div
+    val timebaseMs: Float = 2.0f,
     val triggerLevel: Float = 0.0f,
     val triggerAuto: Boolean = true,
     val isClippingDetected: Boolean = false,
@@ -179,6 +220,7 @@ enum class AutoTuneTarget(val label: String, val description: String) {
     SQ_AUDIOPHILE("Sound Quality (SQ Audiophile)", "Escenario acústico suave, graves articulados y extensión de armónicos para fidelidad de estudio.")
 }
 
+@Immutable
 data class AutoTuneState(
     val isMeasuring: Boolean = false,
     val progress: Float = 0f,
@@ -201,8 +243,9 @@ enum class SplSpeed(val label: String) {
     SLOW("Lento (1000 ms)")
 }
 
+@Immutable
 data class SplCalibrationSettings(
-    val micOffsetDb: Float = 0.0f, // -20dB to +20dB
+    val micOffsetDb: Float = 0.0f,
     val weighting: SplWeighting = SplWeighting.C_WEIGHTING,
     val speed: SplSpeed = SplSpeed.FAST,
     val isCalibratedMic: Boolean = false
@@ -215,6 +258,7 @@ enum class HardwareConnectionType(val label: String, val isRealHardware: Boolean
     SIMULATOR_DEMO("Modo Demo / Simulación Offline", false)
 }
 
+@Immutable
 data class HardwareBridgeState(
     val isConnected: Boolean = false,
     val connectionType: HardwareConnectionType = HardwareConnectionType.DSP_INTERNAL,
@@ -225,8 +269,9 @@ data class HardwareBridgeState(
     val lastSyncTime: Long = 0L
 )
 
+@Immutable
 data class DspFullProfileJson(
-    val appVersion: String = "2.0",
+    val appVersion: String = "6.0",
     val profileName: String,
     val description: String,
     val timestamp: Long = System.currentTimeMillis(),
@@ -245,6 +290,7 @@ enum class ToneMode(val label: String) {
     WHITE_NOISE("Ruido Blanco")
 }
 
+@Immutable
 data class SplRunState(
     val isRunning: Boolean = false,
     val timeRemainingSeconds: Int = 30,
@@ -258,6 +304,7 @@ data class SplRunState(
     val history: List<SplRecord> = runHistory
 )
 
+@Immutable
 data class SplRecord(
     val id: Long,
     val peakDb: Float,
@@ -266,10 +313,10 @@ data class SplRecord(
     val timeString: String
 )
 
+@Immutable
 data class DspPreset(
     val name: String,
     val description: String,
     val dspSettings: DspSettings,
     val isUserCreated: Boolean = false
 )
-

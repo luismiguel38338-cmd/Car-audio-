@@ -1,5 +1,7 @@
 package com.example.model
 
+import androidx.compose.runtime.Immutable
+
 enum class ParametricFilterType(val label: String) {
     PEAKING("Campana (Peaking)"),
     LOW_SHELF("Low Shelf"),
@@ -7,6 +9,7 @@ enum class ParametricFilterType(val label: String) {
     NOTCH("Filtro Notch")
 }
 
+@Immutable
 data class ParametricBand(
     val id: Int,
     val enabled: Boolean = true,
@@ -16,6 +19,7 @@ data class ParametricBand(
     val filterType: ParametricFilterType = ParametricFilterType.PEAKING
 )
 
+@Immutable
 data class EqualizerSettings(
     val isEnabled: Boolean = true,
     val masterGainDb: Float = 0.0f, // -12 to +12 dB
@@ -70,6 +74,7 @@ data class EqualizerSettings(
     }
 }
 
+@Immutable
 data class EqPresetItem(
     val name: String,
     val description: String,

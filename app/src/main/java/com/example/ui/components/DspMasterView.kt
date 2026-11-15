@@ -1,9 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
@@ -39,9 +36,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -80,6 +79,7 @@ fun DspMasterView(
     onLimiterCeilingChanged: (Float) -> Unit,
     onHpfChanged: (Boolean, Float) -> Unit,
     onLpfChanged: (Boolean, Float) -> Unit,
+    liteVisuals: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val dspEnabled = dspSettings.dspMasterEnabled
@@ -94,8 +94,8 @@ fun DspMasterView(
         contentPadding = PaddingValues(vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. MASTER DSP POWER
-        item {
+        // 1. MASTER DSP POWER & HARDWARE SPECTRUM
+        item(key = "dsp_master_header", contentType = "header") {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -207,42 +207,50 @@ fun DspMasterView(
                         }
                     }
 
-                    // Compact Real-Time Spectrum Visualizer
+                    // Zero-Allocation Cached Real-Time Spectrum Visualizer
                     if (rtaBands.isNotEmpty()) {
+                        val step = if (liteVisuals) 2 else 1
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(72.dp)
+                                .height(if (liteVisuals) 56.dp else 72.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(theme.backgroundColor)
                                 .padding(horizontal = 6.dp, vertical = 6.dp)
-                        ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                val count = rtaBands.size.coerceAtLeast(1)
-                                val spacing = 2.dp.toPx()
-                                val barW = ((size.width - spacing * (count - 1)) / count).coerceAtLeast(2f)
-                                rtaBands.forEachIndexed { idx, band ->
-                                    val norm = ((band.levelDb + 60f) / 60f).coerceIn(0.05f, 1f)
-                                    val bh = size.height * norm
-                                    val x = idx * (barW + spacing)
-                                    drawRoundRect(
-                                        brush = Brush.verticalGradient(
-                                            listOf(theme.primaryColor, theme.accentColor.copy(alpha = 0.4f))
-                                        ),
-                                        topLeft = Offset(x, size.height - bh),
-                                        size = Size(barW, bh),
-                                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                                .drawWithCache {
+                                    val barBrush = Brush.verticalGradient(
+                                        listOf(theme.primaryColor, theme.accentColor.copy(alpha = 0.4f))
                                     )
+                                    val corner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                                    val spacing = 2.dp.toPx()
+                                    onDrawBehind {
+                                        val barCount = ((rtaBands.size + step - 1) / step).coerceAtLeast(1)
+                                        val barW = ((size.width - spacing * (barCount - 1)) / barCount).coerceAtLeast(2f)
+                                        var drawIdx = 0
+                                        var i = 0
+                                        while (i < rtaBands.size) {
+                                            val norm = ((rtaBands[i].levelDb + 60f) / 60f).coerceIn(0.05f, 1f)
+                                            val bh = size.height * norm
+                                            val x = drawIdx * (barW + spacing)
+                                            drawRoundRect(
+                                                brush = barBrush,
+                                                topLeft = Offset(x, size.height - bh),
+                                                size = Size(barW, bh),
+                                                cornerRadius = corner
+                                            )
+                                            drawIdx++
+                                            i += step
+                                        }
+                                    }
                                 }
-                            }
-                        }
+                        )
                     }
                 }
             }
         }
 
         // 2. POTENCIA & TONALIDAD EN TIEMPO REAL
-        item {
+        item(key = "dsp_tonal_stage", contentType = "card") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -274,7 +282,7 @@ fun DspMasterView(
         }
 
         // 3. BASS BOOST, ESPACIALIZADOR Y BALANCE L-R
-        item {
+        item(key = "dsp_bass_stereo", contentType = "card") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -340,7 +348,7 @@ fun DspMasterView(
         }
 
         // 4. LIMITADOR ANTI-CLIP & COMPRESOR HARDWARE
-        item {
+        item(key = "dsp_dynamics", contentType = "card") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -385,7 +393,7 @@ fun DspMasterView(
                                     modifier = Modifier.scale(0.8f)
                                 )
                             }
-                            Text("Control automático de picos", fontSize = 9.sp, color = theme.textSecondaryColor)
+                            Text("Control multibanda sin cortes", fontSize = 9.sp, color = theme.textSecondaryColor)
                         }
 
                         Column(
@@ -430,7 +438,7 @@ fun DspMasterView(
         }
 
         // 5. FILTROS DE CORTE HPF & LPF
-        item {
+        item(key = "dsp_crossovers", contentType = "card") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -444,7 +452,7 @@ fun DspMasterView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Bolt, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("FILTROS DE CORTE (HPF / LPF)", fontSize = 12.sp, fontWeight = FontWeight.Black, color = theme.textColor)
+                        Text("FILTROS DE CORTE BUTTERWORTH (HPF / LPF)", fontSize = 11.5.sp, fontWeight = FontWeight.Black, color = theme.textColor)
                     }
 
                     Row(
@@ -521,6 +529,16 @@ fun DspSliderRow(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val formatted = remember(value, unit) {
+        if (unit == "%" || unit == "Hz") {
+            "${value.roundToInt()} $unit"
+        } else {
+            val rounded = (value * 10f).roundToInt() / 10f
+            val sign = if (rounded > 0f && unit == "dB") "+" else ""
+            "$sign$rounded $unit"
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -544,12 +562,10 @@ fun DspSliderRow(
                         .clickable(enabled = enabled) {
                             onValueChange(0f.coerceIn(range.start, range.endInclusive))
                         }
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text("0", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = if (enabled) theme.primaryColor else Color.DarkGray)
                 }
-                val formatted = if (unit == "%" || unit == "Hz") "${value.roundToInt()} $unit"
-                else "${if (value > 0 && unit == "dB") "+" else ""}${String.format("%.1f", value)} $unit"
                 Text(
                     text = formatted,
                     fontSize = 11.sp,

@@ -1,6 +1,6 @@
 {
   "name": "CAR AUDIO DSP PRO",
-  "description": "v5.0.0 Edición Todo Rojo: Reproductor y ecualizador de música en tiempo real con carga directa de música del teléfono en el mismo panel, motor DSP hardware, pantalla virtual flotante para YouTube y nuevo logo Crimson Studio.",
+  "description": "v6.0.0 Edición Todo Rojo: Reproductor y procesador DSP de alta velocidad y alta fidelidad con 31/15 bandas ISO, paramétrico 5B, carátulas con caché LRU, MediaSession, Bluetooth/auriculares y modo ligero.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

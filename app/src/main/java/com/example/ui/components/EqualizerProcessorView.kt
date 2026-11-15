@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -79,6 +79,7 @@ import com.example.model.EqualizerSettings
 import com.example.model.ParametricFilterType
 import com.example.service.FloatingEqualizerService
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.pow
 
@@ -201,7 +202,7 @@ fun EqualizerProcessorView(
                         )
                     }
                     Text(
-                        text = "v5.0.0 PRO",
+                        text = "v6.0 PRO",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = theme.primaryColor
@@ -209,7 +210,7 @@ fun EqualizerProcessorView(
                 }
 
                 Text(
-                    text = "Todos los ajustes de bandas y filtros se aplican en tiempo real a tu música cargada y a YouTube.",
+                    text = "Todos los ajustes de bandas y filtros se aplican en tiempo real a tu música cargada. En YouTube y apps externas depende de la sesión compartida que permita Android.",
                     fontSize = 11.sp,
                     color = theme.textSecondaryColor,
                     lineHeight = 15.sp
@@ -855,72 +856,110 @@ fun EqCurveCanvas31(
     theme: CarAudioThemeType,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val midY = h / 2f
-
-        val dbSteps = listOf(0.1f, 0.3f, 0.5f, 0.7f, 0.9f)
-        dbSteps.forEach { yRatio ->
-            val y = h * yRatio
-            drawLine(
-                color = if (yRatio == 0.5f) theme.primaryColor.copy(alpha = 0.45f) else theme.cardColor,
-                start = Offset(0f, y),
-                end = Offset(w, y),
-                strokeWidth = if (yRatio == 0.5f) 1.5f else 1f
-            )
-        }
-
+    // Precompute normalized gain samples only when EQ values actually change
+    val normalizedGains = remember(eq.isEnabled, eq.bands31, eq.parametricBands, eq.masterGainDb) {
         if (!eq.isEnabled) {
-            drawLine(Color.Gray, Offset(0f, midY), Offset(w, midY), strokeWidth = 2.dp.toPx())
-            return@Canvas
-        }
+            emptyList()
+        } else {
+            val freqs = EqualizerSettings.FREQUENCIES_HZ_31
+            val numPoints = 72
+            val minLog = log10(20.0)
+            val maxLog = log10(20000.0)
+            val log2 = log10(2.0)
 
-        val freqs = EqualizerSettings.FREQUENCIES_HZ_31
-        val numPoints = 90
-        val minLog = log10(20.0)
-        val maxLog = log10(20000.0)
+            List(numPoints + 1) { i ->
+                val ratio = i.toFloat() / numPoints
+                val logFreq = minLog + (maxLog - minLog) * ratio
+                val freqHz = 10.0.pow(logFreq)
 
-        val curvePath = Path()
-        val fillPath = Path()
-        fillPath.moveTo(0f, midY)
+                var totalGain = eq.masterGainDb
+                var closestIdx = 0
+                var minDist = Double.MAX_VALUE
+                for (bIdx in freqs.indices) {
+                    val d = abs(log10(freqHz / freqs[bIdx].toDouble()))
+                    if (d < minDist) {
+                        minDist = d
+                        closestIdx = bIdx
+                    }
+                }
+                // Smooth blend around closest ISO 1/3-octave band
+                totalGain += eq.bands31.getOrElse(closestIdx) { 0f }
 
-        for (i in 0..numPoints) {
-            val ratio = i.toFloat() / numPoints
-            val logFreq = minLog + (maxLog - minLog) * ratio
-            val freqHz = 10.0.pow(logFreq).toFloat()
+                for (pb in eq.parametricBands) {
+                    if (!pb.enabled || abs(pb.gainDb) < 0.05f) continue
+                    val octDist = log10(freqHz / pb.freqHz.coerceIn(20f, 20000f).toDouble()) / log2
+                    val sigma = (0.65 / pb.q.coerceIn(0.3f, 10.0f)).coerceAtLeast(0.08)
+                    val w = when (pb.filterType) {
+                        ParametricFilterType.PEAKING -> exp(-0.5 * (abs(octDist) / sigma).pow(2.0))
+                        ParametricFilterType.NOTCH -> -exp(-0.5 * (abs(octDist) / (sigma * 0.6)).pow(2.0))
+                        ParametricFilterType.LOW_SHELF -> 1.0 / (1.0 + exp(3.2 * pb.q.coerceIn(0.5f, 2.5f) * octDist))
+                        ParametricFilterType.HIGH_SHELF -> 1.0 / (1.0 + exp(-3.2 * pb.q.coerceIn(0.5f, 2.5f) * octDist))
+                    }
+                    totalGain += (pb.gainDb * w).toFloat()
+                }
 
-            var totalGain = eq.masterGainDb
-            freqs.forEachIndexed { bandIdx, bFreq ->
-                val bandGain = eq.bands31.getOrElse(bandIdx) { 0f }
-                val octaveDist = abs(log10((freqHz / bFreq).toDouble())) / log10(2.0)
-                val weight = (1.0 - octaveDist * 1.5).coerceIn(0.0, 1.0).toFloat()
-                totalGain += bandGain * weight
-            }
-
-            eq.parametricBands.filter { it.enabled }.forEach { pb ->
-                val paramDist = abs(log10((freqHz / pb.freqHz).toDouble())) / log10(2.0)
-                val paramWeight = (1.0 - (paramDist * pb.q)).coerceIn(0.0, 1.0).toFloat()
-                totalGain += pb.gainDb * paramWeight
-            }
-
-            val normY = (1.0f - (totalGain / 15f)) / 2f
-            val canvasY = (normY * h).coerceIn(4f, h - 4f)
-            val canvasX = ratio * w
-
-            if (i == 0) {
-                curvePath.moveTo(canvasX, canvasY)
-                fillPath.lineTo(canvasX, canvasY)
-            } else {
-                curvePath.lineTo(canvasX, canvasY)
-                fillPath.lineTo(canvasX, canvasY)
+                (1.0f - (totalGain / 15f)) / 2f
             }
         }
-
-        fillPath.lineTo(w, midY)
-        fillPath.close()
-
-        drawPath(fillPath, Brush.verticalGradient(listOf(theme.primaryColor.copy(alpha = 0.3f), Color.Transparent)))
-        drawPath(curvePath, Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor, theme.primaryColor)), style = Stroke(width = 2.6.dp.toPx()))
     }
+
+    Box(
+        modifier = modifier.drawWithCache {
+            val w = size.width
+            val h = size.height
+            val midY = h / 2f
+            val gridYs = floatArrayOf(0.1f * h, 0.3f * h, 0.5f * h, 0.7f * h, 0.9f * h)
+
+            val fillBrush = Brush.verticalGradient(
+                listOf(theme.primaryColor.copy(alpha = 0.3f), Color.Transparent)
+            )
+            val strokeBrush = Brush.horizontalGradient(
+                listOf(theme.primaryColor, theme.accentColor, theme.primaryColor)
+            )
+
+            val curvePath = Path()
+            val fillPath = Path()
+
+            if (eq.isEnabled && normalizedGains.isNotEmpty()) {
+                fillPath.moveTo(0f, midY)
+                val lastIdx = (normalizedGains.size - 1).coerceAtLeast(1)
+                normalizedGains.forEachIndexed { i, normY ->
+                    val canvasX = (i.toFloat() / lastIdx) * w
+                    val canvasY = (normY * h).coerceIn(4f, h - 4f)
+                    if (i == 0) {
+                        curvePath.moveTo(canvasX, canvasY)
+                        fillPath.lineTo(canvasX, canvasY)
+                    } else {
+                        curvePath.lineTo(canvasX, canvasY)
+                        fillPath.lineTo(canvasX, canvasY)
+                    }
+                }
+                fillPath.lineTo(w, midY)
+                fillPath.close()
+            }
+
+            val strokeStyle = Stroke(width = 2.6.dp.toPx())
+            val bypassWidth = 2.dp.toPx()
+
+            onDrawBehind {
+                for (idx in gridYs.indices) {
+                    val y = gridYs[idx]
+                    val isCenter = idx == 2
+                    drawLine(
+                        color = if (isCenter) theme.primaryColor.copy(alpha = 0.45f) else theme.cardColor,
+                        start = Offset(0f, y),
+                        end = Offset(w, y),
+                        strokeWidth = if (isCenter) 1.5f else 1f
+                    )
+                }
+
+                if (!eq.isEnabled) {
+                    drawLine(Color.Gray, Offset(0f, midY), Offset(w, midY), strokeWidth = bypassWidth)
+                } else {
+                    drawPath(fillPath, fillBrush)
+                    drawPath(curvePath, strokeBrush, style = strokeStyle)
+                }
+            }
+        }
+    )
 }

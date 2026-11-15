@@ -1,21 +1,19 @@
 # Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Keep rules for Car Audio DSP Pro v6.0 release optimization & reflection safety.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Preserve entry points, foreground services & broadcast receivers
+-keep class com.example.MainActivity { *; }
+-keep class com.example.service.CarAudioPlaybackService { *; }
+-keep class com.example.service.FloatingEqualizerService { *; }
+-keep class com.example.receiver.AudioSessionReceiver { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve ViewModel constructors invoked by ViewModelProvider
+-keepclassmembers class * extends androidx.lifecycle.AndroidViewModel {
+    public <init>(android.app.Application);
+}
+
+# Preserve AudioModels & EqualizerModels data classes
+-keep class com.example.model.** { *; }

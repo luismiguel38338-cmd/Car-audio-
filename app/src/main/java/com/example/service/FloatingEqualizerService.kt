@@ -318,7 +318,7 @@ class FloatingEqualizerService : Service() {
         }
 
         val titleTv = TextView(this).apply {
-            text = "YOUTUBE LIVE EQ • v5.0.0"
+            text = "YOUTUBE LIVE EQ • v6.0.0"
             setTextColor(COLOR_SCARLET)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD

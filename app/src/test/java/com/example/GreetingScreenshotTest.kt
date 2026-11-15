@@ -43,12 +43,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.CarAudioEngine
+import com.example.model.AudioSessionTarget
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqualizerSettings
+import com.example.model.OutputDeviceStatus
+import com.example.model.OutputKind
+import com.example.model.RepeatMode
 import com.example.model.TrackCategory
+import com.example.ui.components.AppSettingsView
 import com.example.ui.components.CarAudioSplashScreen
 import com.example.ui.components.DspMasterView
 import com.example.ui.components.EqualizerProcessorView
@@ -80,7 +85,8 @@ class GreetingScreenshotTest {
       artist = "DJ Studio Red",
       album = "Música del Teléfono",
       durationSeconds = 214,
-      category = TrackCategory.USER_CUSTOM
+      category = TrackCategory.USER_CUSTOM,
+      isFavorite = true
     ),
     AudioTrackItem(
       id = "media_102",
@@ -170,7 +176,7 @@ class GreetingScreenshotTest {
                     fontFamily = FontFamily.Monospace
                   )
                   Text(
-                    text = "TODO ROJO EN VIVO • YouTube & Música",
+                    text = "v6.0 • Bluetooth Car Audio",
                     color = theme.primaryColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
@@ -179,7 +185,7 @@ class GreetingScreenshotTest {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                   Box(
                     modifier = Modifier
-                      .size(34.dp)
+                      .size(36.dp)
                       .clip(CircleShape)
                       .background(theme.cardColor)
                       .border(1.dp, theme.primaryColor, CircleShape),
@@ -194,7 +200,7 @@ class GreetingScreenshotTest {
                   }
                   Box(
                     modifier = Modifier
-                      .size(34.dp)
+                      .size(36.dp)
                       .clip(CircleShape)
                       .background(theme.primaryColor.copy(alpha = 0.22f))
                       .border(1.dp, theme.primaryColor, CircleShape),
@@ -275,7 +281,11 @@ class GreetingScreenshotTest {
           onBassBoostChange = {},
           onPreampChange = {},
           onQuickBandChange = { _, _ -> },
-          onQuickPresetSelect = {}
+          onQuickPresetSelect = {},
+          shuffleEnabled = true,
+          repeatMode = RepeatMode.ALL,
+          outputDeviceStatus = OutputDeviceStatus("Bluetooth Car Audio", OutputKind.BLUETOOTH),
+          sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
         )
       }
     }
@@ -355,5 +365,29 @@ class GreetingScreenshotTest {
     }
     composeTestRule.mainClock.advanceTimeBy(120)
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/04_splash_logo.png")
+  }
+
+  @Test
+  fun capture_05_ajustes_pro() {
+    composeTestRule.setContent {
+      ScreenshotScaffold(activeTab = AppTab.AJUSTES) {
+        AppSettingsView(
+          theme = theme,
+          autoPlayIntro = true,
+          onToggleAutoPlayIntro = {},
+          onReplayIntro = {},
+          keepScreenOn = true,
+          onToggleKeepScreenOn = {},
+          onSelectTheme = {},
+          onResetDspDefaults = {},
+          liteVisuals = false,
+          onToggleLiteVisuals = {},
+          isLowRamDevice = false,
+          outputDeviceStatus = OutputDeviceStatus("Bluetooth Car Audio", OutputKind.BLUETOOTH),
+          sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
+        )
+      }
+    }
+    composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/05_ajustes_pro.png")
   }
 }

@@ -2,11 +2,11 @@ name: Build & Release Android APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "v6.0" ]
     tags:
       - "v*"
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "v6.0" ]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: Construir APK
+    name: Pruebas y Compilación APK v6.0
     runs-on: ubuntu-latest
 
     steps:
@@ -46,26 +46,29 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
+      - name: Run Unit & Robolectric Tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK for Easy Identification
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/CarAudio-DSP-Pro-v5.0.0.apk || true
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/CarAudio-DSP-Pro-v6.0.0.apk || true
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CarAudio-DSP-Pro-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: CarAudio-DSP-Pro-v6.0.0-APK
+          path: release-output/CarAudio-DSP-Pro-v6.0.0.apk
           if-no-files-found: warn
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release-output/CarAudio-DSP-Pro-v5.0.0.apk
+          files: release-output/CarAudio-DSP-Pro-v6.0.0.apk
           body_path: RELEASE_NOTES.md
           name: "Car Audio DSP Pro ${{ github.ref_name }}"
           draft: false

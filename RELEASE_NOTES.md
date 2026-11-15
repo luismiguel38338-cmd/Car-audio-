@@ -1,45 +1,43 @@
-# Car Audio DSP Pro — v5.0.0 (Edición Todo Rojo)
+# Car Audio DSP Pro — v6.0.0 (Alto Rendimiento & Alta Fidelidad)
 
-**Versión:** `v5.0.0` (`versionCode 50000`)  
+**Versión:** `v6.0.0` (`versionCode 60000`)  
 **Plataforma:** Android 7.0+ (API 24+) · Target SDK 36  
-**Arquitectura:** Kotlin + Jetpack Compose Material 3 + AudioFX (`DynamicsProcessing`, `Equalizer`, `BassBoost`, `Virtualizer`)
+**Arquitectura:** Kotlin + Jetpack Compose Material 3 + MediaSession + AudioFX (`DynamicsProcessing`, `Equalizer`, `BassBoost`, `Virtualizer`)
 
 ---
 
-## Novedades de esta actualización (v5.0.0)
+## Novedades de esta actualización (v6.0.0)
 
-### 1. Estética "Todo Rojo" y Nuevo Logo Crimson Studio
-- **Logo original y llamativo:** Nuevo emblema carmesí de alto contraste diseñado para pantallas AMOLED y consolas de vehículo.
-- **Compatibilidad universal en cualquier teléfono:** Iconos adaptativos (`mipmap-anydpi-v26`) y PNG multi-densidad (`mdpi` a `xxxhdpi`) cuadrados y circulares (`ic_launcher.png` / `ic_launcher_round.png`).
-- **Tema Rojo Carmesí completo:** Barra superior, navegación inferior, deslizadores, curva de respuesta EQ, analizador de barras, pantalla de arranque y ventana flotante unificados en rojo (`#FF172B` / `#FF5252` sobre fondo negro carmesí `#090203`).
+### 1. Velocidad Extrema y Menor Consumo (RAM y Batería)
+- **Arranque y compilación optimizados:** Limpieza de dependencias no utilizadas en runtime y carga de carátulas en segundo plano (`Dispatchers.IO`) con caché `AlbumArtCache` (`LruCache` RGB_565).
+- **Compose sin tirones:** Anotaciones `@Immutable` en modelos de audio/EQ, `collectAsStateWithLifecycle()`, `LazyColumn` con `key` y `contentType`, curvas precalculadas con `drawWithCache` y `Crossfade` ágil.
+- **Cero asignaciones en FFT / RTA:** Reutilización de búferes de espectro y pausa automática del `Visualizer` al minimizar la app o cambiar a otra pestaña.
+- **Modo Ligero para teléfonos modestos:** Detección automática de dispositivos de poca RAM (`isLowRamDevice`) + interruptor manual en `AJUSTES`.
 
-### 2. Carga de Música desde tu Celular + Modificador en el Mismo Panel
-- **Botón `VER MI MÚSICA` y `CARGAR MÚSICA`:** Escanea las canciones guardadas en tu teléfono (`MediaStore`) o abre archivos MP3/WAV/FLAC directamente **en el mismo panel principal (`MÚSICA`)**.
-- **Modificador en vivo integrado:** Ecualiza y potencia cada pista mientras suena sin cambiar de pestaña:
-  - Presets de 1 toque (`PUNCH BASS`, `CLUB`, `ROCK`, `YOUTUBE VOCAL`, `FLAT`).
-  - Control directo de **Bass Boost (0 a 24 dB)** y **Preamp / Potencia (-12 a +18 dB)**.
-  - Ecualizador rápido de **5 bandas** (`60Hz`, `230Hz`, `910Hz`, `3.6k`, `14k`).
+### 2. Calidad de Audio DSP Mejorada (Sin Cortes)
+- **31 Bandas ISO + 15 Bandas + Paramétrico 5 Bandas:** Frecuencias de corte geométricas precisas (`sqrt(f_i * f_{i+1})`), curvas gaussianas/sigmoidales (`Peaking`, `Low Shelf`, `High Shelf`, `Notch`) e interpolación suave 15-a-31 bandas.
+- **Protección Anti-Clipping y Headroom:** Limitador inteligente + etapas cacheadas `DynamicsProcessing` + coalescencia de envíos hardware de 16 ms para mover controles en vivo sin clics ni cortes.
+- **Filtros HPF / LPF Butterworth:** Roll-off progresivo y suave para proteger subwoofers y medios.
+- **Enrutamiento y Foco de Audio:** Manejo de `AudioFocus`, pausa automática al desconectar auriculares/Bluetooth (`ACTION_AUDIO_BECOMING_NOISY`) y detección en tiempo real de salida (**Bluetooth**, **USB Audio**, **Auriculares**, **Altavoz**).
 
-### 3. Limpieza Total: Solo lo Funcional, Cero Relleno
-- Se redujo la barra inferior a **4 pestañas esenciales**: `MÚSICA`, `EQ`, `DSP`, `AJUSTES`.
-- Se eliminaron funciones decorativas, telemetría ficticia y vistas redundantes que no aportaban control real de audio.
-- Todos los controles están conectados al motor **AudioFX en tiempo real**:
-  - **EQ de Precisión:** 31 bandas ISO, 15 bandas gráficas, Paramétrico de 5 bandas y guardado de presets propios.
-  - **DSP Studio:** Ganancia Master, Bass/Mid/Treble, Bass Boost, Amplitud Estéreo, Balance L/R, Compresor multibanda, Limitador anti-clip y filtros HPF / LPF.
+### 3. Reproductor Completo en Segundo Plano
+- **Carátulas, Búsqueda y Filtros:** Carga de arte incrustado/álbum en el reproductor, buscador en vivo y filtros (`Todas`, `Favoritas`, `Cargadas`).
+- **Controles de Cola y MediaSession:** Botones **Aleatorio (Shuffle)**, **Repetir (Off / Todo / 1)**, **Favoritos**, servicio en primer plano `CarAudioPlaybackService` y notificación `MediaStyle` para pantalla bloqueada y controles Bluetooth/volante.
 
-### 4. Pantalla Virtual Flotante Roja (YouTube en Vivo)
-- Al salir de la app o pulsar el botón flotante en la barra superior, aparece un **círculo rojo abierto flotante** sobre YouTube u otras aplicaciones.
-- Toca el círculo para desplegar el mini ecualizador rojo en tiempo real con **Bass Boost**, **Potencia**, **5 bandas** y **presets**.
+### 4. Compatibilidad Transparente (Android 7–16)
+- En tu música local cargada en la app, la cadena DSP + EQ funciona al 100% por hardware (`AudioFX Directo`).
+- Para YouTube y apps externas mediante la **Pantalla Virtual Flotante Roja**, la app se enlaza a la sesión compartida cuando el sistema y el reproductor externo exponen `audioSessionId` (sin prometer procesamiento si la app externa lo bloquea).
 
 ---
 
-## Publicar Release v5.0.0 en GitHub
+## Publicar Rama v6.0 y Release v6.0.0 en GitHub
 
 ```bash
+git checkout -b v6.0
 git add .
-git commit -m "Release v5.0.0: Edicion Todo Rojo, nuevo logo, carga musical en panel y capturas"
-git tag -a v5.0.0 -m "Car Audio DSP Pro v5.0.0 - Edicion Todo Rojo"
-git push origin main --tags
+git commit -m "Release v6.0.0: Optimizacion de rendimiento, motor DSP mejorado y MediaSession"
+git tag -a v6.0.0 -m "Car Audio DSP Pro v6.0.0"
+git push -u origin v6.0 --tags
 ```
 
-El workflow `.github/workflows/build-apk.yml` compilará automáticamente el paquete `CarAudio-DSP-Pro-v5.0.0.apk` y adjuntará estas notas en GitHub Releases.
+El workflow `.github/workflows/build-apk.yml` ejecutará las pruebas unitarias/Robolectric (`testDebugUnitTest`), compilará `CarAudio-DSP-Pro-v6.0.0.apk` y adjuntará estas notas en GitHub Releases.

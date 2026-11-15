@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,10 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessHigh
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,7 +56,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.AudioSessionTarget
 import com.example.model.CarAudioThemeType
+import com.example.model.OutputDeviceStatus
 import com.example.service.FloatingEqualizerService
 
 @Composable
@@ -66,11 +71,21 @@ fun AppSettingsView(
     onToggleKeepScreenOn: (Boolean) -> Unit,
     onSelectTheme: (CarAudioThemeType) -> Unit,
     onResetDspDefaults: () -> Unit,
+    liteVisuals: Boolean = false,
+    onToggleLiteVisuals: (Boolean) -> Unit = {},
+    isLowRamDevice: Boolean = false,
+    outputDeviceStatus: OutputDeviceStatus = OutputDeviceStatus(),
+    sessionTarget: AudioSessionTarget = AudioSessionTarget.GLOBAL_MIX_BEST_EFFORT,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showResetDialog by remember { mutableStateOf(false) }
+
+    val orderedThemes = remember {
+        listOf(CarAudioThemeType.CRIMSON_RED) +
+            CarAudioThemeType.entries.filter { it != CarAudioThemeType.CRIMSON_RED }
+    }
 
     if (showResetDialog) {
         AlertDialog(
@@ -110,6 +125,95 @@ fun AppSettingsView(
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Rendimiento y Teléfonos Modestos
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.4f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Speed, contentDescription = null, tint = theme.primaryColor)
+                    Text("RENDIMIENTO Y BATERÍA", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
+                }
+                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Modo Ligero (Teléfonos Modestos)",
+                            color = theme.textColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (isLowRamDevice) {
+                                "Dispositivo de poca RAM detectado: optimiza gráficos y espectro para máxima fluidez."
+                            } else {
+                                "Reduce animaciones y tasa de espectro sin perder calidad de audio DSP."
+                            },
+                            color = theme.textSecondaryColor,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Switch(
+                        checked = liteVisuals,
+                        onCheckedChange = onToggleLiteVisuals,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = theme.primaryColor,
+                            checkedTrackColor = theme.primaryColor.copy(alpha = 0.4f)
+                        ),
+                        modifier = Modifier.testTag("toggle_lite_visuals_switch")
+                    )
+                }
+            }
+        }
+
+        // Compatibilidad Real de Salida y Sesiones Android
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Headphones, contentDescription = null, tint = theme.primaryColor)
+                    Text("COMPATIBILIDAD DE AUDIO Y SALIDA", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
+                }
+                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
+                Text(
+                    text = "Salida actual: ${outputDeviceStatus.label}",
+                    color = theme.accentColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Estado AudioFX: ${sessionTarget.label}",
+                    color = theme.textColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${sessionTarget.detail}. Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) — " +
+                        "En el Reproductor Local el procesamiento DSP es 100% garantizado; en apps externas como YouTube depende de que el fabricante y la app permitan sesiones AudioFX.",
+                    color = theme.textSecondaryColor,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
+                )
+            }
+        }
+
         // Floating Virtual Screen Quick Setup
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -126,7 +230,7 @@ fun AppSettingsView(
                     Text("PANTALLA VIRTUAL FLOTANTE (YOUTUBE)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
                 }
                 Text(
-                    text = "Activa el círculo rojo flotante para controlar el ecualizador en vivo mientras ves YouTube o usas otras apps.",
+                    text = "Activa el círculo rojo flotante para controlar el ecualizador rápido mientras usas YouTube u otras apps compatibles.",
                     color = theme.textSecondaryColor,
                     fontSize = 11.sp
                 )
@@ -176,7 +280,7 @@ fun AppSettingsView(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Mostrar Intro al Iniciar", color = theme.textColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Animación y sonido de encendido studio.", color = theme.textSecondaryColor, fontSize = 10.sp)
+                        Text("Animación rápida y sonido de encendido studio.", color = theme.textSecondaryColor, fontSize = 10.sp)
                     }
                     Switch(
                         checked = autoPlayIntro,
@@ -257,9 +361,6 @@ fun AppSettingsView(
                     Text("ESTILO VISUAL", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
                 }
                 HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
-
-                val orderedThemes = listOf(CarAudioThemeType.CRIMSON_RED) +
-                    CarAudioThemeType.entries.filter { it != CarAudioThemeType.CRIMSON_RED }
 
                 orderedThemes.forEach { themeItem ->
                     val isSelected = theme == themeItem
@@ -364,13 +465,13 @@ fun AppSettingsView(
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "Versión 5.0.0 • Edición Todo Rojo",
+                    text = "Versión 6.0.0 • Edición Todo Rojo Pro",
                     color = theme.textColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Reproductor local y procesador AudioFX en tiempo real para tu música y YouTube.",
+                    text = "Reproductor local en segundo plano, carátulas, MediaSession y procesador AudioFX de alta precisión.",
                     color = theme.textSecondaryColor,
                     fontSize = 10.sp,
                     lineHeight = 14.sp

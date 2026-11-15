@@ -12,12 +12,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,8 +55,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,8 +71,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.service.FloatingEqualizerService
 import com.example.ui.components.AppSettingsView
@@ -86,7 +95,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val viewModel: CarAudioViewModel = viewModel()
-            val currentTheme by viewModel.currentTheme.collectAsState()
+            val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
 
             CarAudioAppTheme(themeType = currentTheme) {
                 CarAudioAppRoot(viewModel = viewModel)
@@ -108,25 +117,49 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
     val context = LocalContext.current
-    val currentTheme by viewModel.currentTheme.collectAsState()
-    val selectedTab by viewModel.selectedTab.collectAsState()
-    val dspSettings by viewModel.dspSettings.collectAsState()
-    val equalizerSettings by viewModel.equalizerSettings.collectAsState()
-    val eqPresets by viewModel.eqPresets.collectAsState()
-    val tracks by viewModel.tracks.collectAsState()
-    val currentTrack by viewModel.currentTrack.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val playbackSeconds by viewModel.playbackSeconds.collectAsState()
-    val volumeLevel by viewModel.volumeLevel.collectAsState()
-    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsState()
-    val isScanningLibrary by viewModel.isScanningLibrary.collectAsState()
-    val leftVu by viewModel.leftVu.collectAsState()
-    val rightVu by viewModel.rightVu.collectAsState()
-    val rtaBands by viewModel.rtaBands.collectAsState()
-    val isClippingDetected by viewModel.isClippingDetected.collectAsState()
-    val showSplashScreen by viewModel.showSplashScreen.collectAsState()
-    val autoPlayIntro by viewModel.autoPlayIntro.collectAsState()
-    val keepScreenOn by viewModel.keepScreenOn.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val dspSettings by viewModel.dspSettings.collectAsStateWithLifecycle()
+    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
+    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+    val filteredTracks by viewModel.filteredTracks.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val libraryFilter by viewModel.libraryFilter.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val playbackSeconds by viewModel.playbackSeconds.collectAsStateWithLifecycle()
+    val volumeLevel by viewModel.volumeLevel.collectAsStateWithLifecycle()
+    val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
+    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
+    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
+    val isScanningLibrary by viewModel.isScanningLibrary.collectAsStateWithLifecycle()
+    val leftVu by viewModel.leftVu.collectAsStateWithLifecycle()
+    val rightVu by viewModel.rightVu.collectAsStateWithLifecycle()
+    val rtaBands by viewModel.rtaBands.collectAsStateWithLifecycle()
+    val isClippingDetected by viewModel.isClippingDetected.collectAsStateWithLifecycle()
+    val showSplashScreen by viewModel.showSplashScreen.collectAsStateWithLifecycle()
+    val autoPlayIntro by viewModel.autoPlayIntro.collectAsStateWithLifecycle()
+    val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
+    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+    val outputDeviceStatus by viewModel.outputDeviceStatus.collectAsStateWithLifecycle()
+    val sessionTarget by viewModel.sessionTarget.collectAsStateWithLifecycle()
+
+    // Pause FFT Visualizer and high-frequency UI telemetry when backgrounded
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.setUiActive(true)
+                Lifecycle.Event.ON_STOP -> viewModel.setUiActive(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val activity = context as? ComponentActivity
     LaunchedEffect(keepScreenOn) {
@@ -135,11 +168,6 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
         } else {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-    }
-
-    // Load local music library on startup if permission is already granted
-    LaunchedEffect(Unit) {
-        viewModel.scanDeviceMusicLibrary()
     }
 
     val audioStoragePermissionLauncher = rememberLauncherForActivityResult(
@@ -171,7 +199,7 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
             },
             text = {
                 Text(
-                    text = "Para que aparezca el círculo rojo abierto flotante y puedas ecualizar YouTube mientras ves videos fuera de la app, habilita el permiso 'Mostrar sobre otras aplicaciones'.",
+                    text = "Para que aparezca el círculo rojo abierto flotante al salir de la app, habilita el permiso 'Mostrar sobre otras aplicaciones'.",
                     color = currentTheme.textSecondaryColor,
                     fontSize = 14.sp
                 )
@@ -235,17 +263,21 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Black,
                                 fontFamily = FontFamily.Monospace,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (dspSettings.dspMasterEnabled) {
-                                    "TODO ROJO EN VIVO • YouTube & Música"
+                                    "v6.0 • ${outputDeviceStatus.label}"
                                 } else {
                                     "DSP EN BYPASS"
                                 },
                                 color = if (dspSettings.dspMasterEnabled) currentTheme.primaryColor else Color.Gray,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -271,7 +303,8 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                             // Floating YouTube Equalizer Bubble Button (Crimson Red)
                             Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(48.dp)
+                                    .padding(6.dp)
                                     .clip(CircleShape)
                                     .background(currentTheme.cardColor)
                                     .border(1.dp, currentTheme.primaryColor, CircleShape)
@@ -296,7 +329,8 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                             // Master Power Quick Toggle
                             Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(48.dp)
+                                    .padding(6.dp)
                                     .clip(CircleShape)
                                     .background(
                                         if (dspSettings.dspMasterEnabled) {
@@ -339,7 +373,6 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     .testTag("main_bottom_nav"),
                 tonalElevation = 8.dp
             ) {
-                // 1. MÚSICA (Reproductor + Carga de Archivos + Modificador en Vivo en el Mismo Panel)
                 NavigationBarItem(
                     selected = selectedTab == AppTab.PLAYER,
                     onClick = { viewModel.selectTab(AppTab.PLAYER) },
@@ -355,7 +388,6 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     modifier = Modifier.testTag("nav_tab_player")
                 )
 
-                // 2. EQ (Ecualizador 31 / 15 Bandas / Paramétrico + Presets)
                 NavigationBarItem(
                     selected = selectedTab == AppTab.EQ,
                     onClick = { viewModel.selectTab(AppTab.EQ) },
@@ -371,7 +403,6 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     modifier = Modifier.testTag("nav_tab_eq")
                 )
 
-                // 3. DSP (Procesador Master, Bass Boost, Limitador, Cortes)
                 NavigationBarItem(
                     selected = selectedTab == AppTab.DSP,
                     onClick = { viewModel.selectTab(AppTab.DSP) },
@@ -387,7 +418,6 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
                     modifier = Modifier.testTag("nav_tab_dsp")
                 )
 
-                // 4. AJUSTES (Flotante YouTube, Intro, Pantalla, Tema)
                 NavigationBarItem(
                     selected = selectedTab == AppTab.AJUSTES,
                     onClick = { viewModel.selectTab(AppTab.AJUSTES) },
@@ -405,104 +435,134 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
             }
         }
     ) { innerPadding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            when (selectedTab) {
-                AppTab.PLAYER -> {
-                    PlayerView(
-                        theme = currentTheme,
-                        tracks = tracks,
-                        currentTrack = currentTrack,
-                        isPlaying = isPlaying,
-                        playbackSeconds = playbackSeconds,
-                        volumeLevel = volumeLevel,
-                        dspSettings = dspSettings,
-                        eqSettings = equalizerSettings,
-                        hasAudioLibraryPermission = hasAudioLibraryPermission,
-                        isScanningLibrary = isScanningLibrary,
-                        onPlayPause = { viewModel.togglePlayPause() },
-                        onNext = { viewModel.nextTrack() },
-                        onPrevious = { viewModel.previousTrack() },
-                        onSeek = { viewModel.seekTo(it) },
-                        onTrackSelect = { viewModel.playTrack(it) },
-                        onRemoveTrack = { viewModel.removeTrack(it) },
-                        onVolumeChange = { viewModel.setVolume(it) },
-                        onCustomTracksLoaded = { uris -> viewModel.addCustomUserTracks(uris) },
-                        onRequestLibraryPermission = requestAudioLibraryPermission,
-                        onRefreshLibrary = { viewModel.scanDeviceMusicLibrary() },
-                        onOpenFloatingOverlayPermission = { showOverlayPermissionDialog = true },
-                        onToggleDspMaster = { viewModel.toggleDspPower(it) },
-                        onBassBoostChange = { db -> viewModel.setBassBoost(db > 0.5f, db) },
-                        onPreampChange = { db -> viewModel.setDspPreampGain(db) },
-                        onQuickBandChange = { idx, gain -> viewModel.setQuickBandGain(idx, gain) },
-                        onQuickPresetSelect = { preset -> viewModel.applyQuickPreset(preset) }
-                    )
-                }
+            val contentModifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 840.dp)
 
-                AppTab.EQ -> {
-                    EqualizerProcessorView(
-                        theme = currentTheme,
-                        eqSettings = equalizerSettings,
-                        onTogglePower = { viewModel.toggleEqualizerPower(it) },
-                        onUpdateMasterGain = { viewModel.updateEqualizerMasterGain(it) },
-                        onUpdateBand = { idx, gain -> viewModel.updateEqualizerBand(idx, gain) },
-                        onUpdateBand31 = { idx, gain -> viewModel.updateEqualizerBand31(idx, gain) },
-                        onUpdateParametricBand = { id, f, g, q, type, en ->
-                            viewModel.updateParametricBand(id, f, g, q, type, en)
-                        },
-                        onToggleParametricBand = { id, en -> viewModel.toggleParametricBand(id, en) },
-                        onSelectPreset = { viewModel.selectEqualizerPreset(it) },
-                        onResetFlat = { viewModel.resetEqualizerFlat() },
-                        eqPresets = eqPresets,
-                        onSelectPresetItem = { viewModel.selectPreset(it) },
-                        onSaveCustomPreset = { name, desc -> viewModel.saveCustomPreset(name, desc) },
-                        onDeletePreset = { viewModel.deletePreset(it) }
-                    )
-                }
+            Crossfade(
+                targetState = selectedTab,
+                animationSpec = tween(durationMillis = if (liteVisuals) 0 else 140),
+                label = "main_tab_crossfade",
+                modifier = contentModifier
+            ) { tab ->
+                when (tab) {
+                    AppTab.PLAYER -> {
+                        PlayerView(
+                            theme = currentTheme,
+                            tracks = filteredTracks,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            playbackSeconds = playbackSeconds,
+                            volumeLevel = volumeLevel,
+                            dspSettings = dspSettings,
+                            eqSettings = equalizerSettings,
+                            hasAudioLibraryPermission = hasAudioLibraryPermission,
+                            isScanningLibrary = isScanningLibrary,
+                            onPlayPause = { viewModel.togglePlayPause() },
+                            onNext = { viewModel.nextTrack() },
+                            onPrevious = { viewModel.previousTrack() },
+                            onSeek = { viewModel.seekTo(it) },
+                            onTrackSelect = { viewModel.playTrack(it) },
+                            onRemoveTrack = { viewModel.removeTrack(it) },
+                            onVolumeChange = { viewModel.setVolume(it) },
+                            onCustomTracksLoaded = { uris -> viewModel.addCustomUserTracks(uris) },
+                            onRequestLibraryPermission = requestAudioLibraryPermission,
+                            onRefreshLibrary = { viewModel.scanDeviceMusicLibrary() },
+                            onOpenFloatingOverlayPermission = { showOverlayPermissionDialog = true },
+                            onToggleDspMaster = { viewModel.toggleDspPower(it) },
+                            onBassBoostChange = { db -> viewModel.setBassBoost(db > 0.5f, db) },
+                            onPreampChange = { db -> viewModel.setDspPreampGain(db) },
+                            onQuickBandChange = { idx, gain -> viewModel.setQuickBandGain(idx, gain) },
+                            onQuickPresetSelect = { preset -> viewModel.applyQuickPreset(preset) },
+                            searchQuery = searchQuery,
+                            libraryFilter = libraryFilter,
+                            shuffleEnabled = shuffleEnabled,
+                            repeatMode = repeatMode,
+                            outputDeviceStatus = outputDeviceStatus,
+                            sessionTarget = sessionTarget,
+                            liteVisuals = liteVisuals,
+                            onSearchQueryChange = { viewModel.setSearchQuery(it) },
+                            onLibraryFilterChange = { viewModel.setLibraryFilter(it) },
+                            onToggleFavorite = { viewModel.toggleFavorite(it) },
+                            onToggleShuffle = { viewModel.toggleShuffle() },
+                            onCycleRepeat = { viewModel.cycleRepeatMode() }
+                        )
+                    }
 
-                AppTab.DSP -> {
-                    DspMasterView(
-                        dspSettings = dspSettings,
-                        rtaBands = rtaBands,
-                        theme = currentTheme,
-                        leftVu = leftVu,
-                        rightVu = rightVu,
-                        isClipping = isClippingDetected,
-                        onToggleDspMaster = { viewModel.toggleDspMaster() },
-                        onPreampChanged = { viewModel.setDspPreampGain(it) },
-                        onBassGainChanged = { viewModel.setDspBassGain(it) },
-                        onMidGainChanged = { viewModel.setDspMidGain(it) },
-                        onTrebleGainChanged = { viewModel.setDspTrebleGain(it) },
-                        onMasterGainChanged = { viewModel.setMasterGain(it) },
-                        onBassBoostChanged = { en, db -> viewModel.setBassBoost(en, db) },
-                        onStereoWidthChanged = { viewModel.setStereoWidth(it) },
-                        onBalancePanChanged = { viewModel.setBalancePan(it) },
-                        onCompressorToggle = { viewModel.toggleCompressor(it) },
-                        onLimiterToggle = { viewModel.toggleLimiter(it) },
-                        onLimiterCeilingChanged = { viewModel.setLimiterCeiling(it) },
-                        onHpfChanged = { en, freq ->
-                            viewModel.setFilterHpf(en, freq, dspSettings.hpfSlopeDb, dspSettings.hpfQ)
-                        },
-                        onLpfChanged = { en, freq ->
-                            viewModel.setFilterLpf(en, freq, dspSettings.lpfSlopeDb, dspSettings.lpfQ)
-                        }
-                    )
-                }
+                    AppTab.EQ -> {
+                        EqualizerProcessorView(
+                            theme = currentTheme,
+                            eqSettings = equalizerSettings,
+                            onTogglePower = { viewModel.toggleEqualizerPower(it) },
+                            onUpdateMasterGain = { viewModel.updateEqualizerMasterGain(it) },
+                            onUpdateBand = { idx, gain -> viewModel.updateEqualizerBand(idx, gain) },
+                            onUpdateBand31 = { idx, gain -> viewModel.updateEqualizerBand31(idx, gain) },
+                            onUpdateParametricBand = { id, f, g, q, type, en ->
+                                viewModel.updateParametricBand(id, f, g, q, type, en)
+                            },
+                            onToggleParametricBand = { id, en -> viewModel.toggleParametricBand(id, en) },
+                            onSelectPreset = { viewModel.selectEqualizerPreset(it) },
+                            onResetFlat = { viewModel.resetEqualizerFlat() },
+                            eqPresets = eqPresets,
+                            onSelectPresetItem = { viewModel.selectPreset(it) },
+                            onSaveCustomPreset = { name, desc -> viewModel.saveCustomPreset(name, desc) },
+                            onDeletePreset = { viewModel.deletePreset(it) }
+                        )
+                    }
 
-                AppTab.AJUSTES -> {
-                    AppSettingsView(
-                        theme = currentTheme,
-                        autoPlayIntro = autoPlayIntro,
-                        onToggleAutoPlayIntro = { viewModel.setAutoPlayIntro(it) },
-                        onReplayIntro = { viewModel.openSplashScreen() },
-                        keepScreenOn = keepScreenOn,
-                        onToggleKeepScreenOn = { viewModel.setKeepScreenOn(it) },
-                        onSelectTheme = { viewModel.setTheme(it) },
-                        onResetDspDefaults = { viewModel.resetDspToDefaults() }
-                    )
+                    AppTab.DSP -> {
+                        DspMasterView(
+                            dspSettings = dspSettings,
+                            rtaBands = rtaBands,
+                            theme = currentTheme,
+                            leftVu = leftVu,
+                            rightVu = rightVu,
+                            isClipping = isClippingDetected,
+                            onToggleDspMaster = { viewModel.toggleDspMaster() },
+                            onPreampChanged = { viewModel.setDspPreampGain(it) },
+                            onBassGainChanged = { viewModel.setDspBassGain(it) },
+                            onMidGainChanged = { viewModel.setDspMidGain(it) },
+                            onTrebleGainChanged = { viewModel.setDspTrebleGain(it) },
+                            onMasterGainChanged = { viewModel.setMasterGain(it) },
+                            onBassBoostChanged = { en, db -> viewModel.setBassBoost(en, db) },
+                            onStereoWidthChanged = { viewModel.setStereoWidth(it) },
+                            onBalancePanChanged = { viewModel.setBalancePan(it) },
+                            onCompressorToggle = { viewModel.toggleCompressor(it) },
+                            onLimiterToggle = { viewModel.toggleLimiter(it) },
+                            onLimiterCeilingChanged = { viewModel.setLimiterCeiling(it) },
+                            onHpfChanged = { en, freq ->
+                                viewModel.setFilterHpf(en, freq, dspSettings.hpfSlopeDb, dspSettings.hpfQ)
+                            },
+                            onLpfChanged = { en, freq ->
+                                viewModel.setFilterLpf(en, freq, dspSettings.lpfSlopeDb, dspSettings.lpfQ)
+                            },
+                            liteVisuals = liteVisuals
+                        )
+                    }
+
+                    AppTab.AJUSTES -> {
+                        AppSettingsView(
+                            theme = currentTheme,
+                            autoPlayIntro = autoPlayIntro,
+                            onToggleAutoPlayIntro = { viewModel.setAutoPlayIntro(it) },
+                            onReplayIntro = { viewModel.openSplashScreen() },
+                            keepScreenOn = keepScreenOn,
+                            onToggleKeepScreenOn = { viewModel.setKeepScreenOn(it) },
+                            onSelectTheme = { viewModel.setTheme(it) },
+                            onResetDspDefaults = { viewModel.resetDspToDefaults() },
+                            liteVisuals = liteVisuals,
+                            onToggleLiteVisuals = { viewModel.setLiteVisualsEnabled(it) },
+                            isLowRamDevice = viewModel.isLowRamDevice,
+                            outputDeviceStatus = outputDeviceStatus,
+                            sessionTarget = sessionTarget
+                        )
+                    }
                 }
             }
         }
@@ -514,7 +574,8 @@ fun CarAudioAppRoot(viewModel: CarAudioViewModel) {
             onStartSound = { viewModel.playStartupSound() },
             onEnterApp = { viewModel.dismissSplashScreen() },
             onSetDontShowAgain = { viewModel.setAutoPlayIntro(!it) },
-            initialDontShowAgain = !autoPlayIntro
+            initialDontShowAgain = !autoPlayIntro,
+            liteVisuals = liteVisuals
         )
     }
 }
