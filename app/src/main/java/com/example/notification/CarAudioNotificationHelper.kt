@@ -19,9 +19,11 @@ import com.example.R
 object CarAudioNotificationHelper {
     const val CHANNEL_ID_STATUS = "car_audio_status_channel"
     const val CHANNEL_ID_ALERTS = "car_audio_alerts_channel"
+    const val CHANNEL_ID_ERRORS = "car_audio_errors_channel"
 
     const val NOTIFICATION_ID_MONITOR = 1001
     const val NOTIFICATION_ID_CLIP_ALERT = 1002
+    const val NOTIFICATION_ID_FAULT_BASE = 1100
 
     private const val CRIMSON_NOTIF_COLOR = 0xFFFF172B.toInt()
     @Volatile private var channelsInitialized = false
@@ -51,8 +53,19 @@ object CarAudioNotificationHelper {
                     setShowBadge(true)
                 }
 
+                val errorChannel = NotificationChannel(
+                    CHANNEL_ID_ERRORS,
+                    "Fallos y Diagnóstico del Sistema",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifica cuando falla la reproducción, un archivo de música, permisos o el motor AudioFX"
+                    enableVibration(true)
+                    setShowBadge(true)
+                }
+
                 manager.createNotificationChannel(statusChannel)
                 manager.createNotificationChannel(alertChannel)
+                manager.createNotificationChannel(errorChannel)
                 channelsInitialized = true
             } catch (_: Throwable) {}
         } else {
@@ -194,6 +207,44 @@ object CarAudioNotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_CLIP_ALERT, notification)
+        } catch (_: SecurityException) {}
+    }
+
+    fun showSystemFaultNotification(
+        context: Context,
+        title: String,
+        message: String,
+        faultCode: Int = 0
+    ) {
+        if (!hasNotificationPermission(context)) return
+        initNotificationChannels(context)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            200 + (faultCode and 0xFF),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_ERRORS)
+            .setSmallIcon(R.drawable.ic_notification_dsp)
+            .setColor(CRIMSON_NOTIF_COLOR)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(
+                NOTIFICATION_ID_FAULT_BASE + (faultCode and 0x3F),
+                notification
+            )
         } catch (_: SecurityException) {}
     }
 }

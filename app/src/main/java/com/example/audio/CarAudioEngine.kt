@@ -31,6 +31,7 @@ import com.example.model.AudioSourceMode
 import com.example.model.AudioTrackItem
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
+import com.example.model.FaultSeverity
 import com.example.model.OutputDeviceStatus
 import com.example.model.OutputKind
 import com.example.model.ParametricFilterType
@@ -165,12 +166,20 @@ class CarAudioEngine(private val context: Context) {
     @Volatile var currentEqualizerSettings: EqualizerSettings = EqualizerSettings()
         private set
     var onSettingsChangedListener: ((DspSettings, EqualizerSettings) -> Unit)? = null
+    var onAudioFaultListener: ((title: String, detail: String, severity: FaultSeverity) -> Unit)? = null
+    @Volatile var fxEngineStatus: String = "Inicializando AudioFX..."
+        private set
 
     private var noisyReceiverRegistered = false
     private val becomingNoisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && isPlaying) {
                 pausePlayback()
+                onAudioFaultListener?.invoke(
+                    "Salida de Audio Desconectada",
+                    "Se pausó la música automáticamente al desconectar auriculares o Bluetooth.",
+                    FaultSeverity.INFO
+                )
             }
         }
     }
@@ -334,16 +343,47 @@ class CarAudioEngine(private val context: Context) {
             if (abs(dsp.trebleGainDb) > 0.05f) gainDb += (dsp.trebleGainDb * trebleWeight).toFloat()
 
             // Sub-Bass Extreme
-            if (dsp.subBassEnabled && dsp.subBassBoostDb > 0.1f && freqHz <= 100) {
-                val distOct = abs(log10(fDouble / dsp.subBassFreqHz.coerceIn(20f, 80f).toDouble())) / log10(2.0)
+            if (dsp.subBassEnabled && dsp.subBassBoostDb > 0.1f && freqHz <= 110) {
+                val distOct = abs(log10(fDouble / dsp.subBassFreqHz.coerceIn(20f, 85f).toDouble())) / log10(2.0)
                 val w = exp(-0.5 * (distOct / 0.55).pow(2.0)).toFloat()
                 gainDb += dsp.subBassBoostDb * 0.65f * w
+            }
+
+            // Bass Punch (63-85Hz chest impact)
+            if (dsp.bassPunchLevel > 0.1f && freqHz in 40..160) {
+                val punchOct = abs(log10(fDouble / 72.0)) / log10(2.0)
+                val w = exp(-0.5 * (punchOct / 0.48).pow(2.0)).toFloat()
+                gainDb += dsp.bassPunchLevel * 0.55f * w
             }
 
             // Loudness Contour (Fletcher-Munson U-Curve)
             if (dsp.loudnessEnabled && dsp.loudnessGainDb > 0.1f) {
                 gainDb += (dsp.loudnessGainDb * 0.5f * bassWeight).toFloat()
                 gainDb += (dsp.loudnessGainDb * 0.42f * trebleWeight).toFloat()
+            }
+
+            // VIP Tube Warmth (Analog harmonic richness 140Hz-350Hz + smooth top sheen)
+            if (dsp.tubeWarmthLevel > 0.1f) {
+                val warmOct = abs(log10(fDouble / 210.0)) / log10(2.0)
+                val warmW = exp(-0.5 * (warmOct / 0.85).pow(2.0)).toFloat()
+                gainDb += dsp.tubeWarmthLevel * 0.35f * warmW
+                if (freqHz >= 8000) {
+                    val sheenW = 1.0 / (1.0 + exp(-2.8 * (log10(fDouble / 10000.0) / log10(2.0))))
+                    gainDb += (dsp.tubeWarmthLevel * 0.18f * sheenW).toFloat()
+                }
+            }
+
+            // VIP Hi-Res Studio Clarity & Air
+            if (dsp.hiResQualityEnabled) {
+                if (freqHz in 200..400) {
+                    // Clean up muddiness for studio separation
+                    val mudOct = abs(log10(fDouble / 280.0)) / log10(2.0)
+                    gainDb -= (1.4f * exp(-0.5 * (mudOct / 0.5).pow(2.0))).toFloat()
+                }
+                if (freqHz >= 5000) {
+                    val airW = 1.0 / (1.0 + exp(-3.0 * (log10(fDouble / 9000.0) / log10(2.0))))
+                    gainDb += (2.4f * airW).toFloat()
+                }
             }
 
             // Presence / Clarity / Exciter
@@ -357,6 +397,14 @@ class CarAudioEngine(private val context: Context) {
             if (dsp.exciterEnabled && freqHz >= 6300) {
                 val eW = 1.0 / (1.0 + exp(-3.5 * (log10(fDouble / 9000.0) / log10(2.0))))
                 gainDb += (dsp.exciterLevel * 0.4f * eW).toFloat()
+            }
+
+            // Dedicated Subsonic Protection Filter (when explicitly enabled in Bass System)
+            if (dsp.subsonicFilterActive && dsp.subsonicFrequencyHz > 16f) {
+                val fcSub = dsp.subsonicFrequencyHz.coerceIn(15f, 50f).toDouble()
+                val ratioSub = (fcSub / fDouble).coerceIn(0.01, 20.0)
+                val attenSub = (-10.0 * log10(1.0 + ratioSub.pow(8.0))).toFloat()
+                gainDb += attenSub.coerceIn(-24f, 0f)
             }
 
             // Smooth Butterworth Crossover HPF / LPF Magnitude Response: -10*log10(1 + (fc/f)^(2n))
@@ -714,6 +762,21 @@ class CarAudioEngine(private val context: Context) {
             }
 
             commitHardwareParameters(dsp, eq)
+
+            fxEngineStatus = when {
+                useDynamicsProcessingPostEq -> "DynamicsProcessing 32-bit + BassBoost"
+                equalizerFx != null -> "Ecualizador Hardware + BassBoost"
+                bassBoostFx != null -> "Solo BassBoost (EQ limitado)"
+                else -> "Modo Compatibilidad (AudioFX bloqueado por sesión)"
+            }
+
+            if (!useDynamicsProcessingPostEq && equalizerFx == null && sessionId > 0) {
+                onAudioFaultListener?.invoke(
+                    "Motor AudioFX Limitado",
+                    "El hardware de audio no permitió enlazar el ecualizador completo en esta sesión.",
+                    FaultSeverity.WARNING
+                )
+            }
 
             // 5. Visualizer: Only attach for local MediaPlayer sessions (> 0)
             if (sessionId > 0) {
@@ -1186,6 +1249,16 @@ class CarAudioEngine(private val context: Context) {
                         .build()
                 )
                 setDataSource(context, uri)
+                setOnErrorListener { _, what, extra ->
+                    this@CarAudioEngine.isPlaying = false
+                    stopPlayback()
+                    onAudioFaultListener?.invoke(
+                        "Fallo en Reproductor de Audio",
+                        "No se pudo reproducir el archivo (código $what/$extra). Puede estar dañado o en un formato no soportado.",
+                        FaultSeverity.ERROR
+                    )
+                    true
+                }
                 prepare()
                 setOnCompletionListener {
                     this@CarAudioEngine.isPlaying = false
@@ -1202,9 +1275,14 @@ class CarAudioEngine(private val context: Context) {
             mp.start()
             startPlaybackTicker()
             onPlaybackStateChangedListener?.invoke()
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
             stopPlayback()
             attachToGlobalSystemSession(dsp, eq)
+            onAudioFaultListener?.invoke(
+                "Error al Abrir Pista",
+                "No se pudo cargar \"${currentTrack?.title ?: "Archivo"}\": ${t.localizedMessage ?: "archivo inaccesible o movido"}.",
+                FaultSeverity.ERROR
+            )
         }
     }
 

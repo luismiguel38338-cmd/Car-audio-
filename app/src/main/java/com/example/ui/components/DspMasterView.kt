@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,10 +21,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -80,6 +83,15 @@ fun DspMasterView(
     onHpfChanged: (Boolean, Float) -> Unit,
     onLpfChanged: (Boolean, Float) -> Unit,
     liteVisuals: Boolean = false,
+    isVipUnlocked: Boolean = false,
+    onRequestVipDialog: () -> Unit = {},
+    onHiResChanged: (Boolean) -> Unit = {},
+    onTubeWarmthChanged: (Float) -> Unit = {},
+    onPresenceChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    onClarityChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    onExciterChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    onCompressorParamsChanged: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
+    onCrossoverSlopesChanged: (Int, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val dspEnabled = dspSettings.dspMasterEnabled
@@ -433,6 +445,94 @@ fun DspMasterView(
                         theme = theme,
                         onValueChange = onLimiterCeilingChanged
                     )
+
+                    if (dspSettings.compressorEnabled) {
+                        if (isVipUnlocked) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(theme.cardColor)
+                                    .border(1.dp, theme.primaryColor.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("COMPRESOR AVANZADO VIP", fontSize = 11.sp, fontWeight = FontWeight.Black, color = theme.primaryColor)
+                                }
+                                DspSliderRow(
+                                    label = "UMBRAL (THRESHOLD)",
+                                    value = dspSettings.compressorThresholdDb,
+                                    range = -48f..0f,
+                                    unit = "dB",
+                                    enabled = dspEnabled,
+                                    theme = theme,
+                                    onValueChange = {
+                                        onCompressorParamsChanged(it, dspSettings.compressorRatio, dspSettings.compressorAttackMs, dspSettings.compressorReleaseMs)
+                                    }
+                                )
+                                DspSliderRow(
+                                    label = "RATIO",
+                                    value = dspSettings.compressorRatio,
+                                    range = 1f..20f,
+                                    unit = ":1",
+                                    enabled = dspEnabled,
+                                    theme = theme,
+                                    onValueChange = {
+                                        onCompressorParamsChanged(dspSettings.compressorThresholdDb, it, dspSettings.compressorAttackMs, dspSettings.compressorReleaseMs)
+                                    }
+                                )
+                                DspSliderRow(
+                                    label = "ATAQUE (ATTACK)",
+                                    value = dspSettings.compressorAttackMs,
+                                    range = 1f..100f,
+                                    unit = "ms",
+                                    enabled = dspEnabled,
+                                    theme = theme,
+                                    onValueChange = {
+                                        onCompressorParamsChanged(dspSettings.compressorThresholdDb, dspSettings.compressorRatio, it, dspSettings.compressorReleaseMs)
+                                    }
+                                )
+                                DspSliderRow(
+                                    label = "RELAJACIÓN (RELEASE)",
+                                    value = dspSettings.compressorReleaseMs,
+                                    range = 15f..1000f,
+                                    unit = "ms",
+                                    enabled = dspEnabled,
+                                    theme = theme,
+                                    onValueChange = {
+                                        onCompressorParamsChanged(dspSettings.compressorThresholdDb, dspSettings.compressorRatio, dspSettings.compressorAttackMs, it)
+                                    }
+                                )
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(theme.cardColor)
+                                    .border(1.dp, theme.primaryColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .clickable { onRequestVipDialog() }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Ajustes de Umbral, Ratio, Attack y Release (VIP)",
+                                        fontSize = 10.5.sp,
+                                        color = theme.textSecondaryColor,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Text("VIP", fontSize = 10.sp, fontWeight = FontWeight.Black, color = theme.primaryColor)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -484,6 +584,46 @@ fun DspMasterView(
                         modifier = Modifier.height(26.dp)
                     )
 
+                    Text("Pendiente HPF", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondaryColor)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(12, 24, 36, 48).forEach { slope ->
+                            val isVipSlope = slope >= 36
+                            val locked = isVipSlope && !isVipUnlocked
+                            val selected = dspSettings.hpfSlopeDb == slope
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selected) theme.primaryColor else theme.cardColor)
+                                    .border(
+                                        1.dp,
+                                        if (selected) theme.primaryColor else theme.primaryColor.copy(alpha = 0.35f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable(enabled = dspEnabled) {
+                                        if (locked) onRequestVipDialog() else onCrossoverSlopesChanged(slope, dspSettings.lpfSlopeDb)
+                                    }
+                                    .padding(vertical = 7.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (locked) {
+                                    Icon(Icons.Default.Lock, contentDescription = "VIP", tint = theme.primaryColor, modifier = Modifier.size(11.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                Text(
+                                    text = "$slope dB",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (selected) theme.onPrimaryColor else theme.textColor
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -512,6 +652,220 @@ fun DspMasterView(
                         ),
                         modifier = Modifier.height(26.dp)
                     )
+
+                    Text("Pendiente LPF", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondaryColor)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(12, 24, 36, 48).forEach { slope ->
+                            val isVipSlope = slope >= 36
+                            val locked = isVipSlope && !isVipUnlocked
+                            val selected = dspSettings.lpfSlopeDb == slope
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selected) theme.accentColor else theme.cardColor)
+                                    .border(
+                                        1.dp,
+                                        if (selected) theme.accentColor else theme.primaryColor.copy(alpha = 0.35f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable(enabled = dspEnabled) {
+                                        if (locked) onRequestVipDialog() else onCrossoverSlopesChanged(dspSettings.hpfSlopeDb, slope)
+                                    }
+                                    .padding(vertical = 7.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (locked) {
+                                    Icon(Icons.Default.Lock, contentDescription = "VIP", tint = theme.primaryColor, modifier = Modifier.size(11.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                Text(
+                                    text = "$slope dB",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (selected) theme.onPrimaryColor else theme.textColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. VIP MOTOR DE CALIDAD Y FIDELIDAD HD
+        item(key = "dsp_vip_quality_engine", contentType = "card") {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isVipUnlocked) { onRequestVipDialog() }
+                    .testTag("dsp_vip_quality_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = if (isVipUnlocked) cardBg else theme.cardColor),
+                border = BorderStroke(1.3.dp, theme.primaryColor.copy(alpha = if (isVipUnlocked) 0.65f else 0.45f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Icon(
+                                imageVector = if (isVipUnlocked) Icons.Default.WorkspacePremium else Icons.Default.Lock,
+                                contentDescription = "VIP Fidelidad HD",
+                                tint = theme.primaryColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "VIP MOTOR DE CALIDAD Y FIDELIDAD HD",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Black,
+                                color = theme.textColor
+                            )
+                        }
+                        if (!isVipUnlocked) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(theme.primaryColor)
+                                    .padding(horizontal = 9.dp, vertical = 4.dp)
+                            ) {
+                                Text("DESBLOQUEAR", fontSize = 9.5.sp, fontWeight = FontWeight.Black, color = theme.onPrimaryColor)
+                            }
+                        }
+                    }
+
+                    if (!isVipUnlocked) {
+                        Text(
+                            text = "Activa tu clave VIP para desbloquear Modo Hi-Res Studio, Calidez de Bulbos Analógicos, Presencia Vocal, Claridad HD y Excitador Armónico.",
+                            fontSize = 11.sp,
+                            color = theme.textSecondaryColor,
+                            lineHeight = 15.sp
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Modo Hi-Res Studio (Curva Audiófila)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                                Text("Realce equilibrado de subgraves + micro-detalle en agudos", fontSize = 10.sp, color = theme.textSecondaryColor)
+                            }
+                            Switch(
+                                checked = dspSettings.hiResQualityEnabled,
+                                onCheckedChange = onHiResChanged,
+                                enabled = dspEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = theme.primaryColor,
+                                    checkedTrackColor = theme.primaryColor.copy(alpha = 0.35f)
+                                ),
+                                modifier = Modifier.testTag("vip_hires_switch")
+                            )
+                        }
+
+                        DspSliderRow(
+                            label = "CALIDEZ ANALÓGICA (TUBE WARMTH)",
+                            value = dspSettings.tubeWarmthLevel,
+                            range = 0f..10f,
+                            unit = "x",
+                            enabled = dspEnabled,
+                            theme = theme,
+                            onValueChange = onTubeWarmthChanged
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Presencia Vocal (2-5 kHz)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                            Switch(
+                                checked = dspSettings.presenceEnabled,
+                                onCheckedChange = { onPresenceChanged(it, dspSettings.presenceLevel) },
+                                enabled = dspEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = theme.primaryColor,
+                                    checkedTrackColor = theme.primaryColor.copy(alpha = 0.35f)
+                                )
+                            )
+                        }
+                        if (dspSettings.presenceEnabled) {
+                            DspSliderRow(
+                                label = "NIVEL PRESENCIA VOCAL",
+                                value = dspSettings.presenceLevel,
+                                range = 0f..10f,
+                                unit = "dB",
+                                enabled = dspEnabled,
+                                theme = theme,
+                                onValueChange = { onPresenceChanged(true, it) }
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Claridad HD (Aire y Brillo 8-16 kHz)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                            Switch(
+                                checked = dspSettings.clarityEnabled,
+                                onCheckedChange = { onClarityChanged(it, dspSettings.clarityLevel) },
+                                enabled = dspEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = theme.primaryColor,
+                                    checkedTrackColor = theme.primaryColor.copy(alpha = 0.35f)
+                                )
+                            )
+                        }
+                        if (dspSettings.clarityEnabled) {
+                            DspSliderRow(
+                                label = "NIVEL CLARIDAD HD",
+                                value = dspSettings.clarityLevel,
+                                range = 0f..10f,
+                                unit = "dB",
+                                enabled = dspEnabled,
+                                theme = theme,
+                                onValueChange = { onClarityChanged(true, it) }
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Excitador Armónico", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = theme.textColor)
+                            Switch(
+                                checked = dspSettings.exciterEnabled,
+                                onCheckedChange = { onExciterChanged(it, dspSettings.exciterLevel) },
+                                enabled = dspEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = theme.primaryColor,
+                                    checkedTrackColor = theme.primaryColor.copy(alpha = 0.35f)
+                                )
+                            )
+                        }
+                        if (dspSettings.exciterEnabled) {
+                            DspSliderRow(
+                                label = "NIVEL EXCITADOR ARMÓNICO",
+                                value = dspSettings.exciterLevel,
+                                range = 0f..10f,
+                                unit = "dB",
+                                enabled = dspEnabled,
+                                theme = theme,
+                                onValueChange = { onExciterChanged(true, it) }
+                            )
+                        }
+                    }
                 }
             }
         }

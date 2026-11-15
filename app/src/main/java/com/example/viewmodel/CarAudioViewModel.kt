@@ -24,10 +24,14 @@ import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqPresetItem
 import com.example.model.EqualizerSettings
+import com.example.model.FaultActionType
+import com.example.model.FaultSeverity
 import com.example.model.OutputDeviceStatus
 import com.example.model.ParametricFilterType
 import com.example.model.RepeatMode
 import com.example.model.RtaBand
+import com.example.model.SubwooferPreset
+import com.example.model.SystemFaultAlert
 import com.example.model.TrackCategory
 import com.example.notification.CarAudioNotificationHelper
 import com.example.service.CarAudioPlaybackService
@@ -49,6 +53,7 @@ import kotlin.random.Random
 
 enum class AppTab(val title: String) {
     PLAYER("MÚSICA"),
+    BASS("BAJOS"),
     EQ("EQ"),
     DSP("DSP"),
     AJUSTES("AJUSTES")
@@ -65,6 +70,10 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val audioEngine = CarAudioEngine.getInstance(context)
     private val prefs = application.getSharedPreferences("car_audio_dsp_prefs", Context.MODE_PRIVATE)
 
+    companion object {
+        private const val VIP_ACCESS_CODE = "2020"
+    }
+
     private val systemLowRam: Boolean = try {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         am?.isLowRamDevice == true
@@ -77,11 +86,16 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     val isDontShowAgainPref: Boolean
         get() = prefs.getBoolean("dont_show_again", false)
 
-    private val _showSplashScreen = MutableStateFlow(isIntroEnabledPref && !isDontShowAgainPref)
+    private val _showSplashScreen = MutableStateFlow(
+        !prefs.getBoolean("onboarding_completed", false) || (isIntroEnabledPref && !isDontShowAgainPref)
+    )
     val showSplashScreen: StateFlow<Boolean> = _showSplashScreen.asStateFlow()
 
     private val _autoPlayIntro = MutableStateFlow(isIntroEnabledPref)
     val autoPlayIntro: StateFlow<Boolean> = _autoPlayIntro.asStateFlow()
+
+    private val _isVipUnlocked = MutableStateFlow(prefs.getBoolean("vip_unlocked", false))
+    val isVipUnlocked: StateFlow<Boolean> = _isVipUnlocked.asStateFlow()
 
     private val _keepScreenOn = MutableStateFlow(prefs.getBoolean("keep_screen_on", true))
     val keepScreenOn: StateFlow<Boolean> = _keepScreenOn.asStateFlow()
@@ -192,6 +206,20 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _sessionTarget = MutableStateFlow(audioEngine.sessionTarget)
     val sessionTarget: StateFlow<AudioSessionTarget> = _sessionTarget.asStateFlow()
 
+    private val _fxEngineStatus = MutableStateFlow(audioEngine.fxEngineStatus)
+    val fxEngineStatus: StateFlow<String> = _fxEngineStatus.asStateFlow()
+
+    private val _hasNotificationPermission = MutableStateFlow(
+        CarAudioNotificationHelper.hasNotificationPermission(context)
+    )
+    val hasNotificationPermission: StateFlow<Boolean> = _hasNotificationPermission.asStateFlow()
+
+    private val _faultAlerts = MutableStateFlow<List<SystemFaultAlert>>(emptyList())
+    val faultAlerts: StateFlow<List<SystemFaultAlert>> = _faultAlerts.asStateFlow()
+
+    private val _latestBannerAlert = MutableStateFlow<SystemFaultAlert?>(null)
+    val latestBannerAlert: StateFlow<SystemFaultAlert?> = _latestBannerAlert.asStateFlow()
+
     @Volatile private var uiActive = true
     private var lastClipAlertTime = 0L
     private var clipCount = 0
@@ -212,6 +240,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _currentTrack.value = audioEngine.currentTrack
             _playbackSeconds.value = audioEngine.playbackPositionSeconds
             _sessionTarget.value = audioEngine.sessionTarget
+            _fxEngineStatus.value = audioEngine.fxEngineStatus
             if (audioEngine.currentTrack != null) {
                 CarAudioPlaybackService.sync(context)
             }
@@ -219,6 +248,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
         audioEngine.onOutputDeviceChangedListener = { device ->
             _outputDeviceStatus.value = device
+        }
+
+        audioEngine.onAudioFaultListener = { title, detail, severity ->
+            reportSystemFault(
+                title = title,
+                message = detail,
+                severity = severity,
+                actionLabel = if (severity == FaultSeverity.ERROR) "Reintentar" else null,
+                actionType = if (severity == FaultSeverity.ERROR) FaultActionType.RELOAD_LIBRARY else FaultActionType.NONE,
+                sendSystemNotification = severity != FaultSeverity.INFO
+            )
         }
 
         CarAudioPlaybackService.onSkipNextRequested = { nextTrack() }
@@ -233,7 +273,16 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                     audioEngine.applyDspSettings(_dspSettings.value, _equalizerSettings.value)
                 }
                 _sessionTarget.value = audioEngine.sessionTarget
-            } catch (_: Throwable) {}
+                _fxEngineStatus.value = audioEngine.fxEngineStatus
+            } catch (t: Throwable) {
+                reportSystemFault(
+                    title = "Fallo al Iniciar Motor AudioFX",
+                    message = t.localizedMessage ?: "No se pudo inicializar el procesador de audio.",
+                    severity = FaultSeverity.WARNING,
+                    actionLabel = "Diagnóstico",
+                    actionType = FaultActionType.OPEN_DIAGNOSTICS
+                )
+            }
             scanDeviceMusicLibrary()
         }
 
@@ -242,10 +291,11 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     fun setUiActive(active: Boolean) {
         uiActive = active
-        val needVisualizer = active && (_selectedTab.value == AppTab.DSP || _isMicRta.value)
+        val needVisualizer = active && (_selectedTab.value == AppTab.DSP || _selectedTab.value == AppTab.BASS || _isMicRta.value)
         audioEngine.setVisualizerActive(needVisualizer)
         if (active) {
             audioEngine.refreshOutputDeviceStatus()
+            _hasNotificationPermission.value = CarAudioNotificationHelper.hasNotificationPermission(context)
         }
     }
 
@@ -259,8 +309,88 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onAudioStoragePermissionResult(granted: Boolean) {
-        _hasAudioLibraryPermission.value = granted || checkAudioStoragePermission()
+        val nowGranted = granted || checkAudioStoragePermission()
+        _hasAudioLibraryPermission.value = nowGranted
+        if (!nowGranted) {
+            reportSystemFault(
+                title = "Permiso de Música Denegado",
+                message = "No podemos escanear las carpetas del teléfono sin permiso. Puedes otorgarlo o usar 'Cargar Música'.",
+                severity = FaultSeverity.WARNING,
+                actionLabel = "Dar Permiso",
+                actionType = FaultActionType.REQUEST_AUDIO_PERMISSION
+            )
+        }
         scanDeviceMusicLibrary()
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean) {
+        val hasPerm = granted || CarAudioNotificationHelper.hasNotificationPermission(context)
+        _hasNotificationPermission.value = hasPerm
+        if (!hasPerm) {
+            reportSystemFault(
+                title = "Notificaciones Desactivadas",
+                message = "Activa las notificaciones para recibir alertas inmediatas cuando falle un archivo o haya clipping.",
+                severity = FaultSeverity.WARNING,
+                actionLabel = "Activar",
+                actionType = FaultActionType.REQUEST_NOTIFICATION_PERMISSION,
+                sendSystemNotification = false
+            )
+        }
+    }
+
+    fun reportSystemFault(
+        title: String,
+        message: String,
+        severity: FaultSeverity = FaultSeverity.WARNING,
+        actionLabel: String? = null,
+        actionType: FaultActionType = FaultActionType.NONE,
+        sendSystemNotification: Boolean = true
+    ) {
+        val alert = SystemFaultAlert(
+            id = "${System.currentTimeMillis()}_${title.hashCode()}",
+            title = title,
+            message = message,
+            severity = severity,
+            timestampMs = System.currentTimeMillis(),
+            actionLabel = actionLabel,
+            actionType = actionType
+        )
+        _faultAlerts.value = (listOf(alert) + _faultAlerts.value).take(25)
+        _latestBannerAlert.value = alert
+        if (sendSystemNotification) {
+            CarAudioNotificationHelper.showSystemFaultNotification(
+                context = context,
+                title = title,
+                message = message,
+                faultCode = title.hashCode()
+            )
+        }
+    }
+
+    fun dismissBannerAlert() {
+        _latestBannerAlert.value = null
+    }
+
+    fun clearFaultHistory() {
+        _faultAlerts.value = emptyList()
+        _latestBannerAlert.value = null
+    }
+
+    fun refreshSystemHealth() {
+        _hasAudioLibraryPermission.value = checkAudioStoragePermission()
+        _hasNotificationPermission.value = CarAudioNotificationHelper.hasNotificationPermission(context)
+        _fxEngineStatus.value = audioEngine.fxEngineStatus
+        audioEngine.refreshOutputDeviceStatus()
+        if (!_hasNotificationPermission.value) {
+            reportSystemFault(
+                title = "Permiso de Notificaciones Faltante",
+                message = "Android requiere permiso de notificaciones para avisarte si falla una canción o hay distorsión.",
+                severity = FaultSeverity.WARNING,
+                actionLabel = "Activar",
+                actionType = FaultActionType.REQUEST_NOTIFICATION_PERMISSION,
+                sendSystemNotification = false
+            )
+        }
     }
 
     fun setSearchQuery(query: String) {
@@ -314,7 +444,8 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                             MediaStore.Audio.Media.ARTIST,
                             MediaStore.Audio.Media.ALBUM,
                             MediaStore.Audio.Media.DURATION,
-                            MediaStore.Audio.Media.ALBUM_ID
+                            MediaStore.Audio.Media.ALBUM_ID,
+                            MediaStore.Audio.Media.MIME_TYPE
                         )
                         val selection = "${MediaStore.Audio.Media.DURATION} >= 3000"
                         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
@@ -331,6 +462,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                             val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                             val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                             val albumIdCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+                            val mimeCol = cursor.getColumnIndex(MediaStore.Audio.Media.MIME_TYPE)
 
                             while (cursor.moveToNext()) {
                                 val id = cursor.getLong(idCol)
@@ -345,6 +477,8 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                                 val artist = cursor.getString(artistCol)?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Artista Local"
                                 val album = cursor.getString(albumCol)?.takeIf { it.isNotBlank() } ?: "Música del Teléfono"
                                 val durationSec = (cursor.getLong(durCol) / 1000L).toInt().coerceAtLeast(1)
+                                val mime = if (mimeCol >= 0) cursor.getString(mimeCol) else null
+                                val formatLabel = formatMimeLabel(mime)
                                 val artUri = if (albumIdCol >= 0) {
                                     val albumId = cursor.getLong(albumIdCol)
                                     if (albumId > 0L) {
@@ -368,12 +502,19 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                                         isSynthesized = false,
                                         customUri = contentUri,
                                         albumArtUri = artUri,
-                                        isFavorite = favs.contains(trackId)
+                                        isFavorite = favs.contains(trackId),
+                                        audioFormatLabel = formatLabel
                                     )
                                 )
                             }
                         }
-                    } catch (_: Throwable) {}
+                    } catch (t: Throwable) {
+                        reportSystemFault(
+                            title = "Error al Escanear Biblioteca",
+                            message = t.localizedMessage ?: "No se pudo consultar MediaStore del dispositivo.",
+                            severity = FaultSeverity.WARNING
+                        )
+                    }
                 }
                 result
             }
@@ -383,6 +524,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 _currentTrack.value = combined.first()
             }
             _isScanningLibrary.value = false
+        }
+    }
+
+    private fun formatMimeLabel(mime: String?): String {
+        val m = mime?.lowercase().orEmpty()
+        return when {
+            m.contains("flac") -> "FLAC Hi-Res"
+            m.contains("wav") || m.contains("x-wav") -> "WAV PCM"
+            m.contains("aac") || m.contains("mp4") || m.contains("m4a") -> "AAC / M4A"
+            m.contains("ogg") || m.contains("opus") -> "OGG / OPUS"
+            m.contains("mpeg") || m.contains("mp3") -> "MP3"
+            else -> "Audio Local"
         }
     }
 
@@ -475,6 +628,8 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         var artist = "Archivo Local"
         var album = "Mi Teléfono"
         var durationSec = 180
+        var bitrateKbps = 0
+        var formatLabel = formatMimeLabel(context.contentResolver.getType(uri))
 
         var retriever: MediaMetadataRetriever? = null
         try {
@@ -486,7 +641,19 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull()?.let { ms ->
                 if (ms > 0) durationSec = ms / 1000
             }
-        } catch (_: Throwable) {
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()?.let { bps ->
+                if (bps > 0) bitrateKbps = bps / 1000
+            }
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)?.let { mime ->
+                formatLabel = formatMimeLabel(mime)
+            }
+        } catch (t: Throwable) {
+            reportSystemFault(
+                title = "Metadatos Incompletos",
+                message = "No se pudieron leer todos los datos de \"$title\": ${t.localizedMessage ?: "formato parcial"}.",
+                severity = FaultSeverity.WARNING,
+                sendSystemNotification = false
+            )
         } finally {
             try {
                 retriever?.release()
@@ -504,7 +671,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             frequencyDescription = "Audio Cargado • Modificación en Vivo",
             isSynthesized = false,
             customUri = uri,
-            isFavorite = _favoriteIds.value.contains(id)
+            isFavorite = _favoriteIds.value.contains(id),
+            audioFormatLabel = formatLabel,
+            bitrateKbps = bitrateKbps
         )
     }
 
@@ -601,6 +770,14 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                     if (now - lastClipAlertTime > 12000) {
                         lastClipAlertTime = now
                         CarAudioNotificationHelper.showClippingAlertNotification(context, clipCount)
+                        reportSystemFault(
+                            title = "Alerta de Clipping / Distorsión",
+                            message = "La salida superó el límite limpio ($clipCount picos). Baja el Preamp o activa el Limitador.",
+                            severity = FaultSeverity.WARNING,
+                            actionLabel = if (!dsp.limiterEnabled) "Activar Limitador" else null,
+                            actionType = if (!dsp.limiterEnabled) FaultActionType.ENABLE_LIMITER else FaultActionType.NONE,
+                            sendSystemNotification = false
+                        )
                     }
                 }
 
@@ -615,27 +792,58 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // Navigation & Preferences
-    fun dismissSplashScreen() { _showSplashScreen.value = false }
+    // Navigation, Onboarding, VIP & Preferences
+    fun dismissSplashScreen() {
+        _showSplashScreen.value = false
+        prefs.edit().putBoolean("onboarding_completed", true).apply()
+    }
+
     fun openSplashScreen() {
         _showSplashScreen.value = true
-        playStartupSound()
     }
+
     fun playStartupSound() { audioEngine.playIntroBootSound() }
 
+    fun unlockVipWithCode(code: String): Boolean {
+        val valid = code.trim() == VIP_ACCESS_CODE
+        if (valid) {
+            _isVipUnlocked.value = true
+            prefs.edit().putBoolean("vip_unlocked", true).apply()
+        }
+        return valid
+    }
+
+    fun lockVip() {
+        _isVipUnlocked.value = false
+        prefs.edit().putBoolean("vip_unlocked", false).apply()
+        if (_currentTheme.value.isVipOnly) {
+            setTheme(CarAudioThemeType.CRIMSON_RED)
+        }
+        val curr = _dspSettings.value
+        if (curr.hiResQualityEnabled || curr.tubeWarmthLevel > 0f) {
+            updateAndCommitDsp(curr.copy(hiResQualityEnabled = false, tubeWarmthLevel = 0f))
+        }
+    }
+
     fun setTheme(theme: CarAudioThemeType) {
+        if (theme.isVipOnly && !_isVipUnlocked.value) return
         _currentTheme.value = theme
         prefs.edit().putString("selected_theme_id", theme.id).apply()
     }
 
     fun selectTab(tab: AppTab) {
         _selectedTab.value = tab
-        audioEngine.setVisualizerActive(uiActive && (tab == AppTab.DSP || _isMicRta.value))
+        audioEngine.setVisualizerActive(uiActive && (tab == AppTab.DSP || tab == AppTab.BASS || _isMicRta.value))
     }
 
     fun setAutoPlayIntro(enabled: Boolean) {
         _autoPlayIntro.value = enabled
         prefs.edit().putBoolean("intro_video_enabled", enabled).apply()
+    }
+
+    fun setDontShowIntroAgain(dontShow: Boolean) {
+        prefs.edit().putBoolean("dont_show_again", dontShow).apply()
+        setAutoPlayIntro(!dontShow)
     }
 
     fun setKeepScreenOn(enabled: Boolean) {
@@ -798,7 +1006,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _dspSettings.value.copy(
                 bassBoostEnabled = enabled,
                 bassBoostDb = boostDb.coerceIn(0f, 24f),
-                bassBoostFreqHz = freqHz
+                bassBoostFreqHz = freqHz.coerceIn(30f, 90f)
             )
         )
     }
@@ -808,7 +1016,49 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _dspSettings.value.copy(
                 subBassEnabled = enabled,
                 subBassBoostDb = boostDb.coerceIn(0f, 18f),
-                subBassFreqHz = freqHz
+                subBassFreqHz = freqHz.coerceIn(20f, 85f)
+            )
+        )
+    }
+
+    fun setSubsonicFilter(enabled: Boolean, freqHz: Float) {
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                subsonicFilterActive = enabled,
+                subsonicFrequencyHz = freqHz.coerceIn(15f, 50f)
+            )
+        )
+    }
+
+    fun setBassPunch(level: Float) {
+        updateAndCommitDsp(_dspSettings.value.copy(bassPunchLevel = level.coerceIn(0f, 10f)))
+    }
+
+    fun setBassPhase(degrees: Int) {
+        updateAndCommitDsp(_dspSettings.value.copy(phaseDegrees = if (degrees == 180) 180 else 0))
+    }
+
+    fun setTimeAlignment(ms: Float) {
+        updateAndCommitDsp(_dspSettings.value.copy(timeAlignmentMs = ms.coerceIn(0f, 15f)))
+    }
+
+    fun applySubwooferPreset(preset: SubwooferPreset) {
+        if (preset.isVip && !_isVipUnlocked.value) return
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                dspMasterEnabled = true,
+                bassBoostEnabled = true,
+                bassBoostDb = preset.bassBoostDb,
+                bassBoostFreqHz = preset.subFreqHz,
+                subBassEnabled = true,
+                subBassBoostDb = preset.subBassDb,
+                subBassFreqHz = preset.subFreqHz,
+                subsonicFilterActive = true,
+                subsonicFrequencyHz = preset.subsonicHz,
+                lpfEnabled = true,
+                lpfFrequencyHz = preset.lpfHz,
+                lpfSlopeDb = if (preset.isVip) 36 else 24,
+                bassPunchLevel = preset.punchLevel
             )
         )
     }
@@ -818,6 +1068,66 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _dspSettings.value.copy(
                 loudnessEnabled = enabled,
                 loudnessGainDb = gainDb.coerceIn(0f, 15f)
+            )
+        )
+    }
+
+    fun setHiResQuality(enabled: Boolean) {
+        if (enabled && !_isVipUnlocked.value) return
+        updateAndCommitDsp(_dspSettings.value.copy(hiResQualityEnabled = enabled))
+    }
+
+    fun setTubeWarmth(level: Float) {
+        if (level > 0f && !_isVipUnlocked.value) return
+        updateAndCommitDsp(_dspSettings.value.copy(tubeWarmthLevel = level.coerceIn(0f, 10f)))
+    }
+
+    fun setPresence(enabled: Boolean, level: Float) {
+        if (enabled && !_isVipUnlocked.value) return
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                presenceEnabled = enabled,
+                presenceLevel = level.coerceIn(0f, 10f)
+            )
+        )
+    }
+
+    fun setClarity(enabled: Boolean, level: Float) {
+        if (enabled && !_isVipUnlocked.value) return
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                clarityEnabled = enabled,
+                clarityLevel = level.coerceIn(0f, 10f)
+            )
+        )
+    }
+
+    fun setExciter(enabled: Boolean, level: Float) {
+        if (enabled && !_isVipUnlocked.value) return
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                exciterEnabled = enabled,
+                exciterLevel = level.coerceIn(0f, 10f)
+            )
+        )
+    }
+
+    fun setCompressorParams(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float) {
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                compressorThresholdDb = thresholdDb.coerceIn(-48f, 0f),
+                compressorRatio = ratio.coerceIn(1f, 20f),
+                compressorAttackMs = attackMs.coerceIn(1f, 100f),
+                compressorReleaseMs = releaseMs.coerceIn(15f, 1000f)
+            )
+        )
+    }
+
+    fun setCrossoverSlopes(hpfSlopeDb: Int, lpfSlopeDb: Int) {
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                hpfSlopeDb = hpfSlopeDb,
+                lpfSlopeDb = lpfSlopeDb
             )
         )
     }
@@ -1028,7 +1338,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     // ==========================================
     private fun loadSavedTheme(): CarAudioThemeType {
         val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.CRIMSON_RED.id)
-        return CarAudioThemeType.entries.firstOrNull { it.id == savedId } ?: CarAudioThemeType.CRIMSON_RED
+        val found = CarAudioThemeType.entries.firstOrNull { it.id == savedId } ?: CarAudioThemeType.CRIMSON_RED
+        val vipUnlocked = prefs.getBoolean("vip_unlocked", false)
+        return if (found.isVipOnly && !vipUnlocked) CarAudioThemeType.CRIMSON_RED else found
     }
 
     private fun loadSavedRepeatMode(): RepeatMode {
@@ -1048,6 +1360,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         val raw = prefs.getString("saved_dsp_json", null) ?: return DspSettings()
         return try {
             val o = JSONObject(raw)
+            val vipUnlocked = prefs.getBoolean("vip_unlocked", false)
             DspSettings(
                 dspMasterEnabled = o.optBoolean("master", true),
                 preampDb = o.optDouble("preamp", 0.0).toFloat(),
@@ -1057,6 +1370,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 masterGainDb = o.optDouble("masterGain", 0.0).toFloat(),
                 bassBoostEnabled = o.optBoolean("bbEn", true),
                 bassBoostDb = o.optDouble("bbDb", 4.0).toFloat(),
+                bassBoostFreqHz = o.optDouble("bbHz", 45.0).toFloat(),
+                subBassEnabled = o.optBoolean("subEn", false),
+                subBassBoostDb = o.optDouble("subDb", 3.0).toFloat(),
+                subBassFreqHz = o.optDouble("subHz", 35.0).toFloat(),
+                subsonicFilterActive = o.optBoolean("subsonicAct", false),
+                subsonicFrequencyHz = o.optDouble("subsonicHz", 28.0).toFloat(),
+                bassPunchLevel = o.optDouble("punch", 0.0).toFloat(),
+                loudnessEnabled = o.optBoolean("loudEn", false),
+                loudnessGainDb = o.optDouble("loudDb", 4.0).toFloat(),
+                phaseDegrees = o.optInt("phase", 0),
+                timeAlignmentMs = o.optDouble("alignMs", 1.2).toFloat(),
                 stereoWidthPercent = o.optDouble("stereo", 100.0).toFloat(),
                 balancePan = o.optDouble("pan", 0.0).toFloat(),
                 compressorEnabled = o.optBoolean("comp", false),
@@ -1064,8 +1388,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 limiterCeilingDb = o.optDouble("limCeil", -0.5).toFloat(),
                 hpfEnabled = o.optBoolean("hpfEn", true),
                 hpfFrequencyHz = o.optDouble("hpfHz", 25.0).toFloat(),
+                hpfSlopeDb = o.optInt("hpfSlope", 24),
                 lpfEnabled = o.optBoolean("lpfEn", true),
-                lpfFrequencyHz = o.optDouble("lpfHz", 18000.0).toFloat()
+                lpfFrequencyHz = o.optDouble("lpfHz", 18000.0).toFloat(),
+                lpfSlopeDb = o.optInt("lpfSlope", 24),
+                hiResQualityEnabled = vipUnlocked && o.optBoolean("hiRes", false),
+                tubeWarmthLevel = if (vipUnlocked) o.optDouble("tube", 0.0).toFloat() else 0f,
+                presenceEnabled = vipUnlocked && o.optBoolean("presEn", false),
+                presenceLevel = o.optDouble("presLvl", 2.0).toFloat(),
+                clarityEnabled = vipUnlocked && o.optBoolean("clarEn", false),
+                clarityLevel = o.optDouble("clarLvl", 2.5).toFloat(),
+                exciterEnabled = vipUnlocked && o.optBoolean("excEn", false),
+                exciterLevel = o.optDouble("excLvl", 3.0).toFloat()
             )
         } catch (_: Throwable) {
             DspSettings()
@@ -1083,6 +1417,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 put("masterGain", dsp.masterGainDb.toDouble())
                 put("bbEn", dsp.bassBoostEnabled)
                 put("bbDb", dsp.bassBoostDb.toDouble())
+                put("bbHz", dsp.bassBoostFreqHz.toDouble())
+                put("subEn", dsp.subBassEnabled)
+                put("subDb", dsp.subBassBoostDb.toDouble())
+                put("subHz", dsp.subBassFreqHz.toDouble())
+                put("subsonicAct", dsp.subsonicFilterActive)
+                put("subsonicHz", dsp.subsonicFrequencyHz.toDouble())
+                put("punch", dsp.bassPunchLevel.toDouble())
+                put("loudEn", dsp.loudnessEnabled)
+                put("loudDb", dsp.loudnessGainDb.toDouble())
+                put("phase", dsp.phaseDegrees)
+                put("alignMs", dsp.timeAlignmentMs.toDouble())
                 put("stereo", dsp.stereoWidthPercent.toDouble())
                 put("pan", dsp.balancePan.toDouble())
                 put("comp", dsp.compressorEnabled)
@@ -1090,8 +1435,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 put("limCeil", dsp.limiterCeilingDb.toDouble())
                 put("hpfEn", dsp.hpfEnabled)
                 put("hpfHz", dsp.hpfFrequencyHz.toDouble())
+                put("hpfSlope", dsp.hpfSlopeDb)
                 put("lpfEn", dsp.lpfEnabled)
                 put("lpfHz", dsp.lpfFrequencyHz.toDouble())
+                put("lpfSlope", dsp.lpfSlopeDb)
+                put("hiRes", dsp.hiResQualityEnabled)
+                put("tube", dsp.tubeWarmthLevel.toDouble())
+                put("presEn", dsp.presenceEnabled)
+                put("presLvl", dsp.presenceLevel.toDouble())
+                put("clarEn", dsp.clarityEnabled)
+                put("clarLvl", dsp.clarityLevel.toDouble())
+                put("excEn", dsp.exciterEnabled)
+                put("excLvl", dsp.exciterLevel.toDouble())
             }
             prefs.edit().putString("saved_dsp_json", o.toString()).apply()
         } catch (_: Throwable) {}

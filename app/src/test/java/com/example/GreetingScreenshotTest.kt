@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -223,6 +224,7 @@ class GreetingScreenshotTest {
           NavigationBar(containerColor = theme.surfaceColor) {
             listOf(
               Triple(AppTab.PLAYER, "MÚSICA", Icons.Default.LibraryMusic),
+              Triple(AppTab.BASS, "BAJOS", Icons.Default.Speaker),
               Triple(AppTab.EQ, "EQ", Icons.Default.Equalizer),
               Triple(AppTab.DSP, "DSP", Icons.Default.Tune),
               Triple(AppTab.AJUSTES, "AJUSTES", Icons.Default.Settings)

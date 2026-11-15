@@ -47,7 +47,7 @@ data class EqualizerSettings(
     val parametricFreqHz: Float = 65.0f,
     val parametricGainDb: Float = 4.0f,
     val parametricQ: Float = 1.4f,
-    val activePresetName: String = "🇧🇷 Pancadão Som Automotivo"
+    val activePresetName: String = "Pancadão Som Automotivo"
 ) {
     companion object {
         val FREQUENCY_LABELS_31 = listOf(
@@ -83,7 +83,8 @@ data class EqPresetItem(
     val paramFreq: Float = 60f,
     val paramGain: Float = 0f,
     val paramQ: Float = 1.4f,
-    val isCustom: Boolean = false
+    val isCustom: Boolean = false,
+    val isVip: Boolean = false
 )
 
 object EqPresetCatalog {
@@ -202,6 +203,48 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
+            name = "VIP Studio Master",
+            description = "Curva de masterización Hi-Res con separación limpia y aire de estudio.",
+            bands = listOf(3.5f, 4.5f, 3.5f, 1.5f, 0.5f, -0.5f, 0f, 1.0f, 2.2f, 3.0f, 2.5f, 2.8f, 4.0f, 5.0f, 4.5f),
+            bands31 = listOf(
+                2.5f, 3.2f, 4.0f, 4.6f, 4.2f, 3.4f, 2.4f, 1.4f, 0.5f, 0f,
+                -0.5f, -0.5f, 0f, 0.4f, 0.8f, 1.2f, 1.8f, 2.4f, 2.8f, 3.0f,
+                2.6f, 2.4f, 2.6f, 3.0f, 3.8f, 4.5f, 5.0f, 5.2f, 4.8f, 4.2f, 3.5f
+            ),
+            paramFreq = 42f,
+            paramGain = 4.5f,
+            paramQ = 1.3f,
+            isVip = true
+        ),
+        EqPresetItem(
+            name = "VIP Extreme Basshead",
+            description = "Excursión extrema sub-grave 25-50 Hz sin opacar las voces.",
+            bands = listOf(8f, 10f, 8.5f, 4.5f, 1.0f, -1.5f, -1.0f, 0.5f, 2.0f, 3.5f, 3.0f, 3.0f, 4.0f, 4.5f, 3.5f),
+            bands31 = listOf(
+                6.5f, 8.0f, 9.5f, 10.5f, 9.5f, 8.0f, 5.8f, 3.5f, 1.5f, 0f,
+                -1.2f, -1.5f, -1.0f, -0.5f, 0.5f, 1.2f, 2.0f, 2.8f, 3.4f, 3.5f,
+                3.2f, 3.0f, 3.0f, 3.4f, 4.0f, 4.4f, 4.6f, 4.2f, 3.8f, 3.2f, 2.5f
+            ),
+            paramFreq = 36f,
+            paramGain = 8.0f,
+            paramQ = 1.5f,
+            isVip = true
+        ),
+        EqPresetItem(
+            name = "VIP Concert Hall 3D",
+            description = "Amplitud acústica inmersiva, calidez analógica y brillo sedoso.",
+            bands = listOf(3f, 4.5f, 4f, 2f, 0.5f, -1f, -0.5f, 1f, 2.5f, 3.5f, 4f, 3.5f, 4.5f, 5.5f, 5f),
+            bands31 = listOf(
+                2f, 3f, 4f, 4.8f, 4.5f, 3.8f, 2.5f, 1.5f, 0.5f, -0.5f,
+                -1f, -0.8f, -0.4f, 0.2f, 1.0f, 1.8f, 2.5f, 3.2f, 3.8f, 4.0f,
+                3.8f, 3.5f, 3.6f, 4.0f, 4.6f, 5.2f, 5.5f, 5.2f, 4.8f, 4.2f, 3.6f
+            ),
+            paramFreq = 60f,
+            paramGain = 4.0f,
+            paramQ = 1.2f,
+            isVip = true
+        ),
+        EqPresetItem(
             name = "Custom",
             description = "Perfil personalizado libre guardado por el usuario.",
             bands = List(15) { 0.0f },
@@ -213,4 +256,3 @@ object EqPresetCatalog {
         )
     )
 }
-

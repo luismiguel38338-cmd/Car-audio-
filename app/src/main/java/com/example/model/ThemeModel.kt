@@ -16,22 +16,9 @@ enum class CarAudioThemeType(
     val textSecondaryColor: Color,
     val meterPeakColor: Color,
     val clipAlertColor: Color = Color(0xFFFF2222),
-    val errorColor: Color = Color(0xFFFF3333)
+    val errorColor: Color = Color(0xFFFF3333),
+    val isVipOnly: Boolean = false
 ) {
-    NEON_CYBER(
-        id = "neon_cyber",
-        displayName = "Cyber Neon Green",
-        subtitle = "Estilo Kicker & Monster Bass",
-        primaryColor = Color(0xFF00FF66),
-        accentColor = Color(0xFF00F0FF),
-        backgroundColor = Color(0xFF090D0B),
-        surfaceColor = Color(0xFF111A14),
-        cardColor = Color(0xFF17241C),
-        onPrimaryColor = Color(0xFF00220A),
-        textColor = Color(0xFFE5FFE9),
-        textSecondaryColor = Color(0xFF88B393),
-        meterPeakColor = Color(0xFF00FF66)
-    ),
     CRIMSON_RED(
         id = "crimson_red",
         displayName = "Crimson Studio Red",
@@ -44,7 +31,8 @@ enum class CarAudioThemeType(
         onPrimaryColor = Color(0xFFFFFFFF),
         textColor = Color(0xFFFFECEE),
         textSecondaryColor = Color(0xFFD18A92),
-        meterPeakColor = Color(0xFFFF172B)
+        meterPeakColor = Color(0xFFFF172B),
+        isVipOnly = false
     ),
     ELECTRIC_BLUE(
         id = "electric_blue",
@@ -58,91 +46,23 @@ enum class CarAudioThemeType(
         onPrimaryColor = Color(0xFFFFFFFF),
         textColor = Color(0xFFE6F3FF),
         textSecondaryColor = Color(0xFF7B9CBD),
-        meterPeakColor = Color(0xFF00B4FF)
+        meterPeakColor = Color(0xFF00B4FF),
+        isVipOnly = false
     ),
-    CARBON_GOLD(
-        id = "carbon_gold",
-        displayName = "Soundigital Gold Edition",
-        subtitle = "Estilo Digital Designs Carbon & Gold",
-        primaryColor = Color(0xFFFFC107),
-        accentColor = Color(0xFFFFE082),
-        backgroundColor = Color(0xFF0E0D08),
-        surfaceColor = Color(0xFF1A170F),
-        cardColor = Color(0xFF262215),
-        onPrimaryColor = Color(0xFF2B2000),
-        textColor = Color(0xFFFFF8E1),
-        textSecondaryColor = Color(0xFFB5A986),
-        meterPeakColor = Color(0xFFFFD54F)
-    ),
-    ULTRA_VIOLET(
-        id = "ultra_violet",
-        displayName = "Orion HCCA Purple",
-        subtitle = "Estilo Heavy Subwoofer High Voltage",
-        primaryColor = Color(0xFFB537F2),
-        accentColor = Color(0xFFE040FB),
-        backgroundColor = Color(0xFF0D0614),
-        surfaceColor = Color(0xFF180D24),
-        cardColor = Color(0xFF261538),
-        onPrimaryColor = Color(0xFFFFFFFF),
-        textColor = Color(0xFFF7EBFF),
-        textSecondaryColor = Color(0xFFA685BD),
-        meterPeakColor = Color(0xFFD500F9)
-    ),
-    BLAZE_ORANGE(
-        id = "blaze_orange",
-        displayName = "Sundown Blaze Orange",
-        subtitle = "Estilo Sundown Audio & Basshead",
-        primaryColor = Color(0xFFFF6600),
-        accentColor = Color(0xFFFF9E40),
-        backgroundColor = Color(0xFF120A04),
-        surfaceColor = Color(0xFF211308),
-        cardColor = Color(0xFF331C0C),
-        onPrimaryColor = Color(0xFFFFFFFF),
-        textColor = Color(0xFFFFECE0),
-        textSecondaryColor = Color(0xFFB8947C),
-        meterPeakColor = Color(0xFFFF6D00)
-    ),
-    ACID_LIME(
-        id = "acid_lime",
-        displayName = "Toxic Acid Lime",
-        subtitle = "Estilo B2 Audio & SPL Competencia",
-        primaryColor = Color(0xFFB8FF00),
-        accentColor = Color(0xFFD4FF5E),
-        backgroundColor = Color(0xFF0A0F03),
-        surfaceColor = Color(0xFF141F06),
-        cardColor = Color(0xFF1F2F0A),
-        onPrimaryColor = Color(0xFF1E2B00),
-        textColor = Color(0xFFF4FFE0),
-        textSecondaryColor = Color(0xFFA1B381),
-        meterPeakColor = Color(0xFFCCFF00)
-    ),
-    ICE_CYAN(
-        id = "ice_cyan",
-        displayName = "Alpine Arctic Cyan",
-        subtitle = "Estilo Alpine F#1 Status & Focal",
-        primaryColor = Color(0xFF00E5FF),
-        accentColor = Color(0xFF80F3FF),
-        backgroundColor = Color(0xFF040F12),
-        surfaceColor = Color(0xFF091D24),
-        cardColor = Color(0xFF0F2E38),
-        onPrimaryColor = Color(0xFF002A30),
-        textColor = Color(0xFFE0FCFF),
-        textSecondaryColor = Color(0xFF7AAEB5),
-        meterPeakColor = Color(0xFF18FFFF)
-    ),
-    VAPOR_PINK(
-        id = "vapor_pink",
-        displayName = "Vaporwave Neon Pink",
-        subtitle = "Estilo Car Show Night Glow",
-        primaryColor = Color(0xFFFF2A85),
-        accentColor = Color(0xFFFF70A6),
-        backgroundColor = Color(0xFF12050E),
-        surfaceColor = Color(0xFF210A1A),
-        cardColor = Color(0xFF331028),
-        onPrimaryColor = Color(0xFFFFFFFF),
-        textColor = Color(0xFFFFEBF4),
-        textSecondaryColor = Color(0xFFB5809D),
-        meterPeakColor = Color(0xFFFF1493)
+    NEON_CYBER(
+        id = "neon_cyber",
+        displayName = "Cyber Neon Green",
+        subtitle = "Estilo Kicker & Monster Bass",
+        primaryColor = Color(0xFF00FF66),
+        accentColor = Color(0xFF00F0FF),
+        backgroundColor = Color(0xFF090D0B),
+        surfaceColor = Color(0xFF111A14),
+        cardColor = Color(0xFF17241C),
+        onPrimaryColor = Color(0xFF00220A),
+        textColor = Color(0xFFE5FFE9),
+        textSecondaryColor = Color(0xFF88B393),
+        meterPeakColor = Color(0xFF00FF66),
+        isVipOnly = false
     ),
     TITANIUM_SQL(
         id = "titanium_sql",
@@ -156,7 +76,113 @@ enum class CarAudioThemeType(
         onPrimaryColor = Color(0xFF111827),
         textColor = Color(0xFFF9FAFB),
         textSecondaryColor = Color(0xFF9CA3AF),
-        meterPeakColor = Color(0xFFE5E7EB)
+        meterPeakColor = Color(0xFFE5E7EB),
+        isVipOnly = false
+    ),
+    CARBON_GOLD(
+        id = "carbon_gold",
+        displayName = "Soundigital Gold VIP",
+        subtitle = "Estilo Digital Designs Carbon & Gold",
+        primaryColor = Color(0xFFFFC107),
+        accentColor = Color(0xFFFFE082),
+        backgroundColor = Color(0xFF0E0D08),
+        surfaceColor = Color(0xFF1A170F),
+        cardColor = Color(0xFF262215),
+        onPrimaryColor = Color(0xFF2B2000),
+        textColor = Color(0xFFFFF8E1),
+        textSecondaryColor = Color(0xFFB5A986),
+        meterPeakColor = Color(0xFFFFD54F),
+        isVipOnly = true
+    ),
+    VIP_OBSIDIAN_DIAMOND(
+        id = "vip_obsidian_diamond",
+        displayName = "Obsidian Platinum VIP",
+        subtitle = "Cabina Master Hi-Res Diamante & Carmesí",
+        primaryColor = Color(0xFFE5B84B),
+        accentColor = Color(0xFFFF3B5C),
+        backgroundColor = Color(0xFF08080A),
+        surfaceColor = Color(0xFF121217),
+        cardColor = Color(0xFF1B1B22),
+        onPrimaryColor = Color(0xFF1A1200),
+        textColor = Color(0xFFFDF8EC),
+        textSecondaryColor = Color(0xFFB0A899),
+        meterPeakColor = Color(0xFFFFD76A),
+        isVipOnly = true
+    ),
+    ULTRA_VIOLET(
+        id = "ultra_violet",
+        displayName = "Orion HCCA Purple",
+        subtitle = "Estilo Heavy Subwoofer High Voltage",
+        primaryColor = Color(0xFFB537F2),
+        accentColor = Color(0xFFE040FB),
+        backgroundColor = Color(0xFF0D0614),
+        surfaceColor = Color(0xFF180D24),
+        cardColor = Color(0xFF261538),
+        onPrimaryColor = Color(0xFFFFFFFF),
+        textColor = Color(0xFFF7EBFF),
+        textSecondaryColor = Color(0xFFA685BD),
+        meterPeakColor = Color(0xFFD500F9),
+        isVipOnly = true
+    ),
+    BLAZE_ORANGE(
+        id = "blaze_orange",
+        displayName = "Sundown Blaze Orange",
+        subtitle = "Estilo Sundown Audio & Basshead",
+        primaryColor = Color(0xFFFF6600),
+        accentColor = Color(0xFFFF9E40),
+        backgroundColor = Color(0xFF120A04),
+        surfaceColor = Color(0xFF211308),
+        cardColor = Color(0xFF331C0C),
+        onPrimaryColor = Color(0xFFFFFFFF),
+        textColor = Color(0xFFFFECE0),
+        textSecondaryColor = Color(0xFFB8947C),
+        meterPeakColor = Color(0xFFFF6D00),
+        isVipOnly = true
+    ),
+    ICE_CYAN(
+        id = "ice_cyan",
+        displayName = "Alpine Arctic Cyan",
+        subtitle = "Estilo Alpine F#1 Status & Focal",
+        primaryColor = Color(0xFF00E5FF),
+        accentColor = Color(0xFF80F3FF),
+        backgroundColor = Color(0xFF040F12),
+        surfaceColor = Color(0xFF091D24),
+        cardColor = Color(0xFF0F2E38),
+        onPrimaryColor = Color(0xFF002A30),
+        textColor = Color(0xFFE0FCFF),
+        textSecondaryColor = Color(0xFF7AAEB5),
+        meterPeakColor = Color(0xFF18FFFF),
+        isVipOnly = true
+    ),
+    VAPOR_PINK(
+        id = "vapor_pink",
+        displayName = "Vaporwave Neon Pink",
+        subtitle = "Estilo Car Show Night Glow",
+        primaryColor = Color(0xFFFF2A85),
+        accentColor = Color(0xFFFF70A6),
+        backgroundColor = Color(0xFF12050E),
+        surfaceColor = Color(0xFF210A1A),
+        cardColor = Color(0xFF331028),
+        onPrimaryColor = Color(0xFFFFFFFF),
+        textColor = Color(0xFFFFEBF4),
+        textSecondaryColor = Color(0xFFB5809D),
+        meterPeakColor = Color(0xFFFF1493),
+        isVipOnly = true
+    ),
+    ACID_LIME(
+        id = "acid_lime",
+        displayName = "Toxic Acid Lime",
+        subtitle = "Estilo B2 Audio & SPL Competencia",
+        primaryColor = Color(0xFFB8FF00),
+        accentColor = Color(0xFFD4FF5E),
+        backgroundColor = Color(0xFF0A0F03),
+        surfaceColor = Color(0xFF141F06),
+        cardColor = Color(0xFF1F2F0A),
+        onPrimaryColor = Color(0xFF1E2B00),
+        textColor = Color(0xFFF4FFE0),
+        textSecondaryColor = Color(0xFFA1B381),
+        meterPeakColor = Color(0xFFCCFF00),
+        isVipOnly = true
     ),
     TOXIC_YELLOW(
         id = "toxic_yellow",
@@ -170,7 +196,8 @@ enum class CarAudioThemeType(
         onPrimaryColor = Color(0xFF262300),
         textColor = Color(0xFFFFFFE0),
         textSecondaryColor = Color(0xFFB5B37D),
-        meterPeakColor = Color(0xFFFFD600)
+        meterPeakColor = Color(0xFFFFD600),
+        isVipOnly = true
     ),
     MAGMA_BURST(
         id = "magma_burst",
@@ -184,7 +211,8 @@ enum class CarAudioThemeType(
         onPrimaryColor = Color(0xFFFFFFFF),
         textColor = Color(0xFFFFEBE5),
         textSecondaryColor = Color(0xFFB8857B),
-        meterPeakColor = Color(0xFFDD2C00)
+        meterPeakColor = Color(0xFFDD2C00),
+        isVipOnly = true
     );
 
     val textPrimaryColor: Color get() = textColor

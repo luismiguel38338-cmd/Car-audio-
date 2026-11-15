@@ -28,9 +28,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.PictureInPicture
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,6 +100,8 @@ fun EqualizerProcessorView(
     onSelectPresetItem: (EqPresetItem) -> Unit = {},
     onSaveCustomPreset: (name: String, desc: String) -> Unit = { _, _ -> },
     onDeletePreset: (EqPresetItem) -> Unit = {},
+    isVipUnlocked: Boolean = false,
+    onRequestVipDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -167,92 +170,6 @@ fun EqualizerProcessorView(
             .padding(vertical = 10.dp, horizontal = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Real-Time YouTube & Global Overlay Banner (Todo Rojo)
-        Card(
-            colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.55f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(theme.primaryColor)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "TIEMPO REAL: YOUTUBE & MÚSICA",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = theme.accentColor
-                        )
-                    }
-                    Text(
-                        text = "v6.0 PRO",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = theme.primaryColor
-                    )
-                }
-
-                Text(
-                    text = "Todos los ajustes de bandas y filtros se aplican en tiempo real a tu música cargada. En YouTube y apps externas depende de la sesión compartida que permita Android.",
-                    fontSize = 11.sp,
-                    color = theme.textSecondaryColor,
-                    lineHeight = 15.sp
-                )
-
-                Button(
-                    onClick = {
-                        if (Settings.canDrawOverlays(context)) {
-                            FloatingEqualizerService.start(context)
-                        } else {
-                            try {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(38.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = theme.primaryColor,
-                        contentColor = theme.onPrimaryColor
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PictureInPicture,
-                        contentDescription = "Pantalla Virtual Flotante",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "ACTIVAR PANTALLA FLOTANTE (CÍRCULO ROJO)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
-        }
 
         // EQ Master Switch + Gain
         Card(
@@ -414,22 +331,42 @@ fun EqualizerProcessorView(
                 ) {
                     eqPresets.forEach { preset ->
                         val isSelected = eqSettings.activePresetName == preset.name
+                        val isLocked = preset.isVip && !isVipUnlocked
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(if (isSelected) theme.primaryColor else theme.cardColor)
+                                .background(
+                                    when {
+                                        isSelected -> theme.primaryColor
+                                        isLocked -> theme.backgroundColor
+                                        else -> theme.cardColor
+                                    }
+                                )
                                 .border(
                                     width = 1.dp,
-                                    color = if (isSelected) theme.primaryColor else theme.primaryColor.copy(alpha = 0.3f),
+                                    color = if (isSelected) theme.primaryColor else theme.primaryColor.copy(alpha = 0.35f),
                                     shape = RoundedCornerShape(20.dp)
                                 )
                                 .clickable {
-                                    onSelectPreset(preset.name)
-                                    onSelectPresetItem(preset)
+                                    if (isLocked) {
+                                        onRequestVipDialog()
+                                    } else {
+                                        onSelectPreset(preset.name)
+                                        onSelectPresetItem(preset)
+                                    }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (preset.isVip) {
+                                    Icon(
+                                        imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.WorkspacePremium,
+                                        contentDescription = "VIP",
+                                        tint = if (isSelected) theme.onPrimaryColor else theme.primaryColor,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
                                 Text(
                                     text = preset.name,
                                     fontSize = 11.sp,
@@ -843,6 +780,54 @@ fun EqualizerProcessorView(
                             valueRange = 0.3f..10.0f,
                             colors = SliderDefaults.colors(thumbColor = theme.accentColor, activeTrackColor = theme.accentColor)
                         )
+
+                        // VIP Parametric Filter Type Selector
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isVipUnlocked) "Tipo de Filtro (VIP Pro)" else "Tipo de Filtro (VIP)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.textSecondaryColor
+                            )
+                            if (!isVipUnlocked) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "VIP",
+                                    tint = theme.primaryColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            ParametricFilterType.entries.forEach { fType ->
+                                FilterChip(
+                                    selected = selectedBand.filterType == fType,
+                                    onClick = {
+                                        if (!isVipUnlocked) {
+                                            onRequestVipDialog()
+                                        } else {
+                                            onUpdateParametricBand(selectedBand.id, selectedBand.freqHz, selectedBand.gainDb, selectedBand.q, fType, selectedBand.enabled)
+                                        }
+                                    },
+                                    label = { Text(fType.label, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = theme.primaryColor,
+                                        selectedLabelColor = theme.onPrimaryColor,
+                                        containerColor = theme.cardColor,
+                                        labelColor = theme.textColor
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }

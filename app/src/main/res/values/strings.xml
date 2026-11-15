@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">CAR AUDIO DSP PRO</string>
     <string name="tab_musica">MÚSICA</string>
+    <string name="tab_bajos">BAJOS</string>
     <string name="tab_eq">EQ</string>
     <string name="tab_dsp">DSP</string>
     <string name="tab_ajustes">AJUSTES</string>

@@ -15,8 +15,11 @@ import com.example.model.TrackCategory
 import com.example.viewmodel.AppTab
 import com.example.viewmodel.CarAudioViewModel
 import com.example.viewmodel.LibraryFilter
+import com.example.model.FaultSeverity
+import com.example.model.SubwooferPreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -130,6 +133,88 @@ class CarAudioEngineTest {
         assertTrue("Notch 250Hz expected < -6 dB, got $notchAt250", notchAt250 < -6.0f)
         assertTrue("Low shelf 25Hz expected > +3.5 dB, got $lowShelfAt25", lowShelfAt25 > 3.5f)
         assertTrue("High shelf 16kHz expected > +2.5 dB, got $highShelfAt16k", highShelfAt16k > 2.5f)
+    }
+
+    @Test
+    fun `bass system subsonic cut and punch shape low frequencies`() {
+        val flatEq = EqualizerSettings(isEnabled = false, bands31 = List(31) { 0f }, bands15 = List(15) { 0f })
+        val dspPunch = DspSettings(
+            dspMasterEnabled = true,
+            bassGainDb = 0f,
+            bassBoostEnabled = false,
+            hpfEnabled = false,
+            lpfEnabled = false,
+            subsonicFilterActive = true,
+            subsonicFrequencyHz = 35f,
+            bassPunchLevel = 8.0f
+        )
+        val gain20Hz = CarAudioEngine.computeEffectiveBandGainDb(20, dspPunch, flatEq)
+        val gain75Hz = CarAudioEngine.computeEffectiveBandGainDb(75, dspPunch, flatEq)
+
+        assertTrue("Subsonic 35Hz should strongly attenuate 20Hz, got $gain20Hz", gain20Hz < -4.0f)
+        assertTrue("Bass punch should boost 75Hz region, got $gain75Hz", gain75Hz > 3.0f)
+    }
+
+    @Test
+    fun `vip code 2020 unlocks persisted vip features and rejects invalid codes`() {
+        val vm = CarAudioViewModel(app)
+        assertFalse(vm.isVipUnlocked.value)
+
+        // Reject wrong code
+        assertFalse(vm.unlockVipWithCode("1234"))
+        assertFalse(vm.isVipUnlocked.value)
+
+        // Gated actions stay blocked while locked
+        vm.setHiResQuality(true)
+        assertFalse(vm.dspSettings.value.hiResQualityEnabled)
+        vm.setTheme(CarAudioThemeType.CARBON_GOLD)
+        assertEquals(CarAudioThemeType.CRIMSON_RED, vm.currentTheme.value)
+
+        // Unlock with secret code 2020
+        assertTrue(vm.unlockVipWithCode("2020"))
+        assertTrue(vm.isVipUnlocked.value)
+
+        vm.setHiResQuality(true)
+        vm.setTubeWarmth(6.5f)
+        vm.setTheme(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND)
+        vm.applySubwooferPreset(SubwooferPreset.DEEP_SUB_32HZ)
+
+        assertTrue(vm.dspSettings.value.hiResQualityEnabled)
+        assertEquals(6.5f, vm.dspSettings.value.tubeWarmthLevel, 0.01f)
+        assertEquals(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND, vm.currentTheme.value)
+
+        // Verify persistence
+        val vm2 = CarAudioViewModel(app)
+        assertTrue(vm2.isVipUnlocked.value)
+        assertTrue(vm2.dspSettings.value.hiResQualityEnabled)
+        assertEquals(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND, vm2.currentTheme.value)
+
+        // Lock reverts VIP exclusives
+        vm2.lockVip()
+        assertFalse(vm2.isVipUnlocked.value)
+        assertFalse(vm2.dspSettings.value.hiResQualityEnabled)
+        assertEquals(CarAudioThemeType.CRIMSON_RED, vm2.currentTheme.value)
+    }
+
+    @Test
+    fun `fault alerts record banner and history and clear cleanly`() {
+        val vm = CarAudioViewModel(app)
+        vm.reportSystemFault(
+            title = "Error de Lectura",
+            message = "No se pudo abrir la pista.",
+            severity = FaultSeverity.ERROR,
+            sendSystemNotification = false
+        )
+
+        assertEquals(1, vm.faultAlerts.value.size)
+        assertEquals("Error de Lectura", vm.latestBannerAlert.value?.title)
+
+        vm.dismissBannerAlert()
+        assertNull(vm.latestBannerAlert.value)
+        assertEquals(1, vm.faultAlerts.value.size)
+
+        vm.clearFaultHistory()
+        assertTrue(vm.faultAlerts.value.isEmpty())
     }
 
     @Test

@@ -15,7 +15,9 @@ data class AudioTrackItem(
     val isSynthesized: Boolean = false,
     val customUri: Uri? = null,
     val albumArtUri: Uri? = null,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val audioFormatLabel: String = "Audio HD",
+    val bitrateKbps: Int = 0
 )
 
 enum class TrackCategory {
@@ -62,6 +64,100 @@ enum class AudioSessionTarget(val label: String, val detail: String) {
     )
 }
 
+enum class FaultSeverity {
+    INFO,
+    WARNING,
+    ERROR
+}
+
+enum class FaultActionType {
+    NONE,
+    ENABLE_LIMITER,
+    REQUEST_AUDIO_PERMISSION,
+    REQUEST_NOTIFICATION_PERMISSION,
+    RELOAD_LIBRARY,
+    OPEN_DIAGNOSTICS
+}
+
+@Immutable
+data class SystemFaultAlert(
+    val id: String,
+    val title: String,
+    val message: String,
+    val severity: FaultSeverity = FaultSeverity.WARNING,
+    val timestampMs: Long = System.currentTimeMillis(),
+    val actionLabel: String? = null,
+    val actionType: FaultActionType = FaultActionType.NONE
+)
+
+enum class SubwooferPreset(
+    val label: String,
+    val subtitle: String,
+    val bassBoostDb: Float,
+    val subBassDb: Float,
+    val subFreqHz: Float,
+    val subsonicHz: Float,
+    val lpfHz: Float,
+    val punchLevel: Float,
+    val isVip: Boolean = false
+) {
+    DAILY_CLEAN(
+        label = "Diario Limpio",
+        subtitle = "Graves balanceados con protección infrasónica",
+        bassBoostDb = 6f,
+        subBassDb = 4f,
+        subFreqHz = 45f,
+        subsonicHz = 28f,
+        lpfHz = 100f,
+        punchLevel = 3.0f,
+        isVip = false
+    ),
+    STREET_PUNCH(
+        label = "Golpe Urbano",
+        subtitle = "Pegada fuerte en 50-65 Hz para reggaetón y electrónica",
+        bassBoostDb = 11f,
+        subBassDb = 7f,
+        subFreqHz = 52f,
+        subsonicHz = 30f,
+        lpfHz = 115f,
+        punchLevel = 6.5f,
+        isVip = false
+    ),
+    DEEP_SUB_32HZ(
+        label = "Hairtrick 32Hz",
+        subtitle = "Excursión profunda subgrave para cajón porteado",
+        bassBoostDb = 16f,
+        subBassDb = 13f,
+        subFreqHz = 32f,
+        subsonicHz = 22f,
+        lpfHz = 85f,
+        punchLevel = 4.0f,
+        isVip = true
+    ),
+    SPL_COMPETITION(
+        label = "SPL Competencia",
+        subtitle = "Máxima presión sonora controlada con pendiente 36dB",
+        bassBoostDb = 18f,
+        subBassDb = 15f,
+        subFreqHz = 48f,
+        subsonicHz = 32f,
+        lpfHz = 95f,
+        punchLevel = 9.0f,
+        isVip = true
+    ),
+    SQL_AUDIOPHILE(
+        label = "SQL Audiófilo",
+        subtitle = "Sub-bajo rápido y articulado sin retumbar",
+        bassBoostDb = 4f,
+        subBassDb = 3f,
+        subFreqHz = 38f,
+        subsonicHz = 24f,
+        lpfHz = 80f,
+        punchLevel = 2.5f,
+        isVip = true
+    )
+}
+
 @Immutable
 data class DspSettings(
     // Master DSP State
@@ -94,15 +190,17 @@ data class DspSettings(
 
     val subsonicFrequencyHz: Float = 28f,
     val subsonicEnabled: Boolean = true,
+    val subsonicFilterActive: Boolean = false,
 
-    // Audio FX Controls
+    // Audio FX Controls & Bass System
     val bassBoostEnabled: Boolean = true,
     val bassBoostDb: Float = 4.0f, // 0 to 24 dB
-    val bassBoostFreqHz: Float = 45f, // 35Hz, 45Hz, 55Hz
+    val bassBoostFreqHz: Float = 45f, // 30Hz - 80Hz
 
     val subBassEnabled: Boolean = false,
     val subBassBoostDb: Float = 3.0f,
     val subBassFreqHz: Float = 35f,
+    val bassPunchLevel: Float = 0.0f, // 0 to 10 dB transient punch
 
     val loudnessEnabled: Boolean = false,
     val loudnessGainDb: Float = 4.0f,
@@ -128,6 +226,10 @@ data class DspSettings(
 
     val clarityEnabled: Boolean = false,
     val clarityLevel: Float = 2.5f,
+
+    // VIP Quality Enhancers
+    val hiResQualityEnabled: Boolean = false,
+    val tubeWarmthLevel: Float = 0.0f, // 0 to 10
 
     val phaseDegrees: Int = 0, // 0 or 180
     val timeAlignmentMs: Float = 1.2f, // 0 to 15 ms

@@ -151,10 +151,11 @@ fun PlayerView(
     onToggleFavorite: (AudioTrackItem) -> Unit = {},
     onToggleShuffle: () -> Unit = {},
     onCycleRepeat: () -> Unit = {},
+    isVipUnlocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showInlineModifier by remember { mutableStateOf(true) }
+    var showInlineModifier by remember { mutableStateOf(false) }
 
     val selectedCardBorderBrush = remember(theme.primaryColor, theme.accentColor) {
         Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor))
@@ -383,14 +384,57 @@ fun PlayerView(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = currentTrack?.album ?: sessionTarget.label,
-                                color = theme.textSecondaryColor,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                if (currentTrack != null) {
+                                    val qualityLabel = buildString {
+                                        append(currentTrack.audioFormatLabel)
+                                        if (currentTrack.bitrateKbps > 0) {
+                                            append(" • ${currentTrack.bitrateKbps} kbps")
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(theme.surfaceColor)
+                                            .border(0.8.dp, theme.primaryColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = qualityLabel,
+                                            color = theme.primaryColor,
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                if (isVipUnlocked && dspSettings.hiResQualityEnabled) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(theme.primaryColor)
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "VIP HI-RES",
+                                            color = theme.onPrimaryColor,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = currentTrack?.album ?: sessionTarget.label,
+                                    color = theme.textSecondaryColor,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
 
@@ -986,7 +1030,7 @@ fun PlayerView(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "${track.artist} • $trackDurLabel",
+                                text = "${track.artist} • ${track.audioFormatLabel} • $trackDurLabel",
                                 color = theme.textSecondaryColor,
                                 fontSize = 10.sp,
                                 maxLines = 1,
