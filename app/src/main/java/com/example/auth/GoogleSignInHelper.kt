@@ -37,6 +37,7 @@ fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
     awaitClose { removeAuthStateListener(listener) }
 }
 
+@Suppress("UNUSED_PARAMETER")
 fun attemptAutoSignIn(
     context: Context,
     credentialManager: CredentialManager,
@@ -48,36 +49,15 @@ fun attemptAutoSignIn(
         onAuthSuccess()
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (_: Exception) {
-        onUnauthenticated()
-        return
-    }
 
-    val googleIdOption = GetGoogleIdOption.Builder()
-        .setFilterByAuthorizedAccounts(true)
-        .setServerClientId(clientId)
-        .setAutoSelectEnabled(true)
-        .build()
-
-    val request = GetCredentialRequest.Builder()
-        .addCredentialOption(googleIdOption)
-        .build()
-
+    // Create a persistent anonymous Firebase session so the app opens directly
+    // without requiring a Google account. Enable the Anonymous provider in Firebase.
     scope.launch {
         try {
-            val result = credentialManager.getCredential(context, request)
-            val credential = result.credential
-            if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
-                Firebase.auth.signInWithCredential(authCredential).await()
-                onAuthSuccess()
-            } else {
-                onUnauthenticated()
-            }
-        } catch (_: Exception) {
+            Firebase.auth.signInAnonymously().await()
+            onAuthSuccess()
+        } catch (e: Exception) {
+            Log.e(AUTH_TAG, "Anonymous sign-in failed", e)
             onUnauthenticated()
         }
     }
