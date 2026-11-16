@@ -207,6 +207,15 @@ data class DspSettings(
 
     val stereoWidthPercent: Float = 100f, // 100 to 250%
     val balancePan: Float = 0.0f, // -1.0 (Left) to +1.0 (Right)
+    val faderFrontRear: Float = 0.0f, // -1.0 (Rear) to +1.0 (Front) — requires 4-ch external DSP/amp
+
+    // Speaker & Tweeter Setup
+    val speakerSizeLabel: String = "6.5\"",
+    val speakerCount: Int = 4,
+    val tweeterSizeMm: Int = 25,
+    val tweeterMaterial: String = "Cúpula de Seda",
+    val tweeterHpfHz: Float = 3500f,
+    val tweeterLevelDb: Float = 0.0f, // -6 to +6 dB
 
     val compressorEnabled: Boolean = false,
     val compressorThresholdDb: Float = -12f,

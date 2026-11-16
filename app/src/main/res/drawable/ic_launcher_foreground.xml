@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/crimson_dsp_logo_1794742268901"
+        android:drawable="@drawable/car_audio_dsp_icon_1794824449077"
         android:gravity="center" />
 </layer-list>

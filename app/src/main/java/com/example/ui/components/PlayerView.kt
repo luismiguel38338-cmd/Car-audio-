@@ -31,10 +31,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.BluetoothAudio
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -58,6 +62,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -99,11 +104,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.audio.AlbumArtCache
+import androidx.compose.material3.TextButton
 import com.example.model.AudioSessionTarget
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
+import com.example.model.MusicPlaylist
 import com.example.model.OutputDeviceStatus
 import com.example.model.OutputKind
 import com.example.model.RepeatMode
@@ -152,10 +159,25 @@ fun PlayerView(
     onToggleShuffle: () -> Unit = {},
     onCycleRepeat: () -> Unit = {},
     isVipUnlocked: Boolean = false,
+    isAnyAudioPlaying: Boolean = isPlaying,
+    bassEnergy: Float = 0f,
+    midEnergy: Float = 0f,
+    trebleEnergy: Float = 0f,
+    playlists: List<MusicPlaylist> = emptyList(),
+    selectedPlaylistId: String? = null,
+    onSelectPlaylist: (String?) -> Unit = {},
+    onCreatePlaylist: (String) -> Unit = {},
+    onDeletePlaylist: (String) -> Unit = {},
+    onAddTrackToPlaylist: (playlistId: String, trackId: String) -> Unit = { _, _ -> },
+    onRemoveTrackFromPlaylist: (playlistId: String, trackId: String) -> Unit = { _, _ -> },
+    onOpenEqSection: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showInlineModifier by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+    var trackForPlaylistDialog by remember { mutableStateOf<AudioTrackItem?>(null) }
 
     val selectedCardBorderBrush = remember(theme.primaryColor, theme.accentColor) {
         Brush.horizontalGradient(listOf(theme.primaryColor, theme.accentColor))
@@ -190,14 +212,139 @@ fun PlayerView(
         }
     }
 
+    if (showCreatePlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreatePlaylistDialog = false },
+            containerColor = theme.cardColor,
+            title = { Text("Nueva Lista de Reproducción", fontWeight = FontWeight.Black, color = theme.textColor) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Crea una lista independiente para organizar tus canciones locales:", color = theme.textSecondaryColor, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = newPlaylistName,
+                        onValueChange = { newPlaylistName = it },
+                        label = { Text("Nombre de la lista") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onCreatePlaylist(newPlaylistName.trim())
+                            newPlaylistName = ""
+                            showCreatePlaylistDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                ) {
+                    Text("Crear", color = theme.onPrimaryColor, fontWeight = FontWeight.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreatePlaylistDialog = false }) {
+                    Text("Cancelar", color = theme.textSecondaryColor)
+                }
+            }
+        )
+    }
+
+    trackForPlaylistDialog?.let { targetTrack ->
+        AlertDialog(
+            onDismissRequest = { trackForPlaylistDialog = null },
+            containerColor = theme.cardColor,
+            title = { Text("Agregar a Lista", fontWeight = FontWeight.Black, color = theme.textColor) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = targetTrack.title,
+                        color = theme.primaryColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (playlists.isEmpty()) {
+                        Text(
+                            text = "Aún no tienes listas creadas. Crea una para guardar esta canción.",
+                            color = theme.textSecondaryColor,
+                            fontSize = 11.5.sp
+                        )
+                    } else {
+                        playlists.forEach { pl ->
+                            val alreadyIn = targetTrack.id in pl.trackIds
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(theme.surfaceColor)
+                                    .clickable {
+                                        if (alreadyIn) {
+                                            onRemoveTrackFromPlaylist(pl.id, targetTrack.id)
+                                        } else {
+                                            onAddTrackToPlaylist(pl.id, targetTrack.id)
+                                        }
+                                        trackForPlaylistDialog = null
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(pl.name, color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = if (alreadyIn) "QUITAR" else "AGREGAR",
+                                    color = if (alreadyIn) theme.errorColor else theme.accentColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        trackForPlaylistDialog = null
+                        showCreatePlaylistDialog = true
+                    }
+                ) {
+                    Text("+ Nueva Lista", color = theme.accentColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { trackForPlaylistDialog = null }) {
+                    Text("Cerrar", color = theme.textSecondaryColor)
+                }
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(theme.backgroundColor)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 14.dp)
+            .testTag("music_player_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 0. 5-LED DYNAMIC INDICATOR + COMPACT AUDIO SPECTRUM
+        item(key = "player_5led", contentType = "led_bar") {
+            FiveLedIndicatorBar(
+                isAudioPlaying = isPlaying || isAnyAudioPlaying,
+                bassEnergy = bassEnergy,
+                midEnergy = midEnergy,
+                trebleEnergy = trebleEnergy,
+                theme = theme,
+                liteVisuals = liteVisuals,
+                title = "REPRODUCTOR LOCAL • 5 LED",
+                showMiniBars = true
+            )
+        }
+
         // 1. MAIN PLAYER DECK
         item(key = "player_deck", contentType = "player_deck") {
             Card(
@@ -301,7 +448,7 @@ fun PlayerView(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Crimson Studio Turntable Dial with Embedded Cover Art
+                    // Studio Turntable Dial with Embedded Cover Art
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -597,6 +744,29 @@ fun PlayerView(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedButton(
+                        onClick = onOpenEqSection,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.45f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Equalizer,
+                            contentDescription = "Abrir ecualizador",
+                            tint = theme.accentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "ABRIR ECUALIZADOR COMPLETO",
+                            color = theme.accentColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
             }
         }
@@ -837,7 +1007,91 @@ fun PlayerView(
             }
         }
 
-        // 4. Search & Library Filter Chips
+        // 4. Playlists Strip (Independent from Radio Pioneer)
+        item(key = "music_playlists_strip", contentType = "music_playlists") {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.28f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.QueueMusic, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "LISTAS DE REPRODUCCIÓN (${playlists.size})",
+                                color = theme.textColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        TextButton(
+                            onClick = { showCreatePlaylistDialog = true },
+                            modifier = Modifier.testTag("create_playlist_button")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("NUEVA LISTA", color = theme.primaryColor, fontSize = 10.5.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = selectedPlaylistId == null,
+                            onClick = { onSelectPlaylist(null) },
+                            label = { Text("Todas", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = theme.primaryColor,
+                                selectedLabelColor = theme.onPrimaryColor,
+                                containerColor = theme.cardColor,
+                                labelColor = theme.textSecondaryColor
+                            )
+                        )
+                        playlists.forEach { pl ->
+                            val isSelectedPl = selectedPlaylistId == pl.id
+                            FilterChip(
+                                selected = isSelectedPl,
+                                onClick = { onSelectPlaylist(if (isSelectedPl) null else pl.id) },
+                                label = { Text("${pl.name} (${pl.trackIds.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                trailingIcon = if (isSelectedPl) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Eliminar lista",
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .clickable { onDeletePlaylist(pl.id) }
+                                        )
+                                    }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = theme.accentColor,
+                                    selectedLabelColor = theme.onPrimaryColor,
+                                    containerColor = theme.cardColor,
+                                    labelColor = theme.textColor
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Search & Library Filter Chips
         item(key = "library_search_filter", contentType = "library_search") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -1047,6 +1301,20 @@ fun PlayerView(
                                 fontFamily = FontFamily.Monospace
                             )
                             Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        IconButton(
+                            onClick = { trackForPlaylistDialog = track },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("track_playlist_${track.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                contentDescription = "Agregar a lista",
+                                tint = theme.accentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
 
                         IconButton(

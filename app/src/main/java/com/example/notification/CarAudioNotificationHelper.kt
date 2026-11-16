@@ -25,7 +25,7 @@ object CarAudioNotificationHelper {
     const val NOTIFICATION_ID_CLIP_ALERT = 1002
     const val NOTIFICATION_ID_FAULT_BASE = 1100
 
-    private const val CRIMSON_NOTIF_COLOR = 0xFFFF172B.toInt()
+    private const val ELECTRIC_NOTIF_COLOR = 0xFF00A3FF.toInt()
     @Volatile private var channelsInitialized = false
 
     fun initNotificationChannels(context: Context) {
@@ -36,7 +36,7 @@ object CarAudioNotificationHelper {
 
                 val statusChannel = NotificationChannel(
                     CHANNEL_ID_STATUS,
-                    "Reproductor y Ecualizador DSP",
+                    "Reproductor, Radio y Ecualizador DSP",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     description = "Controles multimedia y estado del procesador DSP"
@@ -58,7 +58,7 @@ object CarAudioNotificationHelper {
                     "Fallos y Diagnóstico del Sistema",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Notifica cuando falla la reproducción, un archivo de música, permisos o el motor AudioFX"
+                    description = "Notifica cuando falla la reproducción, la radio, un archivo de música, permisos o el motor AudioFX"
                     enableVibration(true)
                     setShowBadge(true)
                 }
@@ -117,11 +117,11 @@ object CarAudioNotificationHelper {
 
         val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         val playPauseLabel = if (isPlaying) "Pausar" else "Reproducir"
-        val dspBadge = if (isDspActive) "DSP Rojo Activo" else "Bypass"
+        val dspBadge = if (isDspActive) "DSP Eléctrico Activo" else "Bypass"
 
         builder
             .setSmallIcon(R.drawable.ic_notification_dsp)
-            .setColor(CRIMSON_NOTIF_COLOR)
+            .setColor(ELECTRIC_NOTIF_COLOR)
             .setContentTitle(title)
             .setContentText("$artist • $dspBadge")
             .setContentIntent(openAppIntent)
@@ -169,7 +169,7 @@ object CarAudioNotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_STATUS)
             .setSmallIcon(R.drawable.ic_notification_dsp)
-            .setColor(CRIMSON_NOTIF_COLOR)
+            .setColor(ELECTRIC_NOTIF_COLOR)
             .setContentTitle("CAR AUDIO DSP • $trackTitle")
             .setContentText("$playState • $clipText")
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -197,7 +197,7 @@ object CarAudioNotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
             .setSmallIcon(R.drawable.ic_notification_dsp)
-            .setColor(CRIMSON_NOTIF_COLOR)
+            .setColor(ELECTRIC_NOTIF_COLOR)
             .setContentTitle("Alerta de Clipping en Salida")
             .setContentText("Distorsión detectada ($clipCount eventos). Reduce la ganancia o activa el Limitador.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -231,7 +231,7 @@ object CarAudioNotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ERRORS)
             .setSmallIcon(R.drawable.ic_notification_dsp)
-            .setColor(CRIMSON_NOTIF_COLOR)
+            .setColor(ELECTRIC_NOTIF_COLOR)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

@@ -4,19 +4,23 @@ import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.audio.CarAudioEngine
+import com.example.model.AppSection
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
+import com.example.model.FaultSeverity
 import com.example.model.ParametricBand
 import com.example.model.ParametricFilterType
+import com.example.model.PioneerIlluminationColor
+import com.example.model.PioneerRadioStyle
 import com.example.model.RepeatMode
+import com.example.model.SubwooferPreset
 import com.example.model.TrackCategory
-import com.example.viewmodel.AppTab
+import com.example.model.VerifiedRadioCatalog
+import com.example.ui.components.FiveLedColors
 import com.example.viewmodel.CarAudioViewModel
 import com.example.viewmodel.LibraryFilter
-import com.example.model.FaultSeverity
-import com.example.model.SubwooferPreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -156,9 +160,40 @@ class CarAudioEngineTest {
     }
 
     @Test
-    fun `vip code 2020 unlocks persisted vip features and rejects invalid codes`() {
+    fun `tweeter level and crossover shape high frequencies accurately`() {
+        val flatEq = EqualizerSettings(isEnabled = false, bands31 = List(31) { 0f }, bands15 = List(15) { 0f })
+        val dspTweeterBoost = DspSettings(
+            dspMasterEnabled = true,
+            trebleGainDb = 0f,
+            hpfEnabled = false,
+            lpfEnabled = false,
+            tweeterHpfHz = 3500f,
+            tweeterLevelDb = 4.5f
+        )
+        val gain250Hz = CarAudioEngine.computeEffectiveBandGainDb(250, dspTweeterBoost, flatEq)
+        val gain10kHz = CarAudioEngine.computeEffectiveBandGainDb(10000, dspTweeterBoost, flatEq)
+
+        assertEquals(0f, gain250Hz, 0.2f)
+        assertTrue("10kHz ($gain10kHz dB) should reflect +4.5 dB tweeter boost", gain10kHz > 3.8f)
+    }
+
+    @Test
+    fun `five led indicator colors strictly follow rojo verde rojo verde blanco`() {
+        assertEquals(
+            listOf("ROJO", "VERDE", "ROJO", "VERDE", "BLANCO"),
+            FiveLedColors.orderedNames
+        )
+        assertEquals(
+            listOf(FiveLedColors.RED, FiveLedColors.GREEN, FiveLedColors.RED, FiveLedColors.GREEN, FiveLedColors.WHITE),
+            FiveLedColors.orderedColors
+        )
+    }
+
+    @Test
+    fun `vip unlock persists and dismissing intro never revokes vip status`() {
         val vm = CarAudioViewModel(app)
         assertFalse(vm.isVipUnlocked.value)
+        assertFalse(vm.vipIntroDismissed.value)
 
         // Reject wrong code
         assertFalse(vm.unlockVipWithCode("1234"))
@@ -168,9 +203,9 @@ class CarAudioEngineTest {
         vm.setHiResQuality(true)
         assertFalse(vm.dspSettings.value.hiResQualityEnabled)
         vm.setTheme(CarAudioThemeType.CARBON_GOLD)
-        assertEquals(CarAudioThemeType.CRIMSON_RED, vm.currentTheme.value)
+        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm.currentTheme.value)
 
-        // Unlock with secret code 2020
+        // Unlock VIP
         assertTrue(vm.unlockVipWithCode("2020"))
         assertTrue(vm.isVipUnlocked.value)
 
@@ -179,21 +214,80 @@ class CarAudioEngineTest {
         vm.setTheme(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND)
         vm.applySubwooferPreset(SubwooferPreset.DEEP_SUB_32HZ)
 
-        assertTrue(vm.dspSettings.value.hiResQualityEnabled)
-        assertEquals(6.5f, vm.dspSettings.value.tubeWarmthLevel, 0.01f)
-        assertEquals(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND, vm.currentTheme.value)
+        // Dismiss one-time VIP intro card; must NOT affect isVipUnlocked
+        vm.dismissVipIntroPermanently()
+        assertTrue(vm.vipIntroDismissed.value)
+        assertTrue(vm.isVipUnlocked.value)
 
-        // Verify persistence
+        // Switch sections; intro stays dismissed
+        vm.selectSection(AppSection.RADIO_PIONEER)
+        vm.selectSection(AppSection.HOME)
+        assertTrue(vm.vipIntroDismissed.value)
+
+        // Recreate ViewModel to verify durable persistence across restart
         val vm2 = CarAudioViewModel(app)
         assertTrue(vm2.isVipUnlocked.value)
+        assertTrue(vm2.vipIntroDismissed.value)
         assertTrue(vm2.dspSettings.value.hiResQualityEnabled)
+        assertEquals(6.5f, vm2.dspSettings.value.tubeWarmthLevel, 0.01f)
         assertEquals(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND, vm2.currentTheme.value)
 
-        // Lock reverts VIP exclusives
+        // Explicit lock reverts VIP exclusives to GRAPHITE_ELECTRIC_NEON
         vm2.lockVip()
         assertFalse(vm2.isVipUnlocked.value)
         assertFalse(vm2.dspSettings.value.hiResQualityEnabled)
-        assertEquals(CarAudioThemeType.CRIMSON_RED, vm2.currentTheme.value)
+        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm2.currentTheme.value)
+        // Intro dismissal stays permanently dismissed
+        assertTrue(vm2.vipIntroDismissed.value)
+    }
+
+    @Test
+    fun `verified radio catalog and pioneer station presets persist cleanly`() {
+        assertEquals(12, VerifiedRadioCatalog.stations.size)
+        assertTrue(VerifiedRadioCatalog.stations.all { it.streamUrl.startsWith("https://") })
+
+        val vm = CarAudioViewModel(app)
+        vm.selectPioneerStyle(PioneerRadioStyle.COMPETITION)
+        vm.selectPioneerIllumination(PioneerIlluminationColor.NEON_GREEN)
+
+        val targetStation = VerifiedRadioCatalog.stations[2]
+        vm.toggleFavoriteStation(targetStation)
+        vm.setRadioSearchQuery("Synth")
+        assertEquals("Synth", vm.radioSearchQuery.value)
+
+        val vm2 = CarAudioViewModel(app)
+        assertEquals(PioneerRadioStyle.COMPETITION, vm2.selectedPioneerStyle.value)
+        assertEquals(PioneerIlluminationColor.NEON_GREEN, vm2.pioneerIlluminationColor.value)
+        assertTrue(vm2.radioStations.value.first { it.id == targetStation.id }.isFavorite)
+    }
+
+    @Test
+    fun `music playlists and custom sound profiles persist independently`() {
+        val vm = CarAudioViewModel(app)
+        vm.createPlaylist("Viaje Carretera")
+        assertEquals(1, vm.playlists.value.size)
+        val plId = vm.playlists.value.first().id
+
+        vm.addTrackToPlaylist(plId, "user_track_1")
+        vm.selectPlaylistFilter(plId)
+        assertEquals(plId, vm.selectedPlaylistId.value)
+
+        vm.setFaderFrontRear(0.35f)
+        vm.setTweeterConfig(28, "Titanio", 4000f, 3.0f)
+        vm.saveCustomSoundProfile("Auto Tuning", "Setup diario")
+        assertEquals(1, vm.customSoundProfiles.value.size)
+
+        val vm2 = CarAudioViewModel(app)
+        assertEquals(1, vm2.playlists.value.size)
+        assertEquals("Viaje Carretera", vm2.playlists.value.first().name)
+        assertTrue("user_track_1" in vm2.playlists.value.first().trackIds)
+        assertEquals(1, vm2.customSoundProfiles.value.size)
+        assertEquals("Auto Tuning", vm2.customSoundProfiles.value.first().name)
+
+        vm2.deleteCustomSoundProfile(vm2.customSoundProfiles.value.first().id)
+        vm2.deletePlaylist(plId)
+        assertTrue(vm2.customSoundProfiles.value.isEmpty())
+        assertTrue(vm2.playlists.value.isEmpty())
     }
 
     @Test
@@ -218,17 +312,19 @@ class CarAudioEngineTest {
     }
 
     @Test
-    fun `viewmodel persists dsp eq shuffle repeat and favorites`() {
-        val vm1 = CarAudioViewModel(app)
-        assertEquals(CarAudioThemeType.CRIMSON_RED, vm1.currentTheme.value)
+    fun `viewmodel persists dsp eq shuffle repeat and favorites across all 9 sections`() {
+        assertEquals(9, AppSection.entries.size)
 
-        vm1.selectTab(AppTab.DSP)
-        assertEquals(AppTab.DSP, vm1.selectedTab.value)
+        val vm1 = CarAudioViewModel(app)
+        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm1.currentTheme.value)
+        assertEquals(AppSection.HOME, vm1.selectedSection.value)
+
+        vm1.selectSection(AppSection.SOUND_TOOLS)
+        assertEquals(AppSection.SOUND_TOOLS, vm1.selectedSection.value)
 
         vm1.toggleShuffle()
         assertTrue(vm1.shuffleEnabled.value)
 
-        // Default RepeatMode is ALL -> ONE -> OFF -> ALL
         assertEquals(RepeatMode.ALL, vm1.repeatMode.value)
         vm1.cycleRepeatMode()
         assertEquals(RepeatMode.ONE, vm1.repeatMode.value)
@@ -253,7 +349,6 @@ class CarAudioEngineTest {
         assertEquals("Bass", vm1.searchQuery.value)
         assertEquals(LibraryFilter.FAVORITES, vm1.libraryFilter.value)
 
-        // Recreate ViewModel to verify SharedPreferences durability
         val vm2 = CarAudioViewModel(app)
         assertTrue(vm2.shuffleEnabled.value)
         assertEquals(RepeatMode.ONE, vm2.repeatMode.value)

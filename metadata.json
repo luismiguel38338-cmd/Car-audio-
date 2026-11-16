@@ -1,6 +1,6 @@
 {
   "name": "CAR AUDIO DSP PRO",
-  "description": "v6.0.0 Edición Todo Rojo: Reproductor y procesador DSP de alta velocidad y alta fidelidad con 31/15 bandas ISO, paramétrico 5B, carátulas con caché LRU, MediaSession, Bluetooth/auriculares y modo ligero.",
+  "description": "v6.5.0 Graphite & Electric Neon Edition: Cabina Car Audio profesional en 9 módulos independientes con Radio Pioneer real en streaming HTTPS, reproductor con listas, barra LED dinámica, panel de altavoces y tweeters, medidor de batería/voltaje/temperatura y ecualizador 31/15/Paramétrico.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

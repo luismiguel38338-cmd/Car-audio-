@@ -126,6 +126,12 @@ class CarAudioEngine(private val context: Context) {
         private set
     @Volatile var clipEventsCount: Int = 0
         private set
+    @Volatile var bassEnergy: Float = 0.0f
+        private set
+    @Volatile var midEnergy: Float = 0.0f
+        private set
+    @Volatile var trebleEnergy: Float = 0.0f
+        private set
     var rawOscilloscopePcm: FloatArray = oscBuffer
         private set
     @Volatile var splCalibrationOffsetDb: Float = 0.0f
@@ -135,6 +141,12 @@ class CarAudioEngine(private val context: Context) {
 
     // Playback state
     @Volatile var isPlaying = false
+        private set
+    @Volatile var isStreamingRadio = false
+        private set
+    @Volatile var isRadioBuffering = false
+        private set
+    @Volatile var activeStreamTitle: String? = null
         private set
     @Volatile var playbackPositionSeconds = 0
         private set
@@ -397,6 +409,13 @@ class CarAudioEngine(private val context: Context) {
             if (dsp.exciterEnabled && freqHz >= 6300) {
                 val eW = 1.0 / (1.0 + exp(-3.5 * (log10(fDouble / 9000.0) / log10(2.0))))
                 gainDb += (dsp.exciterLevel * 0.4f * eW).toFloat()
+            }
+
+            // Dedicated Tweeter Stage Shaping (around Tweeter HPF crossover)
+            if (abs(dsp.tweeterLevelDb) > 0.05f) {
+                val twCut = dsp.tweeterHpfHz.coerceIn(1800f, 8000f).toDouble()
+                val twWeight = 1.0 / (1.0 + exp(-3.6 * (log10(fDouble / twCut) / log10(2.0))))
+                gainDb += (dsp.tweeterLevelDb.coerceIn(-6f, 6f) * twWeight).toFloat()
             }
 
             // Dedicated Subsonic Protection Filter (when explicitly enabled in Bass System)
@@ -1050,6 +1069,14 @@ class CarAudioEngine(private val context: Context) {
         leftVuLevel = if (targetL > leftVuLevel) leftVuLevel + (targetL - leftVuLevel) * 0.65f else leftVuLevel + (targetL - leftVuLevel) * 0.22f
         rightVuLevel = if (targetR > rightVuLevel) rightVuLevel + (targetR - rightVuLevel) * 0.65f else rightVuLevel + (targetR - rightVuLevel) * 0.22f
 
+        // Update quick waveform envelope backup for energy when FFT hasn't ticked yet
+        val fallbackEnergy = (targetLevel * 0.85f).coerceIn(0f, 1f)
+        if (bassEnergy < 0.01f && midEnergy < 0.01f) {
+            bassEnergy = fallbackEnergy * 0.8f
+            midEnergy = fallbackEnergy * 0.7f
+            trebleEnergy = fallbackEnergy * 0.55f
+        }
+
         isClippingDetected = (rms > 0.94f)
         if (isClippingDetected) clipEventsCount++
     }
@@ -1070,6 +1097,9 @@ class CarAudioEngine(private val context: Context) {
         }
 
         val halfSampleRate = sampleRate / 2f
+        var bassAccum = 0f
+        var midAccum = 0f
+        var trebleAccum = 0f
         for (i in 0 until 31) {
             val binIdx = ((rtaFrequencies[i].toFloat() / halfSampleRate) * numMagnitudes)
                 .toInt()
@@ -1080,7 +1110,17 @@ class CarAudioEngine(private val context: Context) {
             val smoothed = if (targetDb > prev) prev + (targetDb - prev) * 0.68f else prev + (targetDb - prev) * 0.28f
             rtaLevelsDb[i] = smoothed
             rtaPeaksDb[i] = if (smoothed > rtaPeaksDb[i]) smoothed else (rtaPeaksDb[i] - 1.1f).coerceAtLeast(-60f)
+
+            val norm = ((smoothed + 54f) / 54f).coerceIn(0f, 1f)
+            when {
+                i <= 8 -> bassAccum += norm
+                i <= 21 -> midAccum += norm
+                else -> trebleAccum += norm
+            }
         }
+        bassEnergy = (bassAccum / 9f).coerceIn(0f, 1f)
+        midEnergy = (midAccum / 13f).coerceIn(0f, 1f)
+        trebleEnergy = (trebleAccum / 9f).coerceIn(0f, 1f)
         rtaDirty = true
     }
 
@@ -1153,10 +1193,13 @@ class CarAudioEngine(private val context: Context) {
     }
 
     // ==========================================
-    // Playback Operations
+    // Playback Operations (Music & Pioneer Radio)
     // ==========================================
     fun playTrack(track: AudioTrackItem, dspSettings: DspSettings, eqSettings: EqualizerSettings) {
         stopPlayback(abandonFocus = false)
+        isStreamingRadio = false
+        isRadioBuffering = false
+        activeStreamTitle = null
         currentTrack = track
         playbackPositionSeconds = 0
 
@@ -1164,6 +1207,83 @@ class CarAudioEngine(private val context: Context) {
             playCustomUri(track.customUri, dspSettings, eqSettings)
         }
         onPlaybackStateChangedListener?.invoke()
+    }
+
+    fun playStreamUrl(
+        url: String,
+        stationTitle: String,
+        dspSettings: DspSettings,
+        eqSettings: EqualizerSettings,
+        onPrepared: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        stopPlayback(abandonFocus = false)
+        isStreamingRadio = true
+        isRadioBuffering = true
+        activeStreamTitle = stationTitle
+        currentTrack = null
+        playbackPositionSeconds = 0
+        onPlaybackStateChangedListener?.invoke()
+
+        try {
+            requestAudioFocus()
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                setDataSource(url)
+                setOnPreparedListener { player ->
+                    if (mediaPlayer !== player) return@setOnPreparedListener
+                    isRadioBuffering = false
+                    this@CarAudioEngine.isPlaying = true
+                    sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
+                    registerNoisyReceiver()
+                    attachAudioFx(player.audioSessionId, dspSettings, eqSettings)
+                    applyPlayerVolume()
+                    player.start()
+                    onPrepared()
+                    onPlaybackStateChangedListener?.invoke()
+                }
+                setOnErrorListener { _, what, extra ->
+                    isRadioBuffering = false
+                    this@CarAudioEngine.isPlaying = false
+                    stopPlayback()
+                    attachToGlobalSystemSession(dspSettings, eqSettings)
+                    val msg = "No se pudo conectar a \"$stationTitle\" (código $what/$extra). Verifica tu red internet."
+                    onAudioFaultListener?.invoke(
+                        "Error de Emisora Pioneer",
+                        msg,
+                        FaultSeverity.ERROR
+                    )
+                    onError(msg)
+                    true
+                }
+                setOnInfoListener { _, what, _ ->
+                    if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) {
+                        isRadioBuffering = true
+                        onPlaybackStateChangedListener?.invoke()
+                    } else if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) {
+                        isRadioBuffering = false
+                        onPlaybackStateChangedListener?.invoke()
+                    }
+                    false
+                }
+                prepareAsync()
+            }
+            mediaPlayer = mp
+        } catch (t: Throwable) {
+            isRadioBuffering = false
+            isPlaying = false
+            isStreamingRadio = false
+            stopPlayback()
+            attachToGlobalSystemSession(dspSettings, eqSettings)
+            val msg = "Stream no disponible para \"$stationTitle\": ${t.localizedMessage ?: "error de conexión"}."
+            onAudioFaultListener?.invoke("Fallo de Conexión Radio", msg, FaultSeverity.ERROR)
+            onError(msg)
+        }
     }
 
     fun togglePlayPause(dspSettings: DspSettings, eqSettings: EqualizerSettings) {
@@ -1176,6 +1296,7 @@ class CarAudioEngine(private val context: Context) {
 
     fun pausePlayback() {
         isPlaying = false
+        isRadioBuffering = false
         tickerJob?.cancel()
         tickerJob = null
         try {
@@ -1185,10 +1306,26 @@ class CarAudioEngine(private val context: Context) {
         unregisterNoisyReceiver()
         leftVuLevel = 0f
         rightVuLevel = 0f
+        bassEnergy = 0f
+        midEnergy = 0f
+        trebleEnergy = 0f
         onPlaybackStateChangedListener?.invoke()
     }
 
     fun resumePlayback(dspSettings: DspSettings, eqSettings: EqualizerSettings) {
+        if (isStreamingRadio && mediaPlayer != null) {
+            requestAudioFocus()
+            try {
+                mediaPlayer?.start()
+                isPlaying = true
+                registerNoisyReceiver()
+                visualizerFx?.enabled = isVisualizerUiActive
+                applyPlayerVolume()
+                applyDspSettings(dspSettings, eqSettings)
+                onPlaybackStateChangedListener?.invoke()
+            } catch (_: Exception) {}
+            return
+        }
         val track = currentTrack ?: return
         requestAudioFocus()
         if (mediaPlayer != null) {
@@ -1213,6 +1350,9 @@ class CarAudioEngine(private val context: Context) {
 
     fun stopPlayback(abandonFocus: Boolean = true) {
         isPlaying = false
+        isRadioBuffering = false
+        isStreamingRadio = false
+        activeStreamTitle = null
         tickerJob?.cancel()
         tickerJob = null
         unregisterNoisyReceiver()
@@ -1227,6 +1367,9 @@ class CarAudioEngine(private val context: Context) {
         }
         leftVuLevel = 0f
         rightVuLevel = 0f
+        bassEnergy = 0f
+        midEnergy = 0f
+        trebleEnergy = 0f
         onPlaybackStateChangedListener?.invoke()
     }
 

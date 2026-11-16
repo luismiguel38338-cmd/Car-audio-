@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speaker
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -37,30 +37,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.CarAudioEngine
+import com.example.model.AppSection
 import com.example.model.AudioSessionTarget
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
+import com.example.model.DevicePowerTelemetry
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqualizerSettings
+import com.example.model.MusicPlaylist
 import com.example.model.OutputDeviceStatus
 import com.example.model.OutputKind
+import com.example.model.PioneerIlluminationColor
+import com.example.model.PioneerRadioStyle
 import com.example.model.RepeatMode
 import com.example.model.TrackCategory
+import com.example.model.VerifiedRadioCatalog
 import com.example.ui.components.AppSettingsView
 import com.example.ui.components.CarAudioSplashScreen
-import com.example.ui.components.DspMasterView
 import com.example.ui.components.EqualizerProcessorView
+import com.example.ui.components.HomeDashboardView
+import com.example.ui.components.PioneerRadioView
 import com.example.ui.components.PlayerView
+import com.example.ui.components.SoundToolsView
 import com.example.ui.theme.CarAudioAppTheme
-import com.example.viewmodel.AppTab
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -77,13 +86,13 @@ class GreetingScreenshotTest {
 
   @get:Rule val composeTestRule = createComposeRule()
 
-  private val theme = CarAudioThemeType.CRIMSON_RED
+  private val theme = CarAudioThemeType.GRAPHITE_ELECTRIC_NEON
 
   private val sampleTracks = listOf(
     AudioTrackItem(
       id = "media_101",
       title = "Noche de Baile (Remix Bass)",
-      artist = "DJ Studio Red",
+      artist = "DJ Electric Studio",
       album = "Música del Teléfono",
       durationSeconds = 214,
       category = TrackCategory.USER_CUSTOM,
@@ -139,7 +148,7 @@ class GreetingScreenshotTest {
   @OptIn(ExperimentalMaterial3Api::class)
   @Composable
   private fun ScreenshotScaffold(
-    activeTab: AppTab,
+    activeSection: AppSection,
     content: @Composable () -> Unit
   ) {
     CarAudioAppTheme(themeType = theme) {
@@ -161,7 +170,7 @@ class GreetingScreenshotTest {
                   contentAlignment = Alignment.Center
                 ) {
                   Image(
-                    painter = painterResource(id = R.drawable.crimson_dsp_logo_1794742268901),
+                    painter = painterResource(id = R.drawable.car_audio_dsp_icon_1794824449077),
                     contentDescription = "Logo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(CircleShape)
@@ -177,8 +186,8 @@ class GreetingScreenshotTest {
                     fontFamily = FontFamily.Monospace
                   )
                   Text(
-                    text = "v6.0 • Bluetooth Car Audio",
-                    color = theme.primaryColor,
+                    text = "${activeSection.shortTitle} • Bluetooth Car Audio",
+                    color = theme.accentColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                   )
@@ -223,14 +232,14 @@ class GreetingScreenshotTest {
         bottomBar = {
           NavigationBar(containerColor = theme.surfaceColor) {
             listOf(
-              Triple(AppTab.PLAYER, "MÚSICA", Icons.Default.LibraryMusic),
-              Triple(AppTab.BASS, "BAJOS", Icons.Default.Speaker),
-              Triple(AppTab.EQ, "EQ", Icons.Default.Equalizer),
-              Triple(AppTab.DSP, "DSP", Icons.Default.Tune),
-              Triple(AppTab.AJUSTES, "AJUSTES", Icons.Default.Settings)
-            ).forEach { (tab, label, icon) ->
+              Triple(AppSection.HOME, "INICIO", Icons.Default.Home),
+              Triple(AppSection.RADIO_PIONEER, "RADIO", Icons.Default.Radio),
+              Triple(AppSection.MUSIC_PLAYER, "MÚSICA", Icons.Default.LibraryMusic),
+              Triple(AppSection.EQUALIZER, "EQ", Icons.Default.Equalizer),
+              Triple(AppSection.SOUND_TOOLS, "MENÚ", Icons.Default.Menu)
+            ).forEach { (sec, label, icon) ->
               NavigationBarItem(
-                selected = activeTab == tab,
+                selected = activeSection == sec,
                 onClick = {},
                 icon = { Icon(icon, contentDescription = label) },
                 label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
@@ -256,7 +265,7 @@ class GreetingScreenshotTest {
   @Test
   fun capture_01_musica_panel() {
     composeTestRule.setContent {
-      ScreenshotScaffold(activeTab = AppTab.PLAYER) {
+      ScreenshotScaffold(activeSection = AppSection.MUSIC_PLAYER) {
         PlayerView(
           theme = theme,
           tracks = sampleTracks,
@@ -287,17 +296,24 @@ class GreetingScreenshotTest {
           shuffleEnabled = true,
           repeatMode = RepeatMode.ALL,
           outputDeviceStatus = OutputDeviceStatus("Bluetooth Car Audio", OutputKind.BLUETOOTH),
-          sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
+          sessionTarget = AudioSessionTarget.INTERNAL_PLAYER,
+          isAnyAudioPlaying = true,
+          bassEnergy = 0.75f,
+          midEnergy = 0.58f,
+          trebleEnergy = 0.64f,
+          playlists = listOf(MusicPlaylist("pl1", "Carretera Nocturna", listOf("media_101")))
         )
       }
     }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("five_led_indicator_bar").assertIsDisplayed()
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/01_musica_panel.png")
   }
 
   @Test
-  fun capture_02_ecualizador_rojo() {
+  fun capture_02_ecualizador_pro() {
     composeTestRule.setContent {
-      ScreenshotScaffold(activeTab = AppTab.EQ) {
+      ScreenshotScaffold(activeSection = AppSection.EQUALIZER) {
         EqualizerProcessorView(
           theme = theme,
           eqSettings = punchEq,
@@ -309,10 +325,15 @@ class GreetingScreenshotTest {
           onToggleParametricBand = { _, _ -> },
           onSelectPreset = {},
           onResetFlat = {},
-          eqPresets = EqPresetCatalog.presets
+          eqPresets = EqPresetCatalog.presets,
+          isAnyAudioPlaying = true,
+          bassEnergy = 0.72f,
+          midEnergy = 0.60f,
+          trebleEnergy = 0.55f
         )
       }
     }
+    composeTestRule.waitForIdle()
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/02_ecualizador_rojo.png")
   }
 
@@ -323,31 +344,40 @@ class GreetingScreenshotTest {
       band.copy(levelDb = lvl.coerceIn(-55f, -2f), peakDb = (lvl + 3f).coerceIn(-52f, 0f))
     }
     composeTestRule.setContent {
-      ScreenshotScaffold(activeTab = AppTab.DSP) {
-        DspMasterView(
+      ScreenshotScaffold(activeSection = AppSection.SOUND_TOOLS) {
+        SoundToolsView(
+          theme = theme,
           dspSettings = punchDsp,
           rtaBands = activeRta,
-          theme = theme,
           leftVu = 0.78f,
           rightVu = 0.74f,
           isClipping = false,
-          onToggleDspMaster = {},
-          onPreampChanged = {},
+          isAnyAudioPlaying = true,
+          bassEnergy = 0.8f,
+          midEnergy = 0.62f,
+          trebleEnergy = 0.5f,
+          isMicRta = false,
+          liteVisuals = false,
+          powerTelemetry = DevicePowerTelemetry(84, 4.18f, 31.2f, false, true, true),
+          customProfiles = emptyList(),
+          onRefreshPowerTelemetry = {},
+          onToggleMicRta = {},
           onBassGainChanged = {},
           onMidGainChanged = {},
           onTrebleGainChanged = {},
+          onPreampChanged = {},
           onMasterGainChanged = {},
-          onBassBoostChanged = { _, _ -> },
-          onStereoWidthChanged = {},
-          onBalancePanChanged = {},
-          onCompressorToggle = {},
+          onHpfChanged = { _, _ -> },
+          onLpfChanged = { _, _ -> },
           onLimiterToggle = {},
           onLimiterCeilingChanged = {},
-          onHpfChanged = { _, _ -> },
-          onLpfChanged = { _, _ -> }
+          onSaveCustomProfile = { _, _ -> },
+          onApplyCustomProfile = {},
+          onDeleteCustomProfile = {}
         )
       }
     }
+    composeTestRule.waitForIdle()
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/03_dsp_pro.png")
   }
 
@@ -372,7 +402,7 @@ class GreetingScreenshotTest {
   @Test
   fun capture_05_ajustes_pro() {
     composeTestRule.setContent {
-      ScreenshotScaffold(activeTab = AppTab.AJUSTES) {
+      ScreenshotScaffold(activeSection = AppSection.SETTINGS) {
         AppSettingsView(
           theme = theme,
           autoPlayIntro = true,
@@ -390,6 +420,79 @@ class GreetingScreenshotTest {
         )
       }
     }
+    composeTestRule.waitForIdle()
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/05_ajustes_pro.png")
+  }
+
+  @Test
+  fun capture_06_home_dashboard() {
+    composeTestRule.setContent {
+      ScreenshotScaffold(activeSection = AppSection.HOME) {
+        HomeDashboardView(
+          theme = theme,
+          dspSettings = punchDsp,
+          isAnyAudioPlaying = true,
+          bassEnergy = 0.78f,
+          midEnergy = 0.56f,
+          trebleEnergy = 0.62f,
+          isRadioPlaying = false,
+          activeRadioStation = VerifiedRadioCatalog.stations.first(),
+          currentTrack = sampleTracks.first(),
+          isMusicPlaying = true,
+          outputDeviceStatus = OutputDeviceStatus("Bluetooth Car Audio", OutputKind.BLUETOOTH),
+          powerTelemetry = DevicePowerTelemetry(88, 4.21f, 30.5f, true, true, true),
+          isVipUnlocked = false,
+          vipIntroDismissed = false,
+          liteVisuals = false,
+          onDismissVipIntro = {},
+          onOpenVipDialog = {},
+          onNavigateSection = {},
+          onToggleActivePlayPause = {}
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("home_dashboard_view").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("one_time_vip_banner").assertIsDisplayed()
+  }
+
+  @Test
+  fun capture_07_pioneer_radio() {
+    composeTestRule.setContent {
+      ScreenshotScaffold(activeSection = AppSection.RADIO_PIONEER) {
+        PioneerRadioView(
+          theme = theme,
+          isPowerOn = true,
+          selectedStyle = PioneerRadioStyle.CLASSIC,
+          illuminationColor = PioneerIlluminationColor.ELECTRIC_BLUE,
+          stations = VerifiedRadioCatalog.stations,
+          activeStation = VerifiedRadioCatalog.stations.first(),
+          presetMemoryIds = List(6) { idx -> VerifiedRadioCatalog.stations[idx].id },
+          isRadioPlaying = true,
+          isRadioBuffering = false,
+          radioErrorMessage = null,
+          searchQuery = "",
+          volumeLevel = 0.85f,
+          bassEnergy = 0.7f,
+          midEnergy = 0.55f,
+          trebleEnergy = 0.5f,
+          liteVisuals = false,
+          onTogglePower = {},
+          onSelectStyle = {},
+          onSelectIllumination = {},
+          onSelectStation = {},
+          onTogglePlayPause = {},
+          onNextStation = {},
+          onPrevStation = {},
+          onToggleFavoriteStation = {},
+          onSelectPresetMemory = {},
+          onAssignPresetMemory = {},
+          onSearchQueryChange = {},
+          onVolumeChange = {}
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("pioneer_radio_view").assertIsDisplayed()
   }
 }

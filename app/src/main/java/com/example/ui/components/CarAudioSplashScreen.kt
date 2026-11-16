@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -287,7 +288,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
                 .border(1.5.dp, theme.primaryColor.copy(alpha = 0.6f), RoundedCornerShape(22.dp))
         ) {
             Image(
-                painter = painterResource(id = R.drawable.img_welcome_hero_1794747153701),
+                painter = painterResource(id = R.drawable.car_audio_cockpit_hero_1794824451080),
                 contentDescription = "Cabina Car Audio Studio",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -314,7 +315,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.crimson_dsp_logo_1794742268901),
+                    painter = painterResource(id = R.drawable.car_audio_dsp_icon_1794824449077),
                     contentDescription = "Logo Car Audio DSP Pro",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -343,7 +344,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Tu Cabina de Sonido y Bajos en Tiempo Real",
+            text = "Tu Cabina Profesional de Sonido y Radio Pioneer",
             color = theme.textColor,
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
@@ -354,7 +355,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Reproduce tu música real con máxima fidelidad, controla un sistema dedicado de subwoofer y recibe alertas al instante si algo falla en tu audio.",
+            text = "Autoestéreos Pioneer con emisoras en vivo, reproductor independiente con listas, ecualizador de 31 bandas, panel de altavoces y barra dinámica de 5 LED.",
             color = theme.textSecondaryColor,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -369,23 +370,23 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             WelcomeHighlightChip(
-                icon = Icons.Default.LibraryMusic,
-                title = "Música Real",
-                subtitle = "MP3, FLAC, WAV",
+                icon = Icons.Default.Radio,
+                title = "Radio Pioneer",
+                subtitle = "5 Diseños & FM",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
             WelcomeHighlightChip(
-                icon = Icons.Default.Speaker,
-                title = "Sistema Bajos",
-                subtitle = "Subwoofer & Corte",
+                icon = Icons.Default.LibraryMusic,
+                title = "Música Real",
+                subtitle = "MP3, FLAC, Listas",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
             WelcomeHighlightChip(
                 icon = Icons.Default.GraphicEq,
                 title = "DSP 31 Bandas",
-                subtitle = "Sin Distorsión",
+                subtitle = "5-LED & Voltímetro",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
@@ -462,30 +463,30 @@ private fun BriefTutorialStep(theme: CarAudioThemeType) {
 
         TutorialStepCard(
             stepNumber = "1",
-            icon = Icons.Default.LibraryMusic,
-            title = "Panel MÚSICA: Carga tus Canciones Reales",
-            description = "Toca 'CARGAR MÚSICA' para abrir tus archivos MP3/FLAC/WAV o 'VER MI MÚSICA' para escanear automáticamente todo tu teléfono.",
+            icon = Icons.Default.Radio,
+            title = "Radio Pioneer Independiente",
+            description = "Elige entre 5 carátulas Pioneer, personaliza su iluminación LED, sintoniza emisoras reales en vivo y guarda tus favoritas M1–M6.",
             theme = theme
         )
         TutorialStepCard(
             stepNumber = "2",
-            icon = Icons.Default.Speaker,
-            title = "Panel BAJOS: Sistema de Subwoofer",
-            description = "Ajusta el refuerzo Sub-Bass, la frecuencia objetivo (30-80 Hz), el filtro subsónico protector y la fase para graves profundos y limpios.",
+            icon = Icons.Default.LibraryMusic,
+            title = "Reproductor de Música Local y Listas",
+            description = "Carga tus archivos MP3/FLAC/WAV, crea listas de reproducción independientes y visualiza las luces 5-LED al ritmo de cada canción.",
             theme = theme
         )
         TutorialStepCard(
             stepNumber = "3",
-            icon = Icons.Default.Equalizer,
-            title = "Paneles EQ y DSP: Claridad y Potencia",
-            description = "Moldea 31 bandas de precisión, activa el Limitador Anti-Clipping para evitar distorsión y conecta por Bluetooth, USB o cable auxiliar.",
+            icon = Icons.Default.Speaker,
+            title = "Ecualizador, Altavoces y Herramientas",
+            description = "Ajusta 31 bandas ISO, subwoofer, balance, fader, tweeters, RTA y monitorea la batería real de tu teléfono desde el menú de 9 apartados.",
             theme = theme
         )
         TutorialStepCard(
             stepNumber = "4",
             icon = Icons.Default.NotificationsActive,
-            title = "Notificaciones de Fallo en Vivo",
-            description = "Si un archivo está dañado, falta un permiso o la ganancia satura tus bocinas, recibirás una alerta inmediata para corregirlo al instante.",
+            title = "Alertas y Diagnóstico en Vivo",
+            description = "Si ocurre clipping, falta un permiso o falla una transmisión, recibirás una notificación clara para solucionarlo al instante.",
             theme = theme
         )
     }

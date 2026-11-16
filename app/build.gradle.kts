@@ -18,8 +18,8 @@ android {
     applicationId = "com.aistudio.caraudio.vxpqtz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 60000
-    versionName = "6.0.0"
+    versionCode = 65000
+    versionName = "6.5.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

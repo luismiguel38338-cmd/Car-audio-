@@ -102,6 +102,11 @@ fun EqualizerProcessorView(
     onDeletePreset: (EqPresetItem) -> Unit = {},
     isVipUnlocked: Boolean = false,
     onRequestVipDialog: () -> Unit = {},
+    isAnyAudioPlaying: Boolean = false,
+    bassEnergy: Float = 0f,
+    midEnergy: Float = 0f,
+    trebleEnergy: Float = 0f,
+    liteVisuals: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -121,7 +126,7 @@ fun EqualizerProcessorView(
         AlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
             containerColor = theme.cardColor,
-            title = { Text("Guardar Preset Rojo Studio", fontWeight = FontWeight.Bold, color = theme.textColor) },
+            title = { Text("Guardar Preset Studio", fontWeight = FontWeight.Bold, color = theme.textColor) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Nombre de tu curva de ecualización:", color = theme.textSecondaryColor, fontSize = 12.sp)
@@ -167,9 +172,19 @@ fun EqualizerProcessorView(
             .fillMaxSize()
             .background(theme.backgroundColor)
             .verticalScroll(verticalScroll)
-            .padding(vertical = 10.dp, horizontal = 14.dp),
+            .padding(vertical = 10.dp, horizontal = 14.dp)
+            .testTag("equalizer_processor_view"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        FiveLedIndicatorBar(
+            isAudioPlaying = isAnyAudioPlaying,
+            bassEnergy = bassEnergy,
+            midEnergy = midEnergy,
+            trebleEnergy = trebleEnergy,
+            theme = theme,
+            liteVisuals = liteVisuals,
+            title = "ECUALIZADOR • 5 LED"
+        )
 
         // EQ Master Switch + Gain
         Card(

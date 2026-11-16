@@ -1,14 +1,18 @@
 <resources>
     <string name="app_name">CAR AUDIO DSP PRO</string>
-    <string name="tab_musica">MÚSICA</string>
-    <string name="tab_bajos">BAJOS</string>
-    <string name="tab_eq">EQ</string>
-    <string name="tab_dsp">DSP</string>
-    <string name="tab_ajustes">AJUSTES</string>
+    <string name="section_inicio">Inicio</string>
+    <string name="section_radio">Radio Pioneer</string>
+    <string name="section_musica">Reproductor de música</string>
+    <string name="section_eq">Ecualizador</string>
+    <string name="section_altavoces">Panel de altavoces</string>
+    <string name="section_herramientas">Herramientas de sonido</string>
+    <string name="section_personalizacion">Personalización</string>
+    <string name="section_vip">Zona VIP</string>
+    <string name="section_configuracion">Configuración</string>
     <string name="permission_audio_title">Permiso de Micrófono RTA</string>
     <string name="permission_audio_desc">Necesario para análisis de espectro en tiempo real con micrófono.</string>
     <string name="permission_notification_title">Permiso de Notificaciones</string>
-    <string name="permission_notification_desc">Controles de reproducción y alertas de clipping para proteger tus bocinas.</string>
+    <string name="permission_notification_desc">Controles de reproducción y alertas de fallos o clipping para proteger tus altavoces.</string>
     <string name="permission_storage_title">Permiso de Música Local</string>
-    <string name="permission_storage_desc">Permite escanear y abrir automáticamente la música guardada en tu teléfono dentro del mismo panel.</string>
+    <string name="permission_storage_desc">Permite escanear y abrir la música guardada en tu teléfono en el Reproductor de música.</string>
 </resources>

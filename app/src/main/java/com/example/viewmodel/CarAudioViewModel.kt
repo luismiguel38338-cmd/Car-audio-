@@ -6,9 +6,11 @@ import android.app.Application
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
@@ -16,23 +18,31 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.CarAudioEngine
+import com.example.model.AppSection
 import com.example.model.AudioSessionTarget
 import com.example.model.AudioSourceMode
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
+import com.example.model.CustomSoundProfile
+import com.example.model.DevicePowerTelemetry
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqPresetItem
 import com.example.model.EqualizerSettings
 import com.example.model.FaultActionType
 import com.example.model.FaultSeverity
+import com.example.model.MusicPlaylist
 import com.example.model.OutputDeviceStatus
 import com.example.model.ParametricFilterType
+import com.example.model.PioneerIlluminationColor
+import com.example.model.PioneerRadioStyle
+import com.example.model.RadioStation
 import com.example.model.RepeatMode
 import com.example.model.RtaBand
 import com.example.model.SubwooferPreset
 import com.example.model.SystemFaultAlert
 import com.example.model.TrackCategory
+import com.example.model.VerifiedRadioCatalog
 import com.example.notification.CarAudioNotificationHelper
 import com.example.service.CarAudioPlaybackService
 import kotlinx.coroutines.Dispatchers
@@ -50,14 +60,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.random.Random
-
-enum class AppTab(val title: String) {
-    PLAYER("MÚSICA"),
-    BASS("BAJOS"),
-    EQ("EQ"),
-    DSP("DSP"),
-    AJUSTES("AJUSTES")
-}
 
 enum class LibraryFilter(val label: String) {
     ALL("Todas"),
@@ -97,6 +99,10 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _isVipUnlocked = MutableStateFlow(prefs.getBoolean("vip_unlocked", false))
     val isVipUnlocked: StateFlow<Boolean> = _isVipUnlocked.asStateFlow()
 
+    // One-time dismissible VIP presentation card state (completely independent from isVipUnlocked)
+    private val _vipIntroDismissed = MutableStateFlow(prefs.getBoolean("vip_intro_dismissed", false))
+    val vipIntroDismissed: StateFlow<Boolean> = _vipIntroDismissed.asStateFlow()
+
     private val _keepScreenOn = MutableStateFlow(prefs.getBoolean("keep_screen_on", true))
     val keepScreenOn: StateFlow<Boolean> = _keepScreenOn.asStateFlow()
 
@@ -107,12 +113,12 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     val isLowRamDevice: Boolean = systemLowRam
 
-    // Defaults to Crimson Studio Red ("Todo Rojo") or persisted user choice
+    // Defaults to Graphite Black + Electric Blue + Neon Green or persisted user choice
     private val _currentTheme = MutableStateFlow(loadSavedTheme())
     val currentTheme: StateFlow<CarAudioThemeType> = _currentTheme.asStateFlow()
 
-    private val _selectedTab = MutableStateFlow(AppTab.PLAYER)
-    val selectedTab: StateFlow<AppTab> = _selectedTab.asStateFlow()
+    private val _selectedSection = MutableStateFlow(AppSection.HOME)
+    val selectedSection: StateFlow<AppSection> = _selectedSection.asStateFlow()
 
     private val _dspSettings = MutableStateFlow(loadSavedDspSettings())
     val dspSettings: StateFlow<DspSettings> = _dspSettings.asStateFlow()
@@ -123,10 +129,20 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _eqPresets = MutableStateFlow(loadSavedPresetsCatalog())
     val eqPresets: StateFlow<List<EqPresetItem>> = _eqPresets.asStateFlow()
 
-    // Phone Music Library, Search, Filter, Shuffle & Repeat
+    // Custom Sound Profiles (full DSP + EQ snapshot)
+    private val _customSoundProfiles = MutableStateFlow(loadSavedCustomSoundProfiles())
+    val customSoundProfiles: StateFlow<List<CustomSoundProfile>> = _customSoundProfiles.asStateFlow()
+
+    // Phone Music Library, Playlists, Search, Filter, Shuffle & Repeat
     private val _favoriteIds = MutableStateFlow(loadFavoriteIds())
     private val _tracks = MutableStateFlow<List<AudioTrackItem>>(emptyList())
     val tracks: StateFlow<List<AudioTrackItem>> = _tracks.asStateFlow()
+
+    private val _playlists = MutableStateFlow(loadSavedPlaylists())
+    val playlists: StateFlow<List<MusicPlaylist>> = _playlists.asStateFlow()
+
+    private val _selectedPlaylistId = MutableStateFlow<String?>(null)
+    val selectedPlaylistId: StateFlow<String?> = _selectedPlaylistId.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -137,10 +153,14 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     val filteredTracks: StateFlow<List<AudioTrackItem>> = combine(
         _tracks,
         _searchQuery,
-        _libraryFilter
-    ) { list, query, filter ->
+        _libraryFilter,
+        _playlists,
+        _selectedPlaylistId
+    ) { list, query, filter, playlistsList, selectedPlId ->
         val q = query.trim().lowercase()
+        val plTrackIds = selectedPlId?.let { id -> playlistsList.firstOrNull { it.id == id }?.trackIds?.toSet() }
         list.filter { item ->
+            val matchesPlaylist = plTrackIds == null || item.id in plTrackIds
             val matchesFilter = when (filter) {
                 LibraryFilter.ALL -> true
                 LibraryFilter.FAVORITES -> item.isFavorite
@@ -150,14 +170,14 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 item.title.lowercase().contains(q) ||
                 item.artist.lowercase().contains(q) ||
                 item.album.lowercase().contains(q)
-            matchesFilter && matchesQuery
+            matchesPlaylist && matchesFilter && matchesQuery
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _currentTrack = MutableStateFlow<AudioTrackItem?>(audioEngine.currentTrack)
     val currentTrack: StateFlow<AudioTrackItem?> = _currentTrack.asStateFlow()
 
-    private val _isPlaying = MutableStateFlow(audioEngine.isPlaying)
+    private val _isPlaying = MutableStateFlow(audioEngine.isPlaying && !audioEngine.isStreamingRadio)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
     private val _playbackSeconds = MutableStateFlow(audioEngine.playbackPositionSeconds)
@@ -178,12 +198,71 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _hasAudioLibraryPermission = MutableStateFlow(checkAudioStoragePermission())
     val hasAudioLibraryPermission: StateFlow<Boolean> = _hasAudioLibraryPermission.asStateFlow()
 
-    // Real-time Meter, Device Routing & Session Telemetry
+    // Radio Pioneer Zone State (Completely Independent UI & Presets from Music Player)
+    private val _favoriteStationIds = MutableStateFlow(loadFavoriteStationIds())
+    private val _isRadioPowerOn = MutableStateFlow(prefs.getBoolean("radio_power_on", true))
+    val isRadioPowerOn: StateFlow<Boolean> = _isRadioPowerOn.asStateFlow()
+
+    private val _selectedPioneerStyle = MutableStateFlow(loadSavedPioneerStyle())
+    val selectedPioneerStyle: StateFlow<PioneerRadioStyle> = _selectedPioneerStyle.asStateFlow()
+
+    private val _pioneerIlluminationColor = MutableStateFlow(loadSavedPioneerIllum())
+    val pioneerIlluminationColor: StateFlow<PioneerIlluminationColor> = _pioneerIlluminationColor.asStateFlow()
+
+    private val _radioStations = MutableStateFlow(loadStationsWithFavorites())
+    val radioStations: StateFlow<List<RadioStation>> = _radioStations.asStateFlow()
+
+    private val _radioSearchQuery = MutableStateFlow("")
+    val radioSearchQuery: StateFlow<String> = _radioSearchQuery.asStateFlow()
+
+    val filteredRadioStations: StateFlow<List<RadioStation>> = combine(
+        _radioStations,
+        _radioSearchQuery
+    ) { stations, query ->
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) stations else {
+            stations.filter {
+                it.name.lowercase().contains(q) ||
+                    it.genre.lowercase().contains(q) ||
+                    it.country.lowercase().contains(q) ||
+                    "%.1f".format(it.frequencyMhz).contains(q)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), VerifiedRadioCatalog.stations)
+
+    private val _presetMemoryStationIds = MutableStateFlow(loadPresetMemoryIds())
+    val presetMemoryStationIds: StateFlow<List<String>> = _presetMemoryStationIds.asStateFlow()
+
+    private val _activeRadioStation = MutableStateFlow<RadioStation?>(loadInitialRadioStation())
+    val activeRadioStation: StateFlow<RadioStation?> = _activeRadioStation.asStateFlow()
+
+    private val _isRadioPlaying = MutableStateFlow(audioEngine.isPlaying && audioEngine.isStreamingRadio)
+    val isRadioPlaying: StateFlow<Boolean> = _isRadioPlaying.asStateFlow()
+
+    private val _isRadioBuffering = MutableStateFlow(audioEngine.isRadioBuffering)
+    val isRadioBuffering: StateFlow<Boolean> = _isRadioBuffering.asStateFlow()
+
+    private val _radioErrorMessage = MutableStateFlow<String?>(null)
+    val radioErrorMessage: StateFlow<String?> = _radioErrorMessage.asStateFlow()
+
+    // Real-time Meter, Spectral Energy (for 5-LED Bar & Speaker Excursion), Device Routing & Battery Telemetry
     private val _leftVu = MutableStateFlow(0f)
     val leftVu: StateFlow<Float> = _leftVu.asStateFlow()
 
     private val _rightVu = MutableStateFlow(0f)
     val rightVu: StateFlow<Float> = _rightVu.asStateFlow()
+
+    private val _bassEnergy = MutableStateFlow(0f)
+    val bassEnergy: StateFlow<Float> = _bassEnergy.asStateFlow()
+
+    private val _midEnergy = MutableStateFlow(0f)
+    val midEnergy: StateFlow<Float> = _midEnergy.asStateFlow()
+
+    private val _trebleEnergy = MutableStateFlow(0f)
+    val trebleEnergy: StateFlow<Float> = _trebleEnergy.asStateFlow()
+
+    private val _isAnyAudioPlaying = MutableStateFlow(audioEngine.isPlaying)
+    val isAnyAudioPlaying: StateFlow<Boolean> = _isAnyAudioPlaying.asStateFlow()
 
     private val _splDb = MutableStateFlow(0f)
     val splDb: StateFlow<Float> = _splDb.asStateFlow()
@@ -209,6 +288,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _fxEngineStatus = MutableStateFlow(audioEngine.fxEngineStatus)
     val fxEngineStatus: StateFlow<String> = _fxEngineStatus.asStateFlow()
 
+    private val _devicePowerTelemetry = MutableStateFlow(readDevicePowerTelemetry())
+    val devicePowerTelemetry: StateFlow<DevicePowerTelemetry> = _devicePowerTelemetry.asStateFlow()
+
     private val _hasNotificationPermission = MutableStateFlow(
         CarAudioNotificationHelper.hasNotificationPermission(context)
     )
@@ -223,6 +305,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     @Volatile private var uiActive = true
     private var lastClipAlertTime = 0L
     private var clipCount = 0
+    private var telemetryTickCount = 0
 
     init {
         audioEngine.onSettingsChangedListener = { updatedDsp, updatedEq ->
@@ -236,12 +319,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
 
         audioEngine.onPlaybackStateChangedListener = {
-            _isPlaying.value = audioEngine.isPlaying
+            val playing = audioEngine.isPlaying
+            val radioStream = audioEngine.isStreamingRadio
+            _isAnyAudioPlaying.value = playing
+            _isPlaying.value = playing && !radioStream
+            _isRadioPlaying.value = playing && radioStream
+            _isRadioBuffering.value = audioEngine.isRadioBuffering
             _currentTrack.value = audioEngine.currentTrack
             _playbackSeconds.value = audioEngine.playbackPositionSeconds
             _sessionTarget.value = audioEngine.sessionTarget
             _fxEngineStatus.value = audioEngine.fxEngineStatus
-            if (audioEngine.currentTrack != null) {
+            if (audioEngine.currentTrack != null && !radioStream) {
                 CarAudioPlaybackService.sync(context)
             }
         }
@@ -289,13 +377,23 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         startTelemetryLoop()
     }
 
+    private fun needsLiveVisualizer(section: AppSection = _selectedSection.value): Boolean {
+        return section == AppSection.HOME ||
+            section == AppSection.RADIO_PIONEER ||
+            section == AppSection.MUSIC_PLAYER ||
+            section == AppSection.EQUALIZER ||
+            section == AppSection.SPEAKERS ||
+            section == AppSection.SOUND_TOOLS ||
+            _isMicRta.value
+    }
+
     fun setUiActive(active: Boolean) {
         uiActive = active
-        val needVisualizer = active && (_selectedTab.value == AppTab.DSP || _selectedTab.value == AppTab.BASS || _isMicRta.value)
-        audioEngine.setVisualizerActive(needVisualizer)
+        audioEngine.setVisualizerActive(active && needsLiveVisualizer())
         if (active) {
             audioEngine.refreshOutputDeviceStatus()
             _hasNotificationPermission.value = CarAudioNotificationHelper.hasNotificationPermission(context)
+            refreshDevicePowerTelemetry()
         }
     }
 
@@ -721,7 +819,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 val activeAudio = audioEngine.isPlaying || audioEngine.isMicRtaActive
 
                 if (!uiActive && !activeAudio) {
-                    delay(500)
+                    delay(600)
                     continue
                 }
 
@@ -731,8 +829,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 val enginePlaying = audioEngine.isPlaying
-                if (_isPlaying.value != enginePlaying) {
-                    _isPlaying.value = enginePlaying
+                val radioStream = audioEngine.isStreamingRadio
+                if (_isAnyAudioPlaying.value != enginePlaying) {
+                    _isAnyAudioPlaying.value = enginePlaying
+                }
+                if (_isPlaying.value != (enginePlaying && !radioStream)) {
+                    _isPlaying.value = enginePlaying && !radioStream
+                }
+                if (_isRadioPlaying.value != (enginePlaying && radioStream)) {
+                    _isRadioPlaying.value = enginePlaying && radioStream
+                }
+                if (_isRadioBuffering.value != audioEngine.isRadioBuffering) {
+                    _isRadioBuffering.value = audioEngine.isRadioBuffering
                 }
 
                 val sess = audioEngine.sessionTarget
@@ -743,18 +851,33 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 if (uiActive && activeAudio) {
                     val l = audioEngine.leftVuLevel
                     val r = audioEngine.rightVuLevel
-                    if (abs(_leftVu.value - l) > 0.01f) _leftVu.value = l
-                    if (abs(_rightVu.value - r) > 0.01f) _rightVu.value = r
+                    if (abs(_leftVu.value - l) > 0.015f) _leftVu.value = l
+                    if (abs(_rightVu.value - r) > 0.015f) _rightVu.value = r
+
+                    val b = audioEngine.bassEnergy
+                    val m = audioEngine.midEnergy
+                    val t = audioEngine.trebleEnergy
+                    if (abs(_bassEnergy.value - b) > 0.015f) _bassEnergy.value = b
+                    if (abs(_midEnergy.value - m) > 0.015f) _midEnergy.value = m
+                    if (abs(_trebleEnergy.value - t) > 0.015f) _trebleEnergy.value = t
 
                     val spl = audioEngine.currentSplDb
-                    if (abs(_splDb.value - spl) > 0.2f) _splDb.value = spl
+                    if (abs(_splDb.value - spl) > 0.25f) _splDb.value = spl
 
-                    if (_selectedTab.value == AppTab.DSP || _isMicRta.value) {
+                    if (_selectedSection.value == AppSection.SOUND_TOOLS || _isMicRta.value) {
                         _rtaBands.value = audioEngine.getRtaSnapshot()
                     }
-                } else if (_leftVu.value != 0f || _rightVu.value != 0f) {
+                } else if (_leftVu.value != 0f || _rightVu.value != 0f || _bassEnergy.value != 0f || _midEnergy.value != 0f || _trebleEnergy.value != 0f) {
                     _leftVu.value = 0f
                     _rightVu.value = 0f
+                    _bassEnergy.value = 0f
+                    _midEnergy.value = 0f
+                    _trebleEnergy.value = 0f
+                }
+
+                telemetryTickCount++
+                if (uiActive && telemetryTickCount % 40 == 0) {
+                    refreshDevicePowerTelemetry()
                 }
 
                 val dsp = _dspSettings.value
@@ -782,10 +905,10 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 val intervalMs = when {
-                    !uiActive -> 450L
-                    !activeAudio -> 280L
-                    _liteVisualsEnabled.value -> 85L
-                    else -> 45L
+                    !uiActive -> 500L
+                    !activeAudio -> 320L
+                    _liteVisualsEnabled.value -> 90L
+                    else -> 55L
                 }
                 delay(intervalMs)
             }
@@ -804,11 +927,24 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     fun playStartupSound() { audioEngine.playIntroBootSound() }
 
+    /**
+     * Dismisses the one-time VIP presentation card permanently across tabs and restarts.
+     * IMPORTANT: Closing the presentation banner NEVER alters or revokes [isVipUnlocked].
+     */
+    fun dismissVipIntroPermanently() {
+        _vipIntroDismissed.value = true
+        prefs.edit().putBoolean("vip_intro_dismissed", true).apply()
+    }
+
     fun unlockVipWithCode(code: String): Boolean {
         val valid = code.trim() == VIP_ACCESS_CODE
         if (valid) {
             _isVipUnlocked.value = true
-            prefs.edit().putBoolean("vip_unlocked", true).apply()
+            _vipIntroDismissed.value = true
+            prefs.edit()
+                .putBoolean("vip_unlocked", true)
+                .putBoolean("vip_intro_dismissed", true)
+                .apply()
         }
         return valid
     }
@@ -817,11 +953,19 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         _isVipUnlocked.value = false
         prefs.edit().putBoolean("vip_unlocked", false).apply()
         if (_currentTheme.value.isVipOnly) {
-            setTheme(CarAudioThemeType.CRIMSON_RED)
+            setTheme(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON)
         }
         val curr = _dspSettings.value
-        if (curr.hiResQualityEnabled || curr.tubeWarmthLevel > 0f) {
-            updateAndCommitDsp(curr.copy(hiResQualityEnabled = false, tubeWarmthLevel = 0f))
+        if (curr.hiResQualityEnabled || curr.tubeWarmthLevel > 0f || curr.presenceEnabled || curr.clarityEnabled || curr.exciterEnabled) {
+            updateAndCommitDsp(
+                curr.copy(
+                    hiResQualityEnabled = false,
+                    tubeWarmthLevel = 0f,
+                    presenceEnabled = false,
+                    clarityEnabled = false,
+                    exciterEnabled = false
+                )
+            )
         }
     }
 
@@ -831,9 +975,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putString("selected_theme_id", theme.id).apply()
     }
 
-    fun selectTab(tab: AppTab) {
-        _selectedTab.value = tab
-        audioEngine.setVisualizerActive(uiActive && (tab == AppTab.DSP || tab == AppTab.BASS || _isMicRta.value))
+    fun selectSection(section: AppSection) {
+        _selectedSection.value = section
+        audioEngine.setVisualizerActive(uiActive && needsLiveVisualizer(section))
     }
 
     fun setAutoPlayIntro(enabled: Boolean) {
@@ -856,6 +1000,176 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putBoolean("lite_visuals_enabled", enabled).apply()
     }
 
+    // ==========================================
+    // Radio Pioneer Controls (Independent & Real Streaming)
+    // ==========================================
+    fun toggleRadioPower() {
+        val next = !_isRadioPowerOn.value
+        _isRadioPowerOn.value = next
+        _radioErrorMessage.value = null
+        prefs.edit().putBoolean("radio_power_on", next).apply()
+        if (!next && audioEngine.isStreamingRadio) {
+            audioEngine.stopPlayback()
+            _isRadioPlaying.value = false
+            _isRadioBuffering.value = false
+        }
+    }
+
+    fun selectPioneerStyle(style: PioneerRadioStyle) {
+        _selectedPioneerStyle.value = style
+        prefs.edit().putString("pioneer_radio_style", style.id).apply()
+    }
+
+    fun selectPioneerIllumination(color: PioneerIlluminationColor) {
+        _pioneerIlluminationColor.value = color
+        prefs.edit().putString("pioneer_illum_color", color.id).apply()
+    }
+
+    fun setRadioSearchQuery(query: String) {
+        _radioSearchQuery.value = query
+    }
+
+    fun playRadioStation(station: RadioStation) {
+        if (!_isRadioPowerOn.value) {
+            _isRadioPowerOn.value = true
+            prefs.edit().putBoolean("radio_power_on", true).apply()
+        }
+        _activeRadioStation.value = station
+        _radioErrorMessage.value = null
+        prefs.edit().putString("last_radio_station_id", station.id).apply()
+        _isPlaying.value = false
+        _isRadioBuffering.value = true
+
+        audioEngine.playStreamUrl(
+            url = station.streamUrl,
+            stationTitle = station.name,
+            dspSettings = _dspSettings.value,
+            eqSettings = _equalizerSettings.value,
+            onPrepared = {
+                _isRadioBuffering.value = false
+                _isRadioPlaying.value = true
+                _isAnyAudioPlaying.value = true
+            },
+            onError = { msg ->
+                _isRadioBuffering.value = false
+                _isRadioPlaying.value = false
+                _isAnyAudioPlaying.value = false
+                _radioErrorMessage.value = msg
+            }
+        )
+    }
+
+    fun toggleRadioPlayPause() {
+        if (!_isRadioPowerOn.value) {
+            toggleRadioPower()
+        }
+        val station = _activeRadioStation.value ?: _radioStations.value.firstOrNull() ?: return
+        if (audioEngine.isStreamingRadio && audioEngine.activeStreamTitle == station.name) {
+            audioEngine.togglePlayPause(_dspSettings.value, _equalizerSettings.value)
+            _isRadioPlaying.value = audioEngine.isPlaying
+            _isAnyAudioPlaying.value = audioEngine.isPlaying
+        } else {
+            playRadioStation(station)
+        }
+    }
+
+    fun tuneNextStation() {
+        val list = _radioStations.value
+        if (list.isEmpty()) return
+        val curr = _activeRadioStation.value
+        val idx = if (curr != null) list.indexOfFirst { it.id == curr.id } else -1
+        val next = list[if (idx >= 0 && idx < list.lastIndex) idx + 1 else 0]
+        playRadioStation(next)
+    }
+
+    fun tunePrevStation() {
+        val list = _radioStations.value
+        if (list.isEmpty()) return
+        val curr = _activeRadioStation.value
+        val idx = if (curr != null) list.indexOfFirst { it.id == curr.id } else -1
+        val prev = list[if (idx > 0) idx - 1 else list.lastIndex]
+        playRadioStation(prev)
+    }
+
+    fun toggleFavoriteStation(station: RadioStation) {
+        val favs = _favoriteStationIds.value.toMutableSet()
+        val nowFav = !station.isFavorite
+        if (nowFav) favs.add(station.id) else favs.remove(station.id)
+        _favoriteStationIds.value = favs
+        prefs.edit().putStringSet("favorite_station_ids", favs).apply()
+        _radioStations.value = _radioStations.value.map {
+            if (it.id == station.id) it.copy(isFavorite = nowFav) else it
+        }
+        if (_activeRadioStation.value?.id == station.id) {
+            _activeRadioStation.value = _activeRadioStation.value?.copy(isFavorite = nowFav)
+        }
+    }
+
+    fun assignPresetMemory(slotIndex: Int) {
+        if (slotIndex !in 0..5) return
+        val active = _activeRadioStation.value ?: return
+        val updated = _presetMemoryStationIds.value.toMutableList()
+        while (updated.size < 6) updated.add("")
+        updated[slotIndex] = active.id
+        _presetMemoryStationIds.value = updated
+        prefs.edit().putString("pioneer_preset_memories", JSONArray(updated).toString()).apply()
+    }
+
+    fun selectPresetMemory(slotIndex: Int) {
+        val id = _presetMemoryStationIds.value.getOrNull(slotIndex) ?: return
+        val station = _radioStations.value.firstOrNull { it.id == id } ?: return
+        playRadioStation(station)
+    }
+
+    // ==========================================
+    // Independent Music Playlists
+    // ==========================================
+    fun selectPlaylistFilter(playlistId: String?) {
+        _selectedPlaylistId.value = playlistId
+    }
+
+    fun createPlaylist(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        val playlist = MusicPlaylist(
+            id = "pl_${System.currentTimeMillis()}",
+            name = trimmed,
+            trackIds = emptyList()
+        )
+        val updated = _playlists.value + playlist
+        _playlists.value = updated
+        persistPlaylists(updated)
+    }
+
+    fun deletePlaylist(playlistId: String) {
+        val updated = _playlists.value.filter { it.id != playlistId }
+        _playlists.value = updated
+        persistPlaylists(updated)
+        if (_selectedPlaylistId.value == playlistId) {
+            _selectedPlaylistId.value = null
+        }
+    }
+
+    fun addTrackToPlaylist(playlistId: String, trackId: String) {
+        val updated = _playlists.value.map { pl ->
+            if (pl.id == playlistId && trackId !in pl.trackIds) {
+                pl.copy(trackIds = pl.trackIds + trackId)
+            } else pl
+        }
+        _playlists.value = updated
+        persistPlaylists(updated)
+    }
+
+    fun removeTrackFromPlaylist(playlistId: String, trackId: String) {
+        val updated = _playlists.value.map { pl ->
+            if (pl.id == playlistId) {
+                pl.copy(trackIds = pl.trackIds.filter { it != trackId })
+            } else pl
+        }
+        _playlists.value = updated
+        persistPlaylists(updated)
+    }
+
     // Playback & Queue Controls
     fun toggleShuffle() {
         val next = !_shuffleEnabled.value
@@ -874,21 +1188,25 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun playTrack(track: AudioTrackItem) {
+        _isRadioPlaying.value = false
+        _isRadioBuffering.value = false
         audioEngine.playTrack(track, _dspSettings.value, _equalizerSettings.value)
         _currentTrack.value = track
         _isPlaying.value = true
+        _isAnyAudioPlaying.value = true
         _sessionTarget.value = audioEngine.sessionTarget
         CarAudioPlaybackService.sync(context)
     }
 
     fun togglePlayPause() {
         val track = _currentTrack.value ?: _tracks.value.firstOrNull() ?: return
-        if (_currentTrack.value == null) {
+        if (_currentTrack.value == null || audioEngine.isStreamingRadio) {
             playTrack(track)
             return
         }
         audioEngine.togglePlayPause(_dspSettings.value, _equalizerSettings.value)
-        _isPlaying.value = audioEngine.isPlaying
+        _isPlaying.value = audioEngine.isPlaying && !audioEngine.isStreamingRadio
+        _isAnyAudioPlaying.value = audioEngine.isPlaying
         CarAudioPlaybackService.sync(context)
     }
 
@@ -1140,6 +1458,119 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         updateAndCommitDsp(_dspSettings.value.copy(balancePan = pan.coerceIn(-1f, 1f)))
     }
 
+    fun setFaderFrontRear(fader: Float) {
+        updateAndCommitDsp(_dspSettings.value.copy(faderFrontRear = fader.coerceIn(-1f, 1f)))
+    }
+
+    fun setSpeakerConfig(sizeLabel: String, count: Int) {
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                speakerSizeLabel = sizeLabel,
+                speakerCount = count.coerceIn(2, 12)
+            )
+        )
+    }
+
+    fun setTweeterConfig(sizeMm: Int, material: String, hpfHz: Float, levelDb: Float) {
+        updateAndCommitDsp(
+            _dspSettings.value.copy(
+                tweeterSizeMm = sizeMm.coerceIn(13, 50),
+                tweeterMaterial = material,
+                tweeterHpfHz = hpfHz.coerceIn(1800f, 8000f),
+                tweeterLevelDb = levelDb.coerceIn(-6f, 6f)
+            )
+        )
+    }
+
+    // ==========================================
+    // Real Android Device Power & Temperature Telemetry
+    // ==========================================
+    private fun readDevicePowerTelemetry(): DevicePowerTelemetry {
+        return try {
+            val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            if (batteryIntent == null) {
+                DevicePowerTelemetry()
+            } else {
+                val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+                val percent = if (level >= 0) ((level * 100f) / scale).toInt().coerceIn(0, 100) else null
+
+                val voltageMv = batteryIntent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
+                val voltageV = if (voltageMv > 0) voltageMv / 1000f else null
+
+                val tempTenths = batteryIntent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+                val hasTemp = tempTenths > -200 && tempTenths < 1200 && tempTenths != Int.MIN_VALUE
+                val tempC = if (hasTemp) tempTenths / 10f else null
+
+                val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL
+
+                DevicePowerTelemetry(
+                    batteryPercent = percent,
+                    batteryVoltageV = voltageV,
+                    batteryTempC = tempC,
+                    isCharging = charging,
+                    hasBatterySensor = percent != null || voltageV != null,
+                    hasTempSensor = hasTemp
+                )
+            }
+        } catch (_: Throwable) {
+            DevicePowerTelemetry()
+        }
+    }
+
+    fun refreshDevicePowerTelemetry() {
+        _devicePowerTelemetry.value = readDevicePowerTelemetry()
+    }
+
+    // ==========================================
+    // Custom Sound Profiles (Full DSP + EQ Save/Apply/Delete)
+    // ==========================================
+    fun saveCustomSoundProfile(name: String, description: String) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        val profile = CustomSoundProfile(
+            id = "csp_${System.currentTimeMillis()}",
+            name = cleanName,
+            description = description.trim().ifBlank { "Configuración personalizada del estudio" },
+            dspSettings = _dspSettings.value,
+            eqBands15 = _equalizerSettings.value.bands15,
+            eqBands31 = _equalizerSettings.value.bands31
+        )
+        val updated = listOf(profile) + _customSoundProfiles.value.filter { !it.name.equals(cleanName, ignoreCase = true) }
+        _customSoundProfiles.value = updated
+        persistCustomSoundProfiles(updated)
+    }
+
+    fun applyCustomSoundProfile(profile: CustomSoundProfile) {
+        val newDsp = profile.dspSettings.let { d ->
+            if (_isVipUnlocked.value) d else d.copy(
+                hiResQualityEnabled = false,
+                tubeWarmthLevel = 0f,
+                presenceEnabled = false,
+                clarityEnabled = false,
+                exciterEnabled = false
+            )
+        }
+        val newEq = _equalizerSettings.value.copy(
+            isEnabled = true,
+            bands15 = if (profile.eqBands15.size == 15) profile.eqBands15 else _equalizerSettings.value.bands15,
+            bands31 = if (profile.eqBands31.size == 31) profile.eqBands31 else _equalizerSettings.value.bands31,
+            activePresetName = profile.name
+        )
+        _dspSettings.value = newDsp
+        _equalizerSettings.value = newEq
+        audioEngine.applyDspSettings(newDsp, newEq)
+        persistDspAndEq(newDsp, newEq)
+    }
+
+    fun deleteCustomSoundProfile(id: String) {
+        val updated = _customSoundProfiles.value.filter { it.id != id }
+        _customSoundProfiles.value = updated
+        persistCustomSoundProfiles(updated)
+    }
+
     fun toggleCompressor(enabled: Boolean) {
         updateAndCommitDsp(_dspSettings.value.copy(compressorEnabled = enabled))
     }
@@ -1330,17 +1761,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             audioEngine.startMicRta(true)
             _isMicRta.value = true
         }
-        audioEngine.setVisualizerActive(uiActive && (_selectedTab.value == AppTab.DSP || _isMicRta.value))
+        audioEngine.setVisualizerActive(uiActive && needsLiveVisualizer())
     }
 
     // ==========================================
     // Lightweight Async SharedPreferences Persistence
     // ==========================================
     private fun loadSavedTheme(): CarAudioThemeType {
-        val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.CRIMSON_RED.id)
-        val found = CarAudioThemeType.entries.firstOrNull { it.id == savedId } ?: CarAudioThemeType.CRIMSON_RED
+        val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.GRAPHITE_ELECTRIC_NEON.id)
+        val found = CarAudioThemeType.entries.firstOrNull { it.id == savedId } ?: CarAudioThemeType.GRAPHITE_ELECTRIC_NEON
         val vipUnlocked = prefs.getBoolean("vip_unlocked", false)
-        return if (found.isVipOnly && !vipUnlocked) CarAudioThemeType.CRIMSON_RED else found
+        return if (found.isVipOnly && !vipUnlocked) CarAudioThemeType.GRAPHITE_ELECTRIC_NEON else found
     }
 
     private fun loadSavedRepeatMode(): RepeatMode {
@@ -1356,99 +1787,238 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         return prefs.getStringSet("favorite_track_ids", emptySet()) ?: emptySet()
     }
 
+    private fun loadFavoriteStationIds(): Set<String> {
+        return prefs.getStringSet("favorite_station_ids", emptySet()) ?: emptySet()
+    }
+
+    private fun loadStationsWithFavorites(): List<RadioStation> {
+        val favs = _favoriteStationIds.value
+        return VerifiedRadioCatalog.stations.map { it.copy(isFavorite = it.id in favs) }
+    }
+
+    private fun loadInitialRadioStation(): RadioStation? {
+        val lastId = prefs.getString("last_radio_station_id", null)
+        return VerifiedRadioCatalog.stations.firstOrNull { it.id == lastId }
+            ?: VerifiedRadioCatalog.stations.firstOrNull()
+    }
+
+    private fun loadSavedPioneerStyle(): PioneerRadioStyle {
+        val savedId = prefs.getString("pioneer_radio_style", PioneerRadioStyle.CLASSIC.id)
+        return PioneerRadioStyle.entries.firstOrNull { it.id == savedId } ?: PioneerRadioStyle.CLASSIC
+    }
+
+    private fun loadSavedPioneerIllum(): PioneerIlluminationColor {
+        val savedId = prefs.getString("pioneer_illum_color", PioneerIlluminationColor.ELECTRIC_BLUE.id)
+        return PioneerIlluminationColor.entries.firstOrNull { it.id == savedId } ?: PioneerIlluminationColor.ELECTRIC_BLUE
+    }
+
+    private fun loadPresetMemoryIds(): List<String> {
+        val defaults = VerifiedRadioCatalog.stations.take(6).map { it.id }
+        val raw = prefs.getString("pioneer_preset_memories", null) ?: return defaults
+        return try {
+            val arr = JSONArray(raw)
+            List(6) { idx -> arr.optString(idx, defaults.getOrElse(idx) { "" }) }
+        } catch (_: Throwable) {
+            defaults
+        }
+    }
+
+    private fun loadSavedPlaylists(): List<MusicPlaylist> {
+        val raw = prefs.getString("saved_playlists_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i ->
+                val obj = arr.getJSONObject(i)
+                val idsArr = obj.optJSONArray("trackIds")
+                val trackIds = if (idsArr != null) {
+                    List(idsArr.length()) { j -> idsArr.optString(j, "") }.filter { it.isNotEmpty() }
+                } else emptyList()
+                MusicPlaylist(
+                    id = obj.getString("id"),
+                    name = obj.getString("name"),
+                    trackIds = trackIds
+                )
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun persistPlaylists(list: List<MusicPlaylist>) {
+        try {
+            val arr = JSONArray()
+            list.forEach { pl ->
+                arr.put(
+                    JSONObject().apply {
+                        put("id", pl.id)
+                        put("name", pl.name)
+                        put("trackIds", JSONArray(pl.trackIds))
+                    }
+                )
+            }
+            prefs.edit().putString("saved_playlists_json", arr.toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
     private fun loadSavedDspSettings(): DspSettings {
         val raw = prefs.getString("saved_dsp_json", null) ?: return DspSettings()
         return try {
             val o = JSONObject(raw)
             val vipUnlocked = prefs.getBoolean("vip_unlocked", false)
-            DspSettings(
-                dspMasterEnabled = o.optBoolean("master", true),
-                preampDb = o.optDouble("preamp", 0.0).toFloat(),
-                bassGainDb = o.optDouble("bass", 2.0).toFloat(),
-                midGainDb = o.optDouble("mid", 0.0).toFloat(),
-                trebleGainDb = o.optDouble("treble", 1.5).toFloat(),
-                masterGainDb = o.optDouble("masterGain", 0.0).toFloat(),
-                bassBoostEnabled = o.optBoolean("bbEn", true),
-                bassBoostDb = o.optDouble("bbDb", 4.0).toFloat(),
-                bassBoostFreqHz = o.optDouble("bbHz", 45.0).toFloat(),
-                subBassEnabled = o.optBoolean("subEn", false),
-                subBassBoostDb = o.optDouble("subDb", 3.0).toFloat(),
-                subBassFreqHz = o.optDouble("subHz", 35.0).toFloat(),
-                subsonicFilterActive = o.optBoolean("subsonicAct", false),
-                subsonicFrequencyHz = o.optDouble("subsonicHz", 28.0).toFloat(),
-                bassPunchLevel = o.optDouble("punch", 0.0).toFloat(),
-                loudnessEnabled = o.optBoolean("loudEn", false),
-                loudnessGainDb = o.optDouble("loudDb", 4.0).toFloat(),
-                phaseDegrees = o.optInt("phase", 0),
-                timeAlignmentMs = o.optDouble("alignMs", 1.2).toFloat(),
-                stereoWidthPercent = o.optDouble("stereo", 100.0).toFloat(),
-                balancePan = o.optDouble("pan", 0.0).toFloat(),
-                compressorEnabled = o.optBoolean("comp", false),
-                limiterEnabled = o.optBoolean("lim", true),
-                limiterCeilingDb = o.optDouble("limCeil", -0.5).toFloat(),
-                hpfEnabled = o.optBoolean("hpfEn", true),
-                hpfFrequencyHz = o.optDouble("hpfHz", 25.0).toFloat(),
-                hpfSlopeDb = o.optInt("hpfSlope", 24),
-                lpfEnabled = o.optBoolean("lpfEn", true),
-                lpfFrequencyHz = o.optDouble("lpfHz", 18000.0).toFloat(),
-                lpfSlopeDb = o.optInt("lpfSlope", 24),
-                hiResQualityEnabled = vipUnlocked && o.optBoolean("hiRes", false),
-                tubeWarmthLevel = if (vipUnlocked) o.optDouble("tube", 0.0).toFloat() else 0f,
-                presenceEnabled = vipUnlocked && o.optBoolean("presEn", false),
-                presenceLevel = o.optDouble("presLvl", 2.0).toFloat(),
-                clarityEnabled = vipUnlocked && o.optBoolean("clarEn", false),
-                clarityLevel = o.optDouble("clarLvl", 2.5).toFloat(),
-                exciterEnabled = vipUnlocked && o.optBoolean("excEn", false),
-                exciterLevel = o.optDouble("excLvl", 3.0).toFloat()
-            )
+            dspFromJson(o, vipUnlocked)
         } catch (_: Throwable) {
             DspSettings()
         }
     }
 
+    private fun dspFromJson(o: JSONObject, vipUnlocked: Boolean): DspSettings {
+        return DspSettings(
+            dspMasterEnabled = o.optBoolean("master", true),
+            preampDb = o.optDouble("preamp", 0.0).toFloat(),
+            bassGainDb = o.optDouble("bass", 2.0).toFloat(),
+            midGainDb = o.optDouble("mid", 0.0).toFloat(),
+            trebleGainDb = o.optDouble("treble", 1.5).toFloat(),
+            masterGainDb = o.optDouble("masterGain", 0.0).toFloat(),
+            bassBoostEnabled = o.optBoolean("bbEn", true),
+            bassBoostDb = o.optDouble("bbDb", 4.0).toFloat(),
+            bassBoostFreqHz = o.optDouble("bbHz", 45.0).toFloat(),
+            subBassEnabled = o.optBoolean("subEn", false),
+            subBassBoostDb = o.optDouble("subDb", 3.0).toFloat(),
+            subBassFreqHz = o.optDouble("subHz", 35.0).toFloat(),
+            subsonicFilterActive = o.optBoolean("subsonicAct", false),
+            subsonicFrequencyHz = o.optDouble("subsonicHz", 28.0).toFloat(),
+            bassPunchLevel = o.optDouble("punch", 0.0).toFloat(),
+            loudnessEnabled = o.optBoolean("loudEn", false),
+            loudnessGainDb = o.optDouble("loudDb", 4.0).toFloat(),
+            phaseDegrees = o.optInt("phase", 0),
+            timeAlignmentMs = o.optDouble("alignMs", 1.2).toFloat(),
+            stereoWidthPercent = o.optDouble("stereo", 100.0).toFloat(),
+            balancePan = o.optDouble("pan", 0.0).toFloat(),
+            faderFrontRear = o.optDouble("fader", 0.0).toFloat(),
+            speakerSizeLabel = o.optString("spSize", "6.5\""),
+            speakerCount = o.optInt("spCount", 4),
+            tweeterSizeMm = o.optInt("twSize", 25),
+            tweeterMaterial = o.optString("twMat", "Cúpula de Seda"),
+            tweeterHpfHz = o.optDouble("twHpf", 3500.0).toFloat(),
+            tweeterLevelDb = o.optDouble("twLvl", 0.0).toFloat(),
+            compressorEnabled = o.optBoolean("comp", false),
+            limiterEnabled = o.optBoolean("lim", true),
+            limiterCeilingDb = o.optDouble("limCeil", -0.5).toFloat(),
+            hpfEnabled = o.optBoolean("hpfEn", true),
+            hpfFrequencyHz = o.optDouble("hpfHz", 25.0).toFloat(),
+            hpfSlopeDb = o.optInt("hpfSlope", 24),
+            lpfEnabled = o.optBoolean("lpfEn", true),
+            lpfFrequencyHz = o.optDouble("lpfHz", 18000.0).toFloat(),
+            lpfSlopeDb = o.optInt("lpfSlope", 24),
+            hiResQualityEnabled = vipUnlocked && o.optBoolean("hiRes", false),
+            tubeWarmthLevel = if (vipUnlocked) o.optDouble("tube", 0.0).toFloat() else 0f,
+            presenceEnabled = vipUnlocked && o.optBoolean("presEn", false),
+            presenceLevel = o.optDouble("presLvl", 2.0).toFloat(),
+            clarityEnabled = vipUnlocked && o.optBoolean("clarEn", false),
+            clarityLevel = o.optDouble("clarLvl", 2.5).toFloat(),
+            exciterEnabled = vipUnlocked && o.optBoolean("excEn", false),
+            exciterLevel = o.optDouble("excLvl", 3.0).toFloat()
+        )
+    }
+
+    private fun dspToJson(dsp: DspSettings): JSONObject {
+        return JSONObject().apply {
+            put("master", dsp.dspMasterEnabled)
+            put("preamp", dsp.preampDb.toDouble())
+            put("bass", dsp.bassGainDb.toDouble())
+            put("mid", dsp.midGainDb.toDouble())
+            put("treble", dsp.trebleGainDb.toDouble())
+            put("masterGain", dsp.masterGainDb.toDouble())
+            put("bbEn", dsp.bassBoostEnabled)
+            put("bbDb", dsp.bassBoostDb.toDouble())
+            put("bbHz", dsp.bassBoostFreqHz.toDouble())
+            put("subEn", dsp.subBassEnabled)
+            put("subDb", dsp.subBassBoostDb.toDouble())
+            put("subHz", dsp.subBassFreqHz.toDouble())
+            put("subsonicAct", dsp.subsonicFilterActive)
+            put("subsonicHz", dsp.subsonicFrequencyHz.toDouble())
+            put("punch", dsp.bassPunchLevel.toDouble())
+            put("loudEn", dsp.loudnessEnabled)
+            put("loudDb", dsp.loudnessGainDb.toDouble())
+            put("phase", dsp.phaseDegrees)
+            put("alignMs", dsp.timeAlignmentMs.toDouble())
+            put("stereo", dsp.stereoWidthPercent.toDouble())
+            put("pan", dsp.balancePan.toDouble())
+            put("fader", dsp.faderFrontRear.toDouble())
+            put("spSize", dsp.speakerSizeLabel)
+            put("spCount", dsp.speakerCount)
+            put("twSize", dsp.tweeterSizeMm)
+            put("twMat", dsp.tweeterMaterial)
+            put("twHpf", dsp.tweeterHpfHz.toDouble())
+            put("twLvl", dsp.tweeterLevelDb.toDouble())
+            put("comp", dsp.compressorEnabled)
+            put("lim", dsp.limiterEnabled)
+            put("limCeil", dsp.limiterCeilingDb.toDouble())
+            put("hpfEn", dsp.hpfEnabled)
+            put("hpfHz", dsp.hpfFrequencyHz.toDouble())
+            put("hpfSlope", dsp.hpfSlopeDb)
+            put("lpfEn", dsp.lpfEnabled)
+            put("lpfHz", dsp.lpfFrequencyHz.toDouble())
+            put("lpfSlope", dsp.lpfSlopeDb)
+            put("hiRes", dsp.hiResQualityEnabled)
+            put("tube", dsp.tubeWarmthLevel.toDouble())
+            put("presEn", dsp.presenceEnabled)
+            put("presLvl", dsp.presenceLevel.toDouble())
+            put("clarEn", dsp.clarityEnabled)
+            put("clarLvl", dsp.clarityLevel.toDouble())
+            put("excEn", dsp.exciterEnabled)
+            put("excLvl", dsp.exciterLevel.toDouble())
+        }
+    }
+
     private fun persistDspSettings(dsp: DspSettings) {
         try {
-            val o = JSONObject().apply {
-                put("master", dsp.dspMasterEnabled)
-                put("preamp", dsp.preampDb.toDouble())
-                put("bass", dsp.bassGainDb.toDouble())
-                put("mid", dsp.midGainDb.toDouble())
-                put("treble", dsp.trebleGainDb.toDouble())
-                put("masterGain", dsp.masterGainDb.toDouble())
-                put("bbEn", dsp.bassBoostEnabled)
-                put("bbDb", dsp.bassBoostDb.toDouble())
-                put("bbHz", dsp.bassBoostFreqHz.toDouble())
-                put("subEn", dsp.subBassEnabled)
-                put("subDb", dsp.subBassBoostDb.toDouble())
-                put("subHz", dsp.subBassFreqHz.toDouble())
-                put("subsonicAct", dsp.subsonicFilterActive)
-                put("subsonicHz", dsp.subsonicFrequencyHz.toDouble())
-                put("punch", dsp.bassPunchLevel.toDouble())
-                put("loudEn", dsp.loudnessEnabled)
-                put("loudDb", dsp.loudnessGainDb.toDouble())
-                put("phase", dsp.phaseDegrees)
-                put("alignMs", dsp.timeAlignmentMs.toDouble())
-                put("stereo", dsp.stereoWidthPercent.toDouble())
-                put("pan", dsp.balancePan.toDouble())
-                put("comp", dsp.compressorEnabled)
-                put("lim", dsp.limiterEnabled)
-                put("limCeil", dsp.limiterCeilingDb.toDouble())
-                put("hpfEn", dsp.hpfEnabled)
-                put("hpfHz", dsp.hpfFrequencyHz.toDouble())
-                put("hpfSlope", dsp.hpfSlopeDb)
-                put("lpfEn", dsp.lpfEnabled)
-                put("lpfHz", dsp.lpfFrequencyHz.toDouble())
-                put("lpfSlope", dsp.lpfSlopeDb)
-                put("hiRes", dsp.hiResQualityEnabled)
-                put("tube", dsp.tubeWarmthLevel.toDouble())
-                put("presEn", dsp.presenceEnabled)
-                put("presLvl", dsp.presenceLevel.toDouble())
-                put("clarEn", dsp.clarityEnabled)
-                put("clarLvl", dsp.clarityLevel.toDouble())
-                put("excEn", dsp.exciterEnabled)
-                put("excLvl", dsp.exciterLevel.toDouble())
+            prefs.edit().putString("saved_dsp_json", dspToJson(dsp).toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    private fun loadSavedCustomSoundProfiles(): List<CustomSoundProfile> {
+        val raw = prefs.getString("saved_sound_profiles_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            val vipUnlocked = prefs.getBoolean("vip_unlocked", false)
+            List(arr.length()) { i ->
+                val obj = arr.getJSONObject(i)
+                val b15Arr = obj.optJSONArray("b15")
+                val b31Arr = obj.optJSONArray("b31")
+                val dspObj = obj.optJSONObject("dsp") ?: JSONObject()
+                CustomSoundProfile(
+                    id = obj.getString("id"),
+                    name = obj.getString("name"),
+                    description = obj.optString("desc", ""),
+                    createdAtMs = obj.optLong("createdAt", System.currentTimeMillis()),
+                    dspSettings = dspFromJson(dspObj, vipUnlocked),
+                    eqBands15 = if (b15Arr != null && b15Arr.length() == 15) List(15) { b15Arr.optDouble(it, 0.0).toFloat() } else List(15) { 0f },
+                    eqBands31 = if (b31Arr != null && b31Arr.length() == 31) List(31) { b31Arr.optDouble(it, 0.0).toFloat() } else List(31) { 0f }
+                )
             }
-            prefs.edit().putString("saved_dsp_json", o.toString()).apply()
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun persistCustomSoundProfiles(list: List<CustomSoundProfile>) {
+        try {
+            val arr = JSONArray()
+            list.forEach { p ->
+                arr.put(
+                    JSONObject().apply {
+                        put("id", p.id)
+                        put("name", p.name)
+                        put("desc", p.description)
+                        put("createdAt", p.createdAtMs)
+                        put("dsp", dspToJson(p.dspSettings))
+                        put("b15", JSONArray(p.eqBands15.map { it.toDouble() }))
+                        put("b31", JSONArray(p.eqBands31.map { it.toDouble() }))
+                    }
+                )
+            }
+            prefs.edit().putString("saved_sound_profiles_json", arr.toString()).apply()
         } catch (_: Throwable) {}
     }
 

@@ -110,8 +110,8 @@ fun AppSettingsView(
     var showResetDialog by remember { mutableStateOf(false) }
 
     val orderedThemes = remember {
-        listOf(CarAudioThemeType.CRIMSON_RED) +
-            CarAudioThemeType.entries.filter { it != CarAudioThemeType.CRIMSON_RED }
+        listOf(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON) +
+            CarAudioThemeType.entries.filter { it != CarAudioThemeType.GRAPHITE_ELECTRIC_NEON }
     }
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
@@ -654,13 +654,13 @@ fun AppSettingsView(
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "Versión 6.0.0 • Studio Edition",
+                    text = "Versión 6.5.0 • Studio Pro Edition",
                     color = theme.textColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Reproductor local real, Sistema de Bajos dedicado, alertas en tiempo real y procesador AudioFX de alta precisión.",
+                    text = "Radio Pioneer en vivo, reproductor local con listas, panel 5-LED dinámico, diagnóstico de fallos y procesador AudioFX de 31 bandas.",
                     color = theme.textSecondaryColor,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
