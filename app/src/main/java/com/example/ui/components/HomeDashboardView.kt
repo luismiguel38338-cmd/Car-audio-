@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,21 +19,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryStd
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +44,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -49,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -56,38 +62,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.R
 import com.example.model.AppSection
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
+import com.example.model.CloudUserProfile
 import com.example.model.DevicePowerTelemetry
+import com.example.model.DspCapabilityReport
 import com.example.model.DspSettings
+import com.example.model.EqualizerSettings
+import com.example.model.MusicPlaylist
 import com.example.model.OutputDeviceStatus
-import com.example.model.RadioStation
+import com.example.model.TutorialCatalog
 
 @Composable
 fun HomeDashboardView(
     theme: CarAudioThemeType,
+    userProfile: CloudUserProfile?,
     dspSettings: DspSettings,
+    equalizerSettings: EqualizerSettings,
+    capabilityReport: DspCapabilityReport,
     isAnyAudioPlaying: Boolean,
     bassEnergy: Float,
     midEnergy: Float,
     trebleEnergy: Float,
-    isRadioPlaying: Boolean,
-    activeRadioStation: RadioStation?,
     currentTrack: AudioTrackItem?,
-    isMusicPlaying: Boolean,
+    playbackSeconds: Int,
+    tracksCount: Int,
+    favoriteTracks: List<AudioTrackItem>,
+    playlists: List<MusicPlaylist>,
     outputDeviceStatus: OutputDeviceStatus,
     powerTelemetry: DevicePowerTelemetry,
     isVipUnlocked: Boolean,
-    vipIntroDismissed: Boolean,
+    vipPromoDismissed: Boolean,
     liteVisuals: Boolean,
-    onDismissVipIntro: () -> Unit,
-    onOpenVipDialog: () -> Unit,
+    onDismissVipPromo: () -> Unit,
     onNavigateSection: (AppSection) -> Unit,
-    onToggleActivePlayPause: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onPlayTrack: (AudioTrackItem) -> Unit,
+    onSelectPlaylist: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val greetingName = userProfile?.displayName?.takeIf { it.isNotBlank() } ?: "Estudio"
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -97,84 +117,164 @@ fun HomeDashboardView(
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Cockpit Hero Banner + Live Status
-        item(key = "home_hero_banner") {
+        // 1. Personalized Header & User Profile Greeting
+        item(key = "home_user_greeting") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-                border = BorderStroke(1.2.dp, theme.primaryColor.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                border = BorderStroke(1.dp, theme.cardColor)
             ) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(166.dp)
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    val photoUrl = userProfile?.photoUrl
+                    if (!photoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(photoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Foto de perfil de $greetingName",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, theme.accentColor, CircleShape)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
+                            contentDescription = "Perfil Audio DSP Pro",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, theme.accentColor, CircleShape)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Hola, $greetingName",
+                            color = theme.textColor,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${outputDeviceStatus.label} • DSP ${if (dspSettings.dspMasterEnabled) "Activo" else "Bypass"}",
+                            color = theme.textSecondaryColor,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isVipUnlocked) theme.accentColor.copy(alpha = 0.2f) else theme.cardColor)
+                            .border(
+                                1.dp,
+                                if (isVipUnlocked) theme.accentColor else theme.textSecondaryColor.copy(alpha = 0.3f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable { onNavigateSection(AppSection.VIP_ZONE) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("home_vip_badge")
+                    ) {
+                        Text(
+                            text = if (isVipUnlocked) "VIP ACTIVO" else "PLAN GRATIS",
+                            color = if (isVipUnlocked) theme.accentColor else theme.textSecondaryColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Continue Listening / Recent Playback Card
+        item(key = "home_continue_listening") {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateSection(AppSection.MUSIC_PLAYER) }
+                    .testTag("home_continue_listening_card"),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = theme.cardColor),
+                border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.35f))
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
                     Image(
-                        painter = painterResource(id = R.drawable.car_audio_cockpit_hero_1794824451080),
-                        contentDescription = "Cabina Car Audio DSP Pro",
+                        painter = painterResource(id = R.drawable.img_studio_hero_1794828268351),
+                        contentDescription = "Estudio de Audio",
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(18.dp))
                     )
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .matchParentSize()
                             .background(
-                                Brush.verticalGradient(
+                                Brush.horizontalGradient(
                                     listOf(
-                                        theme.backgroundColor.copy(alpha = 0.25f),
-                                        theme.backgroundColor.copy(alpha = 0.94f)
+                                        theme.backgroundColor.copy(alpha = 0.94f),
+                                        theme.surfaceColor.copy(alpha = 0.85f)
                                     )
                                 )
                             )
                     )
                     Column(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.car_audio_dsp_icon_1794824449077),
-                                contentDescription = "Icono Car Audio DSP Pro",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .border(1.5.dp, theme.primaryColor, CircleShape)
-                            )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "CAR AUDIO DSP PRO",
-                                    color = Color.White,
-                                    fontSize = 16.sp,
+                                    text = if (currentTrack != null) "CONTINUAR ESCUCHANDO" else "BIBLIOTECA MUSICAL",
+                                    color = theme.accentColor,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace
                                 )
-                                val statusLine = when {
-                                    isRadioPlaying && activeRadioStation != null ->
-                                        "Radio Pioneer: ${activeRadioStation.name} (${activeRadioStation.frequencyMhz} FM)"
-                                    isMusicPlaying && currentTrack != null ->
-                                        "Música: ${currentTrack.title} • ${currentTrack.artist}"
-                                    else -> "${outputDeviceStatus.label} • DSP ${if (dspSettings.dspMasterEnabled) "ON" else "BYPASS"}"
-                                }
                                 Text(
-                                    text = statusLine,
-                                    color = theme.accentColor,
-                                    fontSize = 11.sp,
+                                    text = currentTrack?.title ?: "Escanea o importa tu música local",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                Text(
+                                    text = currentTrack?.let {
+                                        "${it.artist} • ${it.album} • ${it.audioFormatLabel}"
+                                    } ?: "$tracksCount pistas disponibles • Reproductor Media3",
+                                    color = theme.textSecondaryColor,
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
-
+                            Spacer(modifier = Modifier.width(8.dp))
                             IconButton(
-                                onClick = onToggleActivePlayPause,
+                                onClick = {
+                                    if (currentTrack != null) onTogglePlayPause()
+                                    else onNavigateSection(AppSection.MUSIC_PLAYER)
+                                },
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
@@ -183,9 +283,41 @@ fun HomeDashboardView(
                             ) {
                                 Icon(
                                     imageVector = if (isAnyAudioPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (isAnyAudioPlaying) "Pausar audio" else "Reproducir audio",
+                                    contentDescription = if (isAnyAudioPlaying) "Pausar reproducción" else "Reproducir música",
                                     tint = theme.onPrimaryColor
                                 )
+                            }
+                        }
+
+                        if (currentTrack != null && currentTrack.durationSeconds > 0) {
+                            val progress = (playbackSeconds.toFloat() / currentTrack.durationSeconds.toFloat()).coerceIn(0f, 1f)
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    color = theme.accentColor,
+                                    trackColor = theme.backgroundColor,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = formatDurationSeconds(playbackSeconds),
+                                        color = theme.textSecondaryColor,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        text = formatDurationSeconds(currentTrack.durationSeconds),
+                                        color = theme.textSecondaryColor,
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                             }
                         }
                     }
@@ -193,23 +325,21 @@ fun HomeDashboardView(
             }
         }
 
-        // 2. Signature 5-LED Indicator Bar (ROJO - VERDE - ROJO - VERDE - BLANCO)
-        item(key = "home_five_led_bar") {
-            FiveLedIndicatorBar(
+        // 3. Studio Signal Indicator Bar (Graphite / Silver / Ice Blue)
+        item(key = "home_studio_signal_bar") {
+            StudioSignalIndicatorBar(
                 isAudioPlaying = isAnyAudioPlaying,
                 bassEnergy = bassEnergy,
                 midEnergy = midEnergy,
                 trebleEnergy = trebleEnergy,
                 theme = theme,
                 liteVisuals = liteVisuals,
-                title = "TELEMETRÍA DE PANEL • 5 LED",
                 showMiniBars = true
             )
         }
 
-        // 3. One-Time Dismissible VIP Presentation Banner
-        // Appears once until closed or unlocked; NEVER revokes VIP when closed.
-        if (!vipIntroDismissed && !isVipUnlocked) {
+        // 4. One-Time Permanently Dismissible VIP Banner
+        if (!vipPromoDismissed && !isVipUnlocked) {
             item(key = "one_time_vip_banner") {
                 Card(
                     modifier = Modifier
@@ -217,7 +347,7 @@ fun HomeDashboardView(
                         .testTag("one_time_vip_banner"),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-                    border = BorderStroke(1.3.dp, theme.accentColor.copy(alpha = 0.65f))
+                    border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
@@ -228,38 +358,41 @@ fun HomeDashboardView(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.WorkspacePremium,
-                                    contentDescription = "Presentación VIP",
+                                    contentDescription = "Zona VIP",
                                     tint = theme.accentColor,
                                     modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "ESTUDIO VIP DISPONIBLE",
+                                    text = "Audio DSP Pro VIP",
                                     color = theme.textColor,
-                                    fontSize = 13.sp,
+                                    fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Black
                                 )
                             }
                             IconButton(
-                                onClick = onDismissVipIntro,
+                                onClick = onDismissVipPromo,
                                 modifier = Modifier
                                     .size(48.dp)
                                     .testTag("dismiss_vip_intro_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Cerrar anuncio VIP",
+                                    contentDescription = "Cerrar aviso VIP",
                                     tint = theme.textSecondaryColor
                                 )
                             }
                         }
                         Text(
-                            text = "Activa Hi-Res Studio, Calidez de Bulbos, Presencia Vocal, Claridad HD y pendientes hasta 48 dB/oct cuando quieras en la Zona VIP.",
+                            text = "Explora procesamiento Hi-Res Studio, Calidez Analógica, Claridad HD, Presets de masterización y temas exclusivos en la Zona VIP.",
                             color = theme.textSecondaryColor,
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             lineHeight = 15.sp
                         )
                         Row(
@@ -267,7 +400,7 @@ fun HomeDashboardView(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = onOpenVipDialog,
+                                onClick = { onNavigateSection(AppSection.VIP_ZONE) },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = theme.primaryColor,
                                     contentColor = theme.onPrimaryColor
@@ -275,17 +408,17 @@ fun HomeDashboardView(
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("ACTIVAR VIP", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                Text("VER ZONA VIP", fontSize = 11.sp, fontWeight = FontWeight.Black)
                             }
                             Button(
-                                onClick = onDismissVipIntro,
+                                onClick = onDismissVipPromo,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = theme.surfaceColor,
                                     contentColor = theme.textSecondaryColor
                                 ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("CERRAR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("OCULTAR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -293,41 +426,43 @@ fun HomeDashboardView(
             }
         }
 
-        // 4. Compact Power & Output Bar
-        item(key = "home_power_chip_row") {
+        // 5. Quick Access to Audio Lab / Equalizer & Power Telemetry
+        item(key = "home_quick_eq_and_battery") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigateSection(AppSection.AUDIO_LAB) }
+                        .testTag("home_quick_eq_card"),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
                     border = BorderStroke(1.dp, theme.cardColor)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = if (powerTelemetry.isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryStd,
-                            contentDescription = "Batería Android",
-                            tint = theme.accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(theme.cardColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Equalizer, contentDescription = "Ecualizador", tint = theme.accentColor)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ecualizador", color = theme.textColor, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                text = powerTelemetry.batteryVoltageV?.let { "%.2f V".format(it) } ?: "N/D",
-                                color = theme.textColor,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Text(
-                                text = "Tel: ${powerTelemetry.batteryPercent ?: "--"}%${powerTelemetry.batteryTempC?.let { " • %.1f°C".format(it) } ?: ""}",
-                                color = theme.textSecondaryColor,
-                                fontSize = 9.5.sp
+                                text = equalizerSettings.activePresetName,
+                                color = theme.accentColor,
+                                fontSize = 10.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -336,34 +471,42 @@ fun HomeDashboardView(
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onNavigateSection(AppSection.RADIO_PIONEER) },
-                    shape = RoundedCornerShape(14.dp),
+                        .clickable { onNavigateSection(AppSection.AUDIO_METERS) },
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                    border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.45f))
+                    border = BorderStroke(1.dp, theme.cardColor)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Radio,
-                            contentDescription = "Radio Pioneer",
-                            tint = theme.primaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(theme.cardColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (powerTelemetry.isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryStd,
+                                contentDescription = "Batería",
+                                tint = theme.primaryColor
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "RADIO PIONEER",
+                                text = "${powerTelemetry.batteryPercent ?: "--"}% • ${powerTelemetry.batteryVoltageV?.let { "%.2fV".format(it) } ?: "N/D"}",
                                 color = theme.textColor,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Black
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = activeRadioStation?.let { "${it.frequencyMhz} FM" } ?: "5 diseños",
-                                color = theme.primaryColor,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
+                                text = powerTelemetry.batteryCurrentMa?.let { "%.0f mA".format(it) }
+                                    ?: (powerTelemetry.batteryTempC?.let { "%.1f °C".format(it) } ?: "Medidores"),
+                                color = theme.textSecondaryColor,
+                                fontSize = 10.5.sp
                             )
                         }
                     }
@@ -371,10 +514,81 @@ fun HomeDashboardView(
             }
         }
 
-        // 5. 9-Section Professional Hub Grid
-        item(key = "home_section_grid_title") {
+        // 6. Favorite Lists & Quick Playlists
+        if (favoriteTracks.isNotEmpty() || playlists.isNotEmpty()) {
+            item(key = "home_favorites_and_playlists") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "FAVORITOS Y LISTAS",
+                        color = theme.textSecondaryColor,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.8.sp
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        playlists.forEach { pl ->
+                            Card(
+                                modifier = Modifier
+                                    .width(168.dp)
+                                    .clickable {
+                                        onSelectPlaylist(pl.id)
+                                        onNavigateSection(AppSection.MUSIC_PLAYER)
+                                    },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                                border = BorderStroke(1.dp, theme.cardColor)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.QueueMusic, contentDescription = pl.name, tint = theme.accentColor, modifier = Modifier.size(20.dp))
+                                    Column {
+                                        Text(pl.name, color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("${pl.trackIds.size} pistas", color = theme.textSecondaryColor, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        favoriteTracks.take(6).forEach { fav ->
+                            Card(
+                                modifier = Modifier
+                                    .width(176.dp)
+                                    .clickable { onPlayTrack(fav) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                                border = BorderStroke(1.dp, theme.cardColor)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Favorite, contentDescription = fav.title, tint = theme.accentColor, modifier = Modifier.size(18.dp))
+                                    Column {
+                                        Text(fav.title, color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(fav.artist, color = theme.textSecondaryColor, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 7. Featured Tools Grid
+        item(key = "home_featured_tools_header") {
             Text(
-                text = "MENÚ PRINCIPAL DE ESTUDIO (9 SECCIONES)",
+                text = "HERRAMIENTAS DESTACADAS",
                 color = theme.textSecondaryColor,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Black,
@@ -384,14 +598,12 @@ fun HomeDashboardView(
         }
 
         val hubItems = listOf(
-            Triple(AppSection.RADIO_PIONEER, Icons.Default.Radio, "5 autoestéreos reales y emisoras FM"),
-            Triple(AppSection.MUSIC_PLAYER, Icons.Default.LibraryMusic, "Música local, listas y carátulas"),
-            Triple(AppSection.EQUALIZER, Icons.Default.Equalizer, "31 ISO, 15B y Paramétrico 5B"),
-            Triple(AppSection.SPEAKERS, Icons.Default.Speaker, "Subwoofer, fader, balance y tweeters"),
-            Triple(AppSection.SOUND_TOOLS, Icons.Default.Build, "RTA, voltímetro y perfiles"),
-            Triple(AppSection.PERSONALIZATION, Icons.Default.Palette, "Temas e iluminación Pioneer"),
-            Triple(AppSection.VIP_ZONE, Icons.Default.WorkspacePremium, if (isVipUnlocked) "VIP Activo" else "Mejoras Hi-Res Pro"),
-            Triple(AppSection.SETTINGS, Icons.Default.Settings, "Diagnóstico, permisos y sistema")
+            Triple(AppSection.MUSIC_PLAYER, Icons.Default.LibraryMusic, "$tracksCount pistas • Canciones, Artistas, Álbumes y Cola"),
+            Triple(AppSection.AUDIO_LAB, Icons.Default.Tune, capabilityReport.engineSummary),
+            Triple(AppSection.AUDIO_METERS, Icons.Default.GraphicEq, "RTA 31B, Osciloscopio, VU dBFS y Batería"),
+            Triple(AppSection.TUTORIALS, Icons.Default.MenuBook, "10 guías interactivas de audio y DSP"),
+            Triple(AppSection.PERSONALIZATION, Icons.Default.Palette, "Estilos Grafito, Plata y Azul Hielo"),
+            Triple(AppSection.SETTINGS, Icons.Default.Settings, "Cuenta Google, Firestore, Privacidad y Sistema")
         )
 
         items(hubItems.chunked(2).size) { rowIndex ->
@@ -401,7 +613,7 @@ fun HomeDashboardView(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 pair.forEach { (section, icon, desc) ->
-                    HomeHubTile(
+                    HomeToolCard(
                         section = section,
                         icon = icon,
                         description = desc,
@@ -415,11 +627,51 @@ fun HomeDashboardView(
                 }
             }
         }
+
+        // 8. Recommended Tutorials Strip
+        item(key = "home_recommended_tutorials") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "TUTORIALES RECOMENDADOS",
+                    color = theme.textSecondaryColor,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.8.sp
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    TutorialCatalog.topics.take(4).forEach { topic ->
+                        Card(
+                            modifier = Modifier
+                                .width(210.dp)
+                                .clickable { onNavigateSection(AppSection.TUTORIALS) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                            border = BorderStroke(1.dp, theme.cardColor)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(topic.category.uppercase(), color = theme.accentColor, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(topic.title, color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(topic.summary, color = theme.textSecondaryColor, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun HomeHubTile(
+private fun HomeToolCard(
     section: AppSection,
     icon: ImageVector,
     description: String,
@@ -433,7 +685,7 @@ private fun HomeHubTile(
             .testTag("home_tile_${section.name.lowercase()}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.28f))
+        border = BorderStroke(1.dp, theme.cardColor)
     ) {
         Column(
             modifier = Modifier
@@ -445,13 +697,13 @@ private fun HomeHubTile(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(theme.primaryColor.copy(alpha = 0.16f)),
+                    .background(theme.cardColor),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = section.title,
-                    tint = theme.primaryColor,
+                    tint = theme.accentColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -459,7 +711,7 @@ private fun HomeHubTile(
                 text = section.title,
                 color = theme.textColor,
                 fontSize = 12.5.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

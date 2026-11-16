@@ -3,6 +3,22 @@ package com.example.model
 import android.net.Uri
 import androidx.compose.runtime.Immutable
 
+enum class AppSection(
+    val route: String,
+    val title: String,
+    val shortTitle: String,
+    val subtitle: String
+) {
+    HOME("home", "Inicio", "Inicio", "Panel principal y acceso rápido"),
+    MUSIC_PLAYER("music_player", "Música", "Música", "Biblioteca, artistas, álbumes, listas y cola"),
+    AUDIO_LAB("audio_lab", "Laboratorio de Audio", "Lab DSP", "Ecualizador 10/31 bandas, filtros y dinámica"),
+    AUDIO_METERS("audio_meters", "Medidores y RTA", "Medidores", "Analizador de espectro, osciloscopio, VU y batería"),
+    TUTORIALS("tutorials", "Tutoriales", "Guías", "Centro interactivo de guías de audio DSP"),
+    PERSONALIZATION("personalization", "Apariencia", "Estilos", "Temas de estudio y rendimiento visual"),
+    VIP_ZONE("vip_zone", "Zona VIP", "VIP", "Herramientas Hi-Res y estado de membresía"),
+    SETTINGS("settings", "Configuración", "Ajustes", "Cuenta Google, nube Firebase, diagnóstico y privacidad")
+}
+
 @Immutable
 data class AudioTrackItem(
     val id: String,
@@ -11,21 +27,34 @@ data class AudioTrackItem(
     val album: String = "Archivo Local",
     val durationSeconds: Int = 0,
     val category: TrackCategory = TrackCategory.USER_CUSTOM,
-    val frequencyDescription: String = "Audio del Usuario",
-    val isSynthesized: Boolean = false,
+    val frequencyDescription: String = "Audio Local",
     val customUri: Uri? = null,
     val albumArtUri: Uri? = null,
     val isFavorite: Boolean = false,
     val audioFormatLabel: String = "Audio HD",
     val bitrateKbps: Int = 0
+) {
+    val stableKey: String
+        get() = customUri?.toString() ?: id
+}
+
+@Immutable
+data class ArtistSummary(
+    val name: String,
+    val trackCount: Int,
+    val albumCount: Int,
+    val sampleArtUri: Uri? = null
+)
+
+@Immutable
+data class AlbumSummary(
+    val title: String,
+    val artist: String,
+    val trackCount: Int,
+    val sampleArtUri: Uri? = null
 )
 
 enum class TrackCategory {
-    SUB_BASS_TEST,
-    OPEN_SHOW,
-    SPL_COMPETITION,
-    SQL_AUDIOPHILE,
-    CALIBRATION_PINK_NOISE,
     USER_CUSTOM
 }
 
@@ -51,18 +80,33 @@ data class OutputDeviceStatus(
 
 enum class AudioSessionTarget(val label: String, val detail: String) {
     INTERNAL_PLAYER(
-        "AudioFX Directo (Reproductor Local)",
-        "Procesamiento hardware 100% garantizado en tu música cargada"
+        "AudioFX Directo (Media3 / ExoPlayer)",
+        "Procesamiento DSP nativo sincronizado con la sesión del reproductor"
     ),
     EXTERNAL_APP(
         "Sesión Externa Detectada",
-        "AudioFX enlazado a la sesión compartida por el reproductor externo"
+        "AudioFX enlazado a la sesión compartida por otra aplicación de audio"
     ),
     GLOBAL_MIX_BEST_EFFORT(
         "Sesión Global (Sistema)",
-        "Modo compatibilidad: Android y YouTube pueden restringir efectos externos según el fabricante"
+        "Modo compatibilidad: algunas apps restringen efectos externos según el fabricante"
     )
 }
+
+@Immutable
+data class DspCapabilityReport(
+    val audioSessionId: Int = -1,
+    val dynamicsProcessingSupported: Boolean = false,
+    val dynamicsProcessingActive: Boolean = false,
+    val equalizerBandCount: Int = 0,
+    val usingFallbackEqualizer: Boolean = false,
+    val bassBoostSupported: Boolean = false,
+    val bassBoostActive: Boolean = false,
+    val virtualizerSupported: Boolean = false,
+    val virtualizerActive: Boolean = false,
+    val antiDoubleProcessingSafe: Boolean = true,
+    val engineSummary: String = "Esperando sesión de audio..."
+)
 
 enum class FaultSeverity {
     INFO,
@@ -90,74 +134,6 @@ data class SystemFaultAlert(
     val actionType: FaultActionType = FaultActionType.NONE
 )
 
-enum class SubwooferPreset(
-    val label: String,
-    val subtitle: String,
-    val bassBoostDb: Float,
-    val subBassDb: Float,
-    val subFreqHz: Float,
-    val subsonicHz: Float,
-    val lpfHz: Float,
-    val punchLevel: Float,
-    val isVip: Boolean = false
-) {
-    DAILY_CLEAN(
-        label = "Diario Limpio",
-        subtitle = "Graves balanceados con protección infrasónica",
-        bassBoostDb = 6f,
-        subBassDb = 4f,
-        subFreqHz = 45f,
-        subsonicHz = 28f,
-        lpfHz = 100f,
-        punchLevel = 3.0f,
-        isVip = false
-    ),
-    STREET_PUNCH(
-        label = "Golpe Urbano",
-        subtitle = "Pegada fuerte en 50-65 Hz para reggaetón y electrónica",
-        bassBoostDb = 11f,
-        subBassDb = 7f,
-        subFreqHz = 52f,
-        subsonicHz = 30f,
-        lpfHz = 115f,
-        punchLevel = 6.5f,
-        isVip = false
-    ),
-    DEEP_SUB_32HZ(
-        label = "Hairtrick 32Hz",
-        subtitle = "Excursión profunda subgrave para cajón porteado",
-        bassBoostDb = 16f,
-        subBassDb = 13f,
-        subFreqHz = 32f,
-        subsonicHz = 22f,
-        lpfHz = 85f,
-        punchLevel = 4.0f,
-        isVip = true
-    ),
-    SPL_COMPETITION(
-        label = "SPL Competencia",
-        subtitle = "Máxima presión sonora controlada con pendiente 36dB",
-        bassBoostDb = 18f,
-        subBassDb = 15f,
-        subFreqHz = 48f,
-        subsonicHz = 32f,
-        lpfHz = 95f,
-        punchLevel = 9.0f,
-        isVip = true
-    ),
-    SQL_AUDIOPHILE(
-        label = "SQL Audiófilo",
-        subtitle = "Sub-bajo rápido y articulado sin retumbar",
-        bassBoostDb = 4f,
-        subBassDb = 3f,
-        subFreqHz = 38f,
-        subsonicHz = 24f,
-        lpfHz = 80f,
-        punchLevel = 2.5f,
-        isVip = true
-    )
-}
-
 @Immutable
 data class DspSettings(
     // Master DSP State
@@ -165,37 +141,31 @@ data class DspSettings(
     val inputGainDb: Float = 0.0f, // -12 to +12 dB
     val outputGainDb: Float = 0.0f, // -12 to +12 dB
     val preampDb: Float = 0.0f, // -12 to +18 dB
-    val bassGainDb: Float = 2.0f, // -18 to +18 dB
+    val bassGainDb: Float = 1.5f, // -18 to +18 dB
     val midGainDb: Float = 0.0f, // -18 to +18 dB
-    val trebleGainDb: Float = 1.5f, // -18 to +18 dB
+    val trebleGainDb: Float = 1.0f, // -18 to +18 dB
     val headroomDb: Float = 6.0f,
     val sampleRate: Int = 48000,
 
-    // Crossover Filters
-    val hpfFrequencyHz: Float = 25f,
+    // Frequency Filters
+    val hpfFrequencyHz: Float = 24f,
     val hpfSlopeDb: Int = 24, // 6, 12, 18, 24, 36, 48 dB/oct
     val hpfEnabled: Boolean = true,
     val hpfQ: Float = 0.707f,
 
-    val lpfFrequencyHz: Float = 18000f,
-    val lpfSlopeDb: Int = 24, // 6, 12, 18, 24, 36, 48 dB/oct
-    val lpfEnabled: Boolean = true,
+    val lpfFrequencyHz: Float = 19000f,
+    val lpfSlopeDb: Int = 24,
+    val lpfEnabled: Boolean = false,
     val lpfQ: Float = 0.707f,
 
-    val bandPassEnabled: Boolean = false,
-    val bandPassCenterHz: Float = 1000f,
-    val bandPassWidthHz: Float = 800f,
-    val bandPassSlopeDb: Int = 12,
-    val bandPassQ: Float = 1.0f,
-
-    val subsonicFrequencyHz: Float = 28f,
+    val subsonicFrequencyHz: Float = 26f,
     val subsonicEnabled: Boolean = true,
     val subsonicFilterActive: Boolean = false,
 
-    // Audio FX Controls & Bass System
+    // Bass Boost & Sub-Bass
     val bassBoostEnabled: Boolean = true,
-    val bassBoostDb: Float = 4.0f, // 0 to 24 dB
-    val bassBoostFreqHz: Float = 45f, // 30Hz - 80Hz
+    val bassBoostDb: Float = 3.0f, // 0 to 24 dB
+    val bassBoostFreqHz: Float = 48f, // 30Hz - 80Hz
 
     val subBassEnabled: Boolean = false,
     val subBassBoostDb: Float = 3.0f,
@@ -203,20 +173,13 @@ data class DspSettings(
     val bassPunchLevel: Float = 0.0f, // 0 to 10 dB transient punch
 
     val loudnessEnabled: Boolean = false,
-    val loudnessGainDb: Float = 4.0f,
+    val loudnessGainDb: Float = 3.5f,
 
+    // Stereo Field & Virtualizer
     val stereoWidthPercent: Float = 100f, // 100 to 250%
     val balancePan: Float = 0.0f, // -1.0 (Left) to +1.0 (Right)
-    val faderFrontRear: Float = 0.0f, // -1.0 (Rear) to +1.0 (Front) — requires 4-ch external DSP/amp
 
-    // Speaker & Tweeter Setup
-    val speakerSizeLabel: String = "6.5\"",
-    val speakerCount: Int = 4,
-    val tweeterSizeMm: Int = 25,
-    val tweeterMaterial: String = "Cúpula de Seda",
-    val tweeterHpfHz: Float = 3500f,
-    val tweeterLevelDb: Float = 0.0f, // -6 to +6 dB
-
+    // Dynamics (Multiband Compressor & Brickwall Limiter)
     val compressorEnabled: Boolean = false,
     val compressorThresholdDb: Float = -12f,
     val compressorRatio: Float = 4.0f,
@@ -236,33 +199,12 @@ data class DspSettings(
     val clarityEnabled: Boolean = false,
     val clarityLevel: Float = 2.5f,
 
-    // VIP Quality Enhancers
+    // VIP Studio Enhancers
     val hiResQualityEnabled: Boolean = false,
     val tubeWarmthLevel: Float = 0.0f, // 0 to 10
 
-    val phaseDegrees: Int = 0, // 0 or 180
-    val timeAlignmentMs: Float = 1.2f, // 0 to 15 ms
-    val masterGainDb: Float = 0f, // -24 to +18 dB
-
-    // 8-band EQ (backward compatibility)
-    val eqBands: List<Float> = listOf(4.0f, 2.0f, 0.0f, -1.0f, 1.0f, 3.0f, 4.5f, 5.0f),
-    val activePresetName: String = "Flat"
-)
-
-@Immutable
-data class AmpTelemetry(
-    val voltage: Float? = null,
-    val isVoltageAvailable: Boolean = false,
-    val temperatureC: Float? = null,
-    val outputPowerWatts: Int = 0,
-    val maxRatedWatts: Int = 3000,
-    val impedanceOhms: Float = 1.0f,
-    val isClipping: Boolean = false,
-    val clipCount: Int = 0,
-    val isOverheated: Boolean = false,
-    val isLowVoltage: Boolean = false,
-    val protectionModeActive: Boolean = false,
-    val isPlantaConnected: Boolean = false
+    val masterGainDb: Float = 0f, // -18 to +18 dB
+    val activePresetName: String = "Estudio Equilibrado"
 )
 
 @Immutable
@@ -272,46 +214,6 @@ data class RtaBand(
     val levelDb: Float, // -60 to 0 dB
     val peakDb: Float
 )
-
-enum class CrossoverFilterType(val label: String) {
-    BUTTERWORTH("Butterworth"),
-    LINKWITZ_RILEY("Linkwitz-Riley")
-}
-
-@Immutable
-data class DspChannel(
-    val id: Int,
-    val name: String,
-    val typeName: String,
-    val hpfHz: Float,
-    val hpfSlopeDb: Int,
-    val hpfEnabled: Boolean,
-    val hpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
-    val lpfHz: Float,
-    val lpfSlopeDb: Int,
-    val lpfEnabled: Boolean,
-    val lpfFilterType: CrossoverFilterType = CrossoverFilterType.BUTTERWORTH,
-    val gainDb: Float,
-    val phaseInverted: Boolean = false,
-    val delayMs: Float = 0.0f,
-    val delayCm: Float = delayMs * 34.3f,
-    val isMuted: Boolean = false,
-    val isSolo: Boolean = false,
-    val limiterEnabled: Boolean = true,
-    val limiterThresholdDb: Float = -1.0f,
-    val limiterAttackMs: Float = 5.0f,
-    val limiterReleaseMs: Float = 50.0f,
-    val gainReductionDb: Float = 0.0f,
-    val isClipping: Boolean = false,
-    val clipCount: Int = 0
-)
-
-enum class AudioSourceMode(val label: String, val isReal: Boolean) {
-    REAL_MIC("Micrófono Real (Calibrado)", true),
-    INTERNAL_DSP("DSP / Sintetizador Interno", true),
-    DEMO_MODE("Modo Simulación Demo", false),
-    SIMULATED_DEMO("Modo Simulación Demo", false)
-}
 
 @Immutable
 data class OscilloscopeState(
@@ -324,28 +226,9 @@ data class OscilloscopeState(
     val peakVoltageEstimate: Float = 0.0f
 )
 
-enum class AutoTuneTarget(val label: String, val description: String) {
-    HARMAN_CAR("Curva Harman Car Audio", "Realce de graves +6dB en subgraves, medios neutros y caída suave en agudos para máxima calidez."),
-    FLAT_RTA("Acoustic Flat Lineal (0 dB)", "Respuesta perfectamente plana de 20Hz a 20kHz para calibración acústica de precisión."),
-    PANCADAO_BASS("Pancadão Som Automotivo", "Pico agresivo en 63-80Hz, corte seco de sub y realce en 2k-4kHz para voces y cornetas."),
-    SQ_AUDIOPHILE("Sound Quality (SQ Audiophile)", "Escenario acústico suave, graves articulados y extensión de armónicos para fidelidad de estudio.")
-}
-
-@Immutable
-data class AutoTuneState(
-    val isMeasuring: Boolean = false,
-    val progress: Float = 0f,
-    val targetCurve: AutoTuneTarget = AutoTuneTarget.HARMAN_CAR,
-    val measuredCurve31: List<Float> = emptyList(),
-    val targetCurve31: List<Float> = emptyList(),
-    val proposedCorrection31: List<Float> = emptyList(),
-    val hasProposal: Boolean = false,
-    val explanation: String = ""
-)
-
 enum class SplWeighting(val label: String, val suffix: String) {
     A_WEIGHTING("Ponderación A (dBA)", "dBA"),
-    C_WEIGHTING("Ponderación C (dBC - Car Audio)", "dBC"),
+    C_WEIGHTING("Ponderación C (dBC)", "dBC"),
     Z_WEIGHTING("Ponderación Z (dBZ - Plana)", "dBZ")
 }
 
@@ -362,72 +245,168 @@ data class SplCalibrationSettings(
     val isCalibratedMic: Boolean = false
 )
 
-enum class HardwareConnectionType(val label: String, val isRealHardware: Boolean) {
-    DSP_INTERNAL("DSP Digital Interno 32-bit (Android)", false),
-    USB_OTG("Hardware USB OTG (Serial CDC/FTDI)", true),
-    BLUETOOTH_SPP("Hardware Bluetooth SPP / BLE", true),
-    SIMULATOR_DEMO("Modo Demo / Simulación Offline", false)
-}
-
 @Immutable
-data class HardwareBridgeState(
-    val isConnected: Boolean = false,
-    val connectionType: HardwareConnectionType = HardwareConnectionType.DSP_INTERNAL,
-    val deviceName: String = "DSP Interno Nativo 32-bit",
-    val statusMessage: String = "Procesamiento nativo en dispositivo",
-    val packetsSent: Long = 0,
-    val packetsReceived: Long = 0,
-    val lastSyncTime: Long = 0L
+data class MusicPlaylist(
+    val id: String,
+    val name: String,
+    val trackIds: List<String> = emptyList()
 )
 
 @Immutable
-data class DspFullProfileJson(
-    val appVersion: String = "6.0",
-    val profileName: String,
-    val description: String,
-    val timestamp: Long = System.currentTimeMillis(),
-    val channels: List<DspChannel>,
-    val eq31Bands: List<Float>,
-    val parametricBands: List<ParametricBand>,
-    val masterGainDb: Float,
-    val masterLimiterEnabled: Boolean,
-    val toneGeneratorFreq: Float = 40f
-)
-
-enum class ToneMode(val label: String) {
-    SINE_WAVE("Onda Senoidal Pura"),
-    FREQUENCY_SWEEP("Barrido 20Hz-20kHz"),
-    PINK_NOISE("Ruido Rosa Acústico"),
-    WHITE_NOISE("Ruido Blanco")
-}
-
-@Immutable
-data class SplRunState(
-    val isRunning: Boolean = false,
-    val timeRemainingSeconds: Int = 30,
-    val elapsedSeconds: Int = 30 - timeRemainingSeconds,
-    val currentSplDb: Float = 0f,
-    val averageSplDb: Float = 0f,
-    val averageDb: Float = averageSplDb,
-    val maxPeakDb: Float = 0f,
-    val peakDb: Float = maxPeakDb,
-    val runHistory: List<SplRecord> = emptyList(),
-    val history: List<SplRecord> = runHistory
+data class DevicePowerTelemetry(
+    val batteryPercent: Int? = null,
+    val batteryVoltageV: Float? = null,
+    val batteryTempC: Float? = null,
+    val batteryCurrentMa: Float? = null,
+    val isCharging: Boolean = false,
+    val hasBatterySensor: Boolean = false,
+    val hasTempSensor: Boolean = false,
+    val hasCurrentSensor: Boolean = false
 )
 
 @Immutable
-data class SplRecord(
-    val id: Long,
-    val peakDb: Float,
-    val avgDb: Float,
-    val title: String,
-    val timeString: String
-)
-
-@Immutable
-data class DspPreset(
+data class CustomSoundProfile(
+    val id: String,
     val name: String,
     val description: String,
+    val createdAtMs: Long = System.currentTimeMillis(),
     val dspSettings: DspSettings,
-    val isUserCreated: Boolean = false
+    val eqBands10: List<Float> = List(10) { 0f },
+    val eqBands15: List<Float> = List(15) { 0f },
+    val eqBands31: List<Float> = List(31) { 0f }
 )
+
+@Immutable
+data class TutorialTopic(
+    val id: Int,
+    val title: String,
+    val category: String,
+    val summary: String,
+    val steps: List<String>,
+    val proTip: String
+)
+
+object TutorialCatalog {
+    val topics: List<TutorialTopic> = listOf(
+        TutorialTopic(
+            id = 1,
+            title = "1. Primeros pasos",
+            category = "Inicio rápido",
+            summary = "Conecta tu cuenta Google, prepara tus permisos multimedia y activa el motor DSP nativo.",
+            steps = listOf(
+                "Inicia sesión con Google para respaldar tus playlists, presets y preferencias en Firebase.",
+                "Concede el permiso de Audio Local para descubrir las canciones, artistas y álbumes de tu dispositivo.",
+                "Verifica que el botón de encendido maestro DSP esté activo en la barra superior."
+            ),
+            proTip = "El límite de seguridad (-0.5 dB) viene activado por defecto para proteger tus auriculares contra picos digitales."
+        ),
+        TutorialTopic(
+            id = 2,
+            title = "2. Cómo importar música",
+            category = "Biblioteca",
+            summary = "Escanea carpetas de tu teléfono o selecciona archivos individuales en alta resolución.",
+            steps = listOf(
+                "Abre la sección Música desde la barra inferior.",
+                "Pulsa 'Escanear Teléfono' para indexar automáticamente archivos MP3, FLAC, WAV, AAC u OGG.",
+                "Usa el botón 'Importar Archivos' para elegir pistas específicas mediante el selector seguro de Android."
+            ),
+            proTip = "Solo mostramos archivos reales autorizados en tu dispositivo; nunca mezclamos pistas de demostración falsas."
+        ),
+        TutorialTopic(
+            id = 3,
+            title = "3. Cómo utilizar el reproductor",
+            category = "Reproducción",
+            summary = "Navega por canciones, artistas, álbumes, listas y administra la cola de reproducción.",
+            steps = listOf(
+                "Alterna entre las pestañas Canciones, Artistas, Álbumes, Listas y Cola.",
+                "Usa el menú de cada pista para añadirla a la Cola, reproducirla a continuación o guardarla en Favoritos.",
+                "Controla la reproducción desde la barra de notificaciones, pantalla bloqueada o auriculares Bluetooth."
+            ),
+            proTip = "La última canción y su posición exacta se guardan automáticamente en tu cuenta."
+        ),
+        TutorialTopic(
+            id = 4,
+            title = "4. Cómo configurar el ecualizador",
+            category = "Laboratorio DSP",
+            summary = "Elige entre 10 bandas rápidas, 31 bandas de alta precisión o 5 bandas paramétricas.",
+            steps = listOf(
+                "Entra al Laboratorio de Audio y activa el módulo Ecualizador.",
+                "En 10 Bandas ajusta los rangos principales (31 Hz a 16 kHz) de forma ágil.",
+                "En 31 Bandas (cuando tu dispositivo soporta DynamicsProcessing API 28+) realiza ajustes quirúrgicos de 1/3 de octava."
+            ),
+            proTip = "Nuestro motor evita el doble procesamiento apagando las etapas redundantes automáticamente."
+        ),
+        TutorialTopic(
+            id = 5,
+            title = "5. Cómo mejorar los bajos",
+            category = "Graves y Sub-Bass",
+            summary = "Logra graves profundos y firmes sin saturar ni embarrar las voces.",
+            steps = listOf(
+                "Ajusta el control Bass Boost entre +2 dB y +6 dB según el tamaño de tus auriculares o altavoces.",
+                "Activa el Filtro Subsónico entre 24 Hz y 30 Hz para eliminar frecuencias inaudibles que consumen energía.",
+                "Si buscas mayor definición, atenúa levemente alrededor de 250 Hz (-1 dB a -2 dB) en el ecualizador."
+            ),
+            proTip = "Sube el grave poco a poco mientras observas el medidor de Clipping en la pestaña Medidores."
+        ),
+        TutorialTopic(
+            id = 6,
+            title = "6. Cómo configurar los agudos",
+            category = "Claridad y Aire",
+            summary = "Añade brillo, aire y detalle vocal sin provocar fatiga auditiva.",
+            steps = listOf(
+                "En la pestaña Tono del Laboratorio, eleva Agudos entre +1 dB y +3 dB.",
+                "Usa las bandas de 8 kHz a 16 kHz para dar sensación de espacio y detalle en platillos.",
+                "Si percibes sibilancia excesiva en voces ('eses' fuertes), reduce suavemente entre 5 kHz y 6.3 kHz."
+            ),
+            proTip = "Activa Presencia o Claridad en niveles moderados si escuchas a volumen bajo."
+        ),
+        TutorialTopic(
+            id = 7,
+            title = "7. Cómo utilizar los presets",
+            category = "Presets",
+            summary = "Aplica curvas calibradas por género o estilo en un solo toque.",
+            steps = listOf(
+                "Abre la pestaña Presets dentro del Laboratorio de Audio.",
+                "Toca cualquier preset de estudio (Flat, Estudio Equilibrado, Graves Limpios, Vocal, Rock, etc.).",
+                "Al modificar cualquier banda después de cargar un preset, el perfil cambia automáticamente a Personalizado."
+            ),
+            proTip = "Usa 'Flat' como punto de partida neutral cuando cambies de auriculares."
+        ),
+        TutorialTopic(
+            id = 8,
+            title = "8. Cómo funciona el analizador de espectro",
+            category = "Medidores",
+            summary = "Interpreta las 31 bandas RTA, el osciloscopio de onda y el nivel VU/RMS en dBFS.",
+            steps = listOf(
+                "Abre la sección Medidores y reproduce una canción para ver las barras RTA de 20 Hz a 20 kHz.",
+                "Observa los picos blancos superiores y el osciloscopio inferior para detectar compresión o recorte.",
+                "Opcionalmente activa el modo Micrófono RTA (requiere permiso de micrófono) para medir la respuesta acústica real de tu sala."
+            ),
+            proTip = "Si los picos golpean 0 dBFS repetidamente, activa el Limitador o reduce el Preamplificador."
+        ),
+        TutorialTopic(
+            id = 9,
+            title = "9. Cómo guardar configuraciones",
+            category = "Nube Firebase",
+            summary = "Guarda tus propios perfiles de ecualización y filtros con sincronización en la nube.",
+            steps = listOf(
+                "Dentro del Laboratorio de Audio, pulsa 'Guardar Configuración' en la pestaña Presets.",
+                "Asigna un nombre y una descripción breve a tu ajuste.",
+                "Tus configuraciones se guardan tanto en el dispositivo como en tu cuenta de Firebase Firestore."
+            ),
+            proTip = "Al iniciar sesión en otro teléfono con la misma cuenta Google, recuperarás tus perfiles guardados."
+        ),
+        TutorialTopic(
+            id = 10,
+            title = "10. Cómo utilizar las funciones VIP",
+            category = "Zona VIP",
+            summary = "Conoce los módulos avanzados Hi-Res, temas exclusivos y cómo se gestiona tu membresía.",
+            steps = listOf(
+                "Visita Zona VIP para comparar las funciones gratuitas frente a las herramientas avanzadas VIP.",
+                "Las cuentas VIP acceden a procesamiento Hi-Res Studio, calidez analógica, presets maestros y temas de diseño.",
+                "Tu estado VIP se valida desde el servidor de tu cuenta y se restaura al iniciar sesión."
+            ),
+            proTip = "Si cierras el aviso promocional en Inicio, no volverá a mostrarse automáticamente."
+        )
+    )
+}

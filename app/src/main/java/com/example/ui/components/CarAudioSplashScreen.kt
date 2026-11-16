@@ -31,12 +31,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,37 +69,29 @@ import com.example.R
 import com.example.model.CarAudioThemeType
 
 /**
- * Replaces the old loading splash screen with a polished Welcome + Brief Interactive Tutorial flow.
+ * Welcome & Interactive Quick Tutorial screen for Audio DSP Pro.
  */
 @Composable
 fun CarAudioSplashScreen(
     theme: CarAudioThemeType,
-    onStartSound: () -> Unit,
     onEnterApp: () -> Unit,
     onSetDontShowAgain: (Boolean) -> Unit,
     initialDontShowAgain: Boolean = false,
-    liteVisuals: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var currentStep by remember { mutableIntStateOf(0) } // 0 = Bienvenida, 1 = Tutorial Breve
+    var currentStep by remember { mutableIntStateOf(0) }
     var dontShowAgain by remember { mutableStateOf(initialDontShowAgain) }
-
-    val bgBrush = remember(theme) {
-        Brush.verticalGradient(
-            listOf(
-                theme.backgroundColor,
-                theme.surfaceColor,
-                theme.backgroundColor
-            )
-        )
-    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(bgBrush)
+            .background(
+                Brush.verticalGradient(
+                    listOf(theme.backgroundColor, theme.surfaceColor, theme.backgroundColor)
+                )
+            )
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .testTag("car_audio_welcome_screen"),
+            .testTag("audio_dsp_welcome_screen"),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -112,7 +102,6 @@ fun CarAudioSplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top bar: Step indicator + Skip
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -130,7 +119,7 @@ fun CarAudioSplashScreen(
                                 .width(if (active) 28.dp else 10.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (active) theme.primaryColor else theme.textSecondaryColor.copy(alpha = 0.35f)
+                                    if (active) theme.accentColor else theme.textSecondaryColor.copy(alpha = 0.35f)
                                 )
                         )
                     }
@@ -156,7 +145,6 @@ fun CarAudioSplashScreen(
                 }
             }
 
-            // Main Animated Content
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -166,13 +154,12 @@ fun CarAudioSplashScreen(
                 label = "welcome_tutorial_step"
             ) { step ->
                 if (step == 0) {
-                    WelcomeHeroStep(theme = theme)
+                    WelcomeStudioStep(theme = theme)
                 } else {
-                    BriefTutorialStep(theme = theme)
+                    QuickStartGuideStep(theme = theme)
                 }
             }
 
-            // Bottom Navigation Buttons + Don't show again
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -195,12 +182,12 @@ fun CarAudioSplashScreen(
                             onSetDontShowAgain(it)
                         },
                         colors = CheckboxDefaults.colors(
-                            checkedColor = theme.primaryColor,
+                            checkedColor = theme.accentColor,
                             checkmarkColor = theme.onPrimaryColor
                         )
                     )
                     Text(
-                        text = "Entrar directo la próxima vez",
+                        text = "No mostrar al iniciar la próxima vez",
                         color = theme.textSecondaryColor,
                         fontSize = 12.sp
                     )
@@ -217,7 +204,7 @@ fun CarAudioSplashScreen(
                                 .weight(0.42f)
                                 .height(52.dp),
                             shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.2.dp, theme.primaryColor.copy(alpha = 0.6f)),
+                            border = BorderStroke(1.dp, theme.cardColor),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = theme.textColor)
                         ) {
                             Icon(
@@ -233,7 +220,6 @@ fun CarAudioSplashScreen(
                     Button(
                         onClick = {
                             if (currentStep == 0) {
-                                onStartSound()
                                 currentStep = 1
                             } else {
                                 onEnterApp()
@@ -250,15 +236,14 @@ fun CarAudioSplashScreen(
                         )
                     ) {
                         Text(
-                            text = if (currentStep == 0) "SIGUIENTE" else "COMENZAR AHORA",
+                            text = if (currentStep == 0) "SIGUIENTE" else "ABRIR AUDIO DSP PRO",
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            letterSpacing = 0.8.sp
+                            fontSize = 13.5.sp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Siguiente",
+                            contentDescription = "Continuar",
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -269,27 +254,25 @@ fun CarAudioSplashScreen(
 }
 
 @Composable
-private fun WelcomeHeroStep(theme: CarAudioThemeType) {
-    val scroll = rememberScrollState()
+private fun WelcomeStudioStep(theme: CarAudioThemeType) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scroll)
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Hero Banner Image with studio logo overlay
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(210.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .border(1.5.dp, theme.primaryColor.copy(alpha = 0.6f), RoundedCornerShape(22.dp))
+                .border(1.dp, theme.cardColor, RoundedCornerShape(22.dp))
         ) {
             Image(
-                painter = painterResource(id = R.drawable.car_audio_cockpit_hero_1794824451080),
-                contentDescription = "Cabina Car Audio Studio",
+                painter = painterResource(id = R.drawable.img_studio_hero_1794828268351),
+                contentDescription = "Audio DSP Pro Estudio Móvil",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -300,13 +283,12 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
                         Brush.verticalGradient(
                             listOf(
                                 Color.Transparent,
-                                theme.backgroundColor.copy(alpha = 0.35f),
-                                theme.backgroundColor.copy(alpha = 0.92f)
+                                theme.backgroundColor.copy(alpha = 0.45f),
+                                theme.backgroundColor.copy(alpha = 0.94f)
                             )
                         )
                     )
             )
-
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -315,24 +297,24 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.car_audio_dsp_icon_1794824449077),
-                    contentDescription = "Logo Car Audio DSP Pro",
+                    painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
+                    contentDescription = "Logo Audio DSP Pro",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
-                        .border(2.dp, theme.primaryColor, CircleShape)
+                        .border(1.5.dp, theme.accentColor, CircleShape)
                 )
                 Column {
                     Text(
                         text = "BIENVENIDO A",
                         color = theme.accentColor,
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.2.sp
                     )
                     Text(
-                        text = "CAR AUDIO DSP PRO",
+                        text = "AUDIO DSP PRO",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black
@@ -344,7 +326,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Tu Cabina Profesional de Sonido y Radio Pioneer",
+            text = "Reproducción Musical Real y Procesamiento DSP",
             color = theme.textColor,
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
@@ -355,7 +337,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Autoestéreos Pioneer con emisoras en vivo, reproductor independiente con listas, ecualizador de 31 bandas, panel de altavoces y barra dinámica de 5 LED.",
+            text = "Escucha tu biblioteca local con Media3 y ExoPlayer, moldea tu sonido en el Laboratorio de 10 y 31 bandas, analiza el espectro RTA y sincroniza tu cuenta en la nube.",
             color = theme.textSecondaryColor,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -364,29 +346,28 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Feature highlight cards
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            WelcomeHighlightChip(
-                icon = Icons.Default.Radio,
-                title = "Radio Pioneer",
-                subtitle = "5 Diseños & FM",
-                theme = theme,
-                modifier = Modifier.weight(1f)
-            )
-            WelcomeHighlightChip(
+            WelcomePill(
                 icon = Icons.Default.LibraryMusic,
-                title = "Música Real",
-                subtitle = "MP3, FLAC, Listas",
+                title = "Biblioteca Real",
+                subtitle = "Media3 & Cola",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
-            WelcomeHighlightChip(
+            WelcomePill(
+                icon = Icons.Default.Equalizer,
+                title = "Lab DSP 31B",
+                subtitle = "Sin doble proceso",
+                theme = theme,
+                modifier = Modifier.weight(1f)
+            )
+            WelcomePill(
                 icon = Icons.Default.GraphicEq,
-                title = "DSP 31 Bandas",
-                subtitle = "5-LED & Voltímetro",
+                title = "Medidores RTA",
+                subtitle = "VU, Onda & mA",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
@@ -395,7 +376,7 @@ private fun WelcomeHeroStep(theme: CarAudioThemeType) {
 }
 
 @Composable
-private fun WelcomeHighlightChip(
+private fun WelcomePill(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -406,7 +387,7 @@ private fun WelcomeHighlightChip(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-        border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.35f))
+        border = BorderStroke(1.dp, theme.surfaceColor)
     ) {
         Column(
             modifier = Modifier
@@ -415,143 +396,104 @@ private fun WelcomeHighlightChip(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = theme.primaryColor,
-                modifier = Modifier.size(22.dp)
-            )
-            Text(
-                text = title,
-                color = theme.textColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = subtitle,
-                color = theme.textSecondaryColor,
-                fontSize = 9.5.sp,
-                textAlign = TextAlign.Center
-            )
+            Icon(icon, contentDescription = title, tint = theme.accentColor, modifier = Modifier.size(22.dp))
+            Text(title, color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(subtitle, color = theme.textSecondaryColor, fontSize = 9.5.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
-private fun BriefTutorialStep(theme: CarAudioThemeType) {
-    val scroll = rememberScrollState()
+private fun QuickStartGuideStep(theme: CarAudioThemeType) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scroll)
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "Cómo Usar tu Estudio",
+            text = "Cómo Usar Audio DSP Pro",
             color = theme.textColor,
-            fontSize = 22.sp,
+            fontSize = 21.sp,
             fontWeight = FontWeight.Black
         )
         Text(
-            text = "Sigue estos 4 pasos rápidos para sacarle el máximo provecho a tu sonido:",
+            text = "Cuatro pasos rápidos para comenzar; encontrarás las 10 guías completas dentro de la pestaña Tutoriales.",
             color = theme.textSecondaryColor,
-            fontSize = 13.sp,
+            fontSize = 12.5.sp,
             lineHeight = 18.sp
         )
 
-        TutorialStepCard(
-            stepNumber = "1",
-            icon = Icons.Default.Radio,
-            title = "Radio Pioneer Independiente",
-            description = "Elige entre 5 carátulas Pioneer, personaliza su iluminación LED, sintoniza emisoras reales en vivo y guarda tus favoritas M1–M6.",
-            theme = theme
-        )
-        TutorialStepCard(
-            stepNumber = "2",
+        QuickGuideRow(
+            step = "1",
             icon = Icons.Default.LibraryMusic,
-            title = "Reproductor de Música Local y Listas",
-            description = "Carga tus archivos MP3/FLAC/WAV, crea listas de reproducción independientes y visualiza las luces 5-LED al ritmo de cada canción.",
+            title = "Escanea o Importa tu Música",
+            desc = "Descubre canciones, artistas y álbumes de tu dispositivo o importa archivos FLAC, WAV, MP3 y AAC directamente.",
             theme = theme
         )
-        TutorialStepCard(
-            stepNumber = "3",
-            icon = Icons.Default.Speaker,
-            title = "Ecualizador, Altavoces y Herramientas",
-            description = "Ajusta 31 bandas ISO, subwoofer, balance, fader, tweeters, RTA y monitorea la batería real de tu teléfono desde el menú de 9 apartados.",
+        QuickGuideRow(
+            step = "2",
+            icon = Icons.Default.Tune,
+            title = "Calibra el Laboratorio de Audio",
+            desc = "Ajusta el ecualizador de 10 o 31 bandas, Bass Boost, balance estéreo, compresor y limitador con arquitectura libre de doble procesamiento.",
             theme = theme
         )
-        TutorialStepCard(
-            stepNumber = "4",
-            icon = Icons.Default.NotificationsActive,
-            title = "Alertas y Diagnóstico en Vivo",
-            description = "Si ocurre clipping, falta un permiso o falla una transmisión, recibirás una notificación clara para solucionarlo al instante.",
+        QuickGuideRow(
+            step = "3",
+            icon = Icons.Default.GraphicEq,
+            title = "Supervisa Espectro y Clipping",
+            desc = "Consulta el analizador RTA en tiempo real, el osciloscopio de forma de onda, niveles RMS dBFS y el consumo real de batería.",
+            theme = theme
+        )
+        QuickGuideRow(
+            step = "4",
+            icon = Icons.Default.CloudDone,
+            title = "Sincroniza con tu Cuenta Google",
+            desc = "Guarda tus perfiles de sonido, listas favoritas y última posición de reproducción de forma segura en Firebase Firestore.",
             theme = theme
         )
     }
 }
 
 @Composable
-private fun TutorialStepCard(
-    stepNumber: String,
+private fun QuickGuideRow(
+    step: String,
     icon: ImageVector,
     title: String,
-    description: String,
+    desc: String,
     theme: CarAudioThemeType
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.35f))
+        border = BorderStroke(1.dp, theme.cardColor)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(theme.primaryColor.copy(alpha = 0.16f))
-                    .border(1.2.dp, theme.primaryColor, CircleShape),
+                    .background(theme.cardColor)
+                    .border(1.dp, theme.accentColor.copy(alpha = 0.5f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = theme.primaryColor,
-                    modifier = Modifier.size(21.dp)
-                )
+                Icon(icon, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(theme.primaryColor)
-                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = "PASO $stepNumber",
-                            color = theme.onPrimaryColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                    Text(
-                        text = title,
-                        color = theme.textColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
                 Text(
-                    text = description,
+                    text = "PASO $step • $title",
+                    color = theme.textColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = desc,
                     color = theme.textSecondaryColor,
                     fontSize = 11.5.sp,
                     lineHeight = 16.sp

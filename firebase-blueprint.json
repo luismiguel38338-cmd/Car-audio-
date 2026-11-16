@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile, playback sync state, VIP entitlement status, and UI preferences.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID owning this profile."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name."
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional user email from Google Sign-In."
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Optional user avatar URL."
+        },
+        "vipStatus": {
+          "type": "string",
+          "enum": ["free", "vip"],
+          "description": "Account VIP tier status (server/entitlement controlled)."
+        },
+        "vipPromoDismissed": {
+          "type": "boolean",
+          "description": "Persistent flag indicating whether the user dismissed the VIP promo banner."
+        },
+        "onboardingCompleted": {
+          "type": "boolean",
+          "description": "Whether the user completed the welcome onboarding flow."
+        },
+        "themeId": {
+          "type": "string",
+          "description": "Selected visual theme identifier."
+        },
+        "lastTrackKey": {
+          "type": "string",
+          "description": "Stable URI or title-artist key for last played track."
+        },
+        "lastTrackTitle": {
+          "type": "string",
+          "description": "Title of last played track."
+        },
+        "lastTrackArtist": {
+          "type": "string",
+          "description": "Artist of last played track."
+        },
+        "lastPositionMs": {
+          "type": "integer",
+          "description": "Last saved playback position in milliseconds."
+        },
+        "favoriteTrackKeys": {
+          "type": "array",
+          "description": "Bounded list of favorite track keys."
+        },
+        "queueTrackKeys": {
+          "type": "array",
+          "description": "Bounded list of track keys in the user's playback queue."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on create."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on every write."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "vipStatus",
+        "vipPromoDismissed",
+        "onboardingCompleted",
+        "themeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SoundPreset": {
+      "title": "SoundPreset",
+      "description": "User-saved Audio Laboratory DSP and equalizer configuration synced to the cloud.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Preset name."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional preset description."
+        },
+        "eq10Bands": {
+          "type": "array",
+          "description": "10-band equalizer gains in dB."
+        },
+        "eq31Bands": {
+          "type": "array",
+          "description": "Optional 31-band equalizer gains in dB."
+        },
+        "preampDb": {
+          "type": "number",
+          "description": "Preamp gain in dB."
+        },
+        "bassBoostDb": {
+          "type": "number",
+          "description": "Bass boost gain in dB."
+        },
+        "midGainDb": {
+          "type": "number",
+          "description": "Midrange gain in dB."
+        },
+        "trebleGainDb": {
+          "type": "number",
+          "description": "Treble gain in dB."
+        },
+        "stereoBalance": {
+          "type": "number",
+          "description": "Stereo L/R balance pan from -1.0 to 1.0."
+        },
+        "virtualizerPercent": {
+          "type": "number",
+          "description": "Virtualizer stereo width percentage."
+        },
+        "compressorEnabled": {
+          "type": "boolean",
+          "description": "Dynamic compressor toggle."
+        },
+        "limiterEnabled": {
+          "type": "boolean",
+          "description": "Peak limiter toggle."
+        },
+        "hpfHz": {
+          "type": "number",
+          "description": "High-pass filter cutoff frequency in Hz."
+        },
+        "lpfHz": {
+          "type": "number",
+          "description": "Low-pass filter cutoff frequency in Hz."
+        },
+        "subsonicHz": {
+          "type": "number",
+          "description": "Subsonic protection filter cutoff frequency in Hz."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "eq10Bands",
+        "preampDb",
+        "bassBoostDb",
+        "midGainDb",
+        "trebleGainDb",
+        "stereoBalance",
+        "virtualizerPercent",
+        "compressorEnabled",
+        "limiterEnabled",
+        "hpfHz",
+        "lpfHz",
+        "subsonicHz",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserPlaylist": {
+      "title": "UserPlaylist",
+      "description": "User-created music playlist synced across devices.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Playlist name."
+        },
+        "trackKeys": {
+          "type": "array",
+          "description": "Bounded ordered list of track keys."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "trackKeys",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Private per-user profile, playback sync state, VIP entitlement, and preferences."
+    },
+    "/users/{userId}/soundPresets/{presetId}": {
+      "schema": {
+        "$ref": "#/entities/SoundPreset"
+      },
+      "description": "Private per-user saved Audio Laboratory presets."
+    },
+    "/users/{userId}/playlists/{playlistId}": {
+      "schema": {
+        "$ref": "#/entities/UserPlaylist"
+      },
+      "description": "Private per-user playlists."
+    }
+  }
+}

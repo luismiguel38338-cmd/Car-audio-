@@ -25,31 +25,41 @@ data class EqualizerSettings(
     val masterGainDb: Float = 0.0f, // -12 to +12 dB
     val isLimiterActive: Boolean = true,
     val clippingThreshold: Float = 95f,
+    // 10 Standard ISO Octave Graphic Bands (31Hz - 16kHz)
+    val bands10: List<Float> = listOf(
+        2.5f, 3.0f, 1.5f, 0.0f, -0.5f, 0.5f, 1.5f, 2.5f, 3.0f, 2.5f
+    ),
     // 31 Standard ISO 1/3-Octave Graphic Bands (20Hz - 20kHz)
     val bands31: List<Float> = listOf(
-        3.0f, 4.0f, 5.0f, 5.5f, 6.0f, 6.5f, 5.0f, 3.5f, 2.0f, 0.5f,
-        -0.5f, -1.0f, -0.5f, 0.5f, 1.5f, 2.0f, 2.8f, 3.5f, 4.0f, 4.2f,
-        3.8f, 3.0f, 2.5f, 2.0f, 2.8f, 3.5f, 4.5f, 5.0f, 4.5f, 4.0f, 3.0f
+        1.5f, 2.0f, 2.5f, 3.0f, 3.0f, 3.0f, 2.0f, 1.5f, 1.0f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.5f, 0.8f, 1.0f, 1.4f, 1.8f, 2.0f, 2.2f,
+        2.0f, 1.8f, 1.5f, 2.0f, 2.4f, 2.8f, 3.0f, 3.0f, 2.8f, 2.5f, 2.0f
     ),
-    // 15 Standard ISO Graphic Bands (retained for backward compatibility):
+    // 15 Standard ISO Graphic Bands (retained for compatibility with saved profiles)
     val bands15: List<Float> = listOf(
-        4.0f, 5.0f, 6.5f, 3.0f, 0.0f, -1.0f, 0.5f, 2.0f, 3.5f, 4.0f, 3.0f, 2.0f, 3.5f, 5.0f, 4.0f
+        2.0f, 3.0f, 3.0f, 1.5f, 0.0f, -0.5f, 0.5f, 1.2f, 1.8f, 2.2f, 1.8f, 1.5f, 2.5f, 3.0f, 2.5f
     ),
     // Multi-band Parametric EQ (5 fully configurable bands)
     val parametricBands: List<ParametricBand> = listOf(
-        ParametricBand(1, true, 45f, 4.0f, 1.8f, ParametricFilterType.LOW_SHELF),
-        ParametricBand(2, true, 80f, 2.5f, 2.0f, ParametricFilterType.PEAKING),
-        ParametricBand(3, true, 250f, -1.5f, 1.4f, ParametricFilterType.PEAKING),
-        ParametricBand(4, true, 1200f, 3.0f, 1.2f, ParametricFilterType.PEAKING),
-        ParametricBand(5, true, 8000f, 2.0f, 1.0f, ParametricFilterType.HIGH_SHELF)
+        ParametricBand(1, true, 45f, 2.0f, 1.4f, ParametricFilterType.LOW_SHELF),
+        ParametricBand(2, true, 90f, 1.5f, 1.8f, ParametricFilterType.PEAKING),
+        ParametricBand(3, true, 260f, -1.0f, 1.4f, ParametricFilterType.PEAKING),
+        ParametricBand(4, true, 1600f, 1.5f, 1.2f, ParametricFilterType.PEAKING),
+        ParametricBand(5, true, 9000f, 1.5f, 1.0f, ParametricFilterType.HIGH_SHELF)
     ),
-    // Single parametric band fields (backward compatibility)
     val parametricFreqHz: Float = 65.0f,
-    val parametricGainDb: Float = 4.0f,
+    val parametricGainDb: Float = 2.0f,
     val parametricQ: Float = 1.4f,
-    val activePresetName: String = "Pancadão Som Automotivo"
+    val activePresetName: String = "Estudio Equilibrado"
 ) {
     companion object {
+        val FREQUENCY_LABELS_10 = listOf(
+            "31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"
+        )
+        val FREQUENCIES_HZ_10 = listOf(
+            31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000
+        )
+
         val FREQUENCY_LABELS_31 = listOf(
             "20", "25", "31.5", "40", "50", "63", "80", "100", "125", "160",
             "200", "250", "315", "400", "500", "630", "800", "1k", "1.2k", "1.6k",
@@ -71,6 +81,14 @@ data class EqualizerSettings(
             250, 400, 630, 1000, 1600,
             2500, 4000, 6300, 10000, 16000
         )
+
+        /**
+         * Derives 10 ISO octave bands cleanly from a 31-band array using representative centers.
+         */
+        fun bands10From31(bands31: List<Float>): List<Float> {
+            val map31Indices = listOf(2, 5, 8, 11, 14, 17, 20, 23, 26, 29)
+            return map31Indices.map { idx -> bands31.getOrElse(idx) { 0f } }
+        }
     }
 }
 
@@ -78,6 +96,7 @@ data class EqualizerSettings(
 data class EqPresetItem(
     val name: String,
     val description: String,
+    val bands10: List<Float>,
     val bands: List<Float>,
     val bands31: List<Float> = emptyList(),
     val paramFreq: Float = 60f,
@@ -92,6 +111,7 @@ object EqPresetCatalog {
         EqPresetItem(
             name = "Flat",
             description = "Respuesta plana y lineal 0 dB en todas las bandas.",
+            bands10 = List(10) { 0.0f },
             bands = List(15) { 0.0f },
             bands31 = List(31) { 0.0f },
             paramFreq = 1000f,
@@ -99,8 +119,23 @@ object EqPresetCatalog {
             paramQ = 1.0f
         ),
         EqPresetItem(
-            name = "Bass",
-            description = "Realce controlado de graves 40Hz-100Hz (+5dB) con medios equilibrados.",
+            name = "Estudio Equilibrado",
+            description = "Curva balanceada de referencia con graves firmes y detalle natural.",
+            bands10 = listOf(2.5f, 3.0f, 1.5f, 0.0f, -0.5f, 0.5f, 1.5f, 2.5f, 3.0f, 2.5f),
+            bands = listOf(2.0f, 3.0f, 3.0f, 1.5f, 0.0f, -0.5f, 0.5f, 1.2f, 1.8f, 2.2f, 1.8f, 1.5f, 2.5f, 3.0f, 2.5f),
+            bands31 = listOf(
+                1.5f, 2.0f, 2.5f, 3.0f, 3.0f, 3.0f, 2.0f, 1.5f, 1.0f, 0.0f,
+                -0.5f, -0.5f, 0.0f, 0.5f, 0.8f, 1.0f, 1.4f, 1.8f, 2.0f, 2.2f,
+                2.0f, 1.8f, 1.5f, 2.0f, 2.4f, 2.8f, 3.0f, 3.0f, 2.8f, 2.5f, 2.0f
+            ),
+            paramFreq = 65f,
+            paramGain = 2.0f,
+            paramQ = 1.4f
+        ),
+        EqPresetItem(
+            name = "Graves Limpios",
+            description = "Realce controlado de bajos 40Hz-100Hz con medios transparentes.",
+            bands10 = listOf(4.5f, 4.0f, 2.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 3.0f, 2.0f),
             bands = listOf(4f, 5f, 4f, 2f, 0f, 0f, 0f, 1f, 1.5f, 2f, 2f, 2f, 2.5f, 3f, 2.5f),
             bands31 = listOf(
                 2f, 3f, 4.5f, 5.5f, 5.0f, 4.0f, 3.0f, 2.0f, 1f, 0f,
@@ -112,8 +147,9 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "Deep Bass",
-            description = "Excursión profunda y pesada en sub-frecuencias 31.5Hz-50Hz (+8dB) para subwoofers.",
+            name = "Sub-Grave Profundo",
+            description = "Extensión profunda en sub-frecuencias 31.5Hz-63Hz ideal para auriculares y monitores.",
+            bands10 = listOf(7.0f, 6.5f, 1.5f, -1.5f, 0.0f, 1.0f, 1.8f, 2.5f, 3.0f, 2.5f),
             bands = listOf(6f, 8f, 6.5f, 3f, 0f, -2f, -1f, 0f, 1f, 1f, 1.5f, 2f, 2.5f, 3f, 3f),
             bands31 = listOf(
                 4f, 5.5f, 7f, 8.5f, 8f, 6.5f, 4.5f, 3f, 1f, 0f,
@@ -121,25 +157,13 @@ object EqPresetCatalog {
                 1.8f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 3f, 2.5f, 2f
             ),
             paramFreq = 38f,
-            paramGain = 7.0f,
+            paramGain = 6.5f,
             paramQ = 1.6f
         ),
         EqPresetItem(
-            name = "SPL",
-            description = "Configuración para competencia de presión acústica: pico de potencia en 50Hz-63Hz.",
-            bands = listOf(3f, 6f, 9f, 4f, 1f, 0f, 0.5f, 1.5f, 2f, 3f, 2.5f, 2f, 2.5f, 3f, 2.5f),
-            bands31 = listOf(
-                1f, 3f, 5.5f, 7.5f, 9.5f, 8.0f, 5.5f, 3f, 1.5f, 0f,
-                0f, 0f, 0.5f, 0.8f, 1.2f, 1.8f, 2.2f, 2.5f, 2.8f, 3f,
-                2.8f, 2.5f, 2.5f, 2.8f, 3f, 3.2f, 3f, 2.8f, 2.5f, 2f, 1.5f
-            ),
-            paramFreq = 55f,
-            paramGain = 8.5f,
-            paramQ = 2.2f
-        ),
-        EqPresetItem(
-            name = "Vocal",
-            description = "Máxima claridad y presencia en voces humanas y cornetas (800Hz - 3.15kHz).",
+            name = "Vocal / Acústico",
+            description = "Máxima claridad y definición en voces e instrumentos acústicos (800Hz - 3.1kHz).",
+            bands10 = listOf(-4.0f, 0.0f, 1.5f, 3.0f, 5.0f, 6.5f, 5.0f, 3.5f, 3.0f, 2.0f),
             bands = listOf(-4f, -2f, 0f, 1f, 2f, 3f, 4.5f, 5.5f, 6f, 5.5f, 4.5f, 3.5f, 3f, 3f, 2f),
             bands31 = listOf(
                 -6f, -5f, -4f, -3f, -1.5f, 0f, 0.5f, 1f, 1.5f, 2f,
@@ -151,21 +175,9 @@ object EqPresetCatalog {
             paramQ = 1.2f
         ),
         EqPresetItem(
-            name = "Latin",
-            description = "Pegada rítmica limpia en 80Hz y brillo en percusiones y metales latinos.",
-            bands = listOf(2f, 3.5f, 5f, 3.5f, 1.5f, 0.5f, 1.5f, 2.5f, 3.5f, 4f, 4.5f, 4f, 4.5f, 5f, 4f),
-            bands31 = listOf(
-                0.5f, 1.5f, 2.5f, 3.8f, 4.8f, 5.5f, 4.8f, 3.5f, 2f, 1f,
-                0.8f, 1f, 1.5f, 2f, 2.8f, 3.5f, 4f, 4.5f, 4.8f, 4.5f,
-                4.2f, 4f, 4.2f, 4.5f, 4.8f, 5.2f, 5f, 4.8f, 4.2f, 3.8f, 3f
-            ),
-            paramFreq = 75f,
-            paramGain = 4.0f,
-            paramQ = 1.5f
-        ),
-        EqPresetItem(
-            name = "Reggaeton",
-            description = "Sub-grave 40Hz-55Hz demoledor para dembow urbano con voces al frente.",
+            name = "Urbano / Ritmo",
+            description = "Pegada firme en 45Hz-80Hz con voces al frente y agudos definidos.",
+            bands10 = listOf(6.5f, 6.0f, 1.0f, 0.5f, 2.5f, 4.0f, 3.5f, 3.8f, 5.2f, 3.8f),
             bands = listOf(5f, 7f, 6.5f, 3f, 0.5f, 0f, 1f, 2.5f, 3.5f, 4f, 3.5f, 3f, 4f, 5f, 4f),
             bands31 = listOf(
                 3f, 4.5f, 6.5f, 8f, 7.5f, 6f, 4f, 2f, 1f, 0.5f,
@@ -177,8 +189,9 @@ object EqPresetCatalog {
             paramQ = 1.7f
         ),
         EqPresetItem(
-            name = "Dance",
-            description = "Curva en V enérgica con bombos contundentes y agudos electrónicos extendidos.",
+            name = "Electrónica / Club",
+            description = "Curva dinámica en V con pegada rítmica y brillo extendido.",
+            bands10 = listOf(6.2f, 5.0f, 0.0f, -0.8f, 1.2f, 3.0f, 3.8f, 5.0f, 6.8f, 4.5f),
             bands = listOf(4.5f, 6.5f, 5f, 2f, -0.5f, -1f, 0f, 1f, 2f, 3f, 3.5f, 4f, 5.5f, 6.5f, 5f),
             bands31 = listOf(
                 3f, 4.5f, 6.2f, 7f, 6.5f, 5f, 3f, 1.5f, 0f, -0.8f,
@@ -190,8 +203,9 @@ object EqPresetCatalog {
             paramQ = 1.3f
         ),
         EqPresetItem(
-            name = "Rock",
-            description = "Cuerpo en 80-250Hz, garra de bajo y ataque agresivo en guitarras eléctricas.",
+            name = "Rock / Guitarras",
+            description = "Cuerpo en 80-250Hz, garra de bajo y presencia en guitarras eléctricas.",
+            bands10 = listOf(2.8f, 4.8f, 2.5f, 1.5f, 0.8f, 2.2f, 3.2f, 3.0f, 3.8f, 3.5f),
             bands = listOf(2f, 3.5f, 4.5f, 3f, 2f, 1.5f, 0.5f, 1f, 2f, 2.5f, 3.5f, 3f, 3.5f, 4f, 3.5f),
             bands31 = listOf(
                 1f, 2f, 2.8f, 3.5f, 4.2f, 4.8f, 4.5f, 3f, 2.5f, 2f,
@@ -203,8 +217,9 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "VIP Studio Master",
-            description = "Curva de masterización Hi-Res con separación limpia y aire de estudio.",
+            name = "VIP Estudio Master",
+            description = "Curva de masterización Hi-Res con separación estéreo limpia y aire de estudio.",
+            bands10 = listOf(4.0f, 3.4f, 0.5f, -0.5f, 0.8f, 2.4f, 2.6f, 3.0f, 5.0f, 4.2f),
             bands = listOf(3.5f, 4.5f, 3.5f, 1.5f, 0.5f, -0.5f, 0f, 1.0f, 2.2f, 3.0f, 2.5f, 2.8f, 4.0f, 5.0f, 4.5f),
             bands31 = listOf(
                 2.5f, 3.2f, 4.0f, 4.6f, 4.2f, 3.4f, 2.4f, 1.4f, 0.5f, 0f,
@@ -217,8 +232,9 @@ object EqPresetCatalog {
             isVip = true
         ),
         EqPresetItem(
-            name = "VIP Extreme Basshead",
-            description = "Excursión extrema sub-grave 25-50 Hz sin opacar las voces.",
+            name = "VIP Sub-Bass Extremo",
+            description = "Excursión profunda controlada en 25-50 Hz sin opacar las voces.",
+            bands10 = listOf(9.5f, 8.0f, 1.5f, -1.5f, 0.5f, 2.8f, 3.2f, 3.4f, 4.6f, 3.2f),
             bands = listOf(8f, 10f, 8.5f, 4.5f, 1.0f, -1.5f, -1.0f, 0.5f, 2.0f, 3.5f, 3.0f, 3.0f, 4.0f, 4.5f, 3.5f),
             bands31 = listOf(
                 6.5f, 8.0f, 9.5f, 10.5f, 9.5f, 8.0f, 5.8f, 3.5f, 1.5f, 0f,
@@ -231,8 +247,9 @@ object EqPresetCatalog {
             isVip = true
         ),
         EqPresetItem(
-            name = "VIP Concert Hall 3D",
+            name = "VIP Sala de Conciertos",
             description = "Amplitud acústica inmersiva, calidez analógica y brillo sedoso.",
+            bands10 = listOf(4.0f, 3.8f, 0.5f, -0.8f, 1.0f, 3.2f, 3.8f, 4.0f, 5.5f, 4.2f),
             bands = listOf(3f, 4.5f, 4f, 2f, 0.5f, -1f, -0.5f, 1f, 2.5f, 3.5f, 4f, 3.5f, 4.5f, 5.5f, 5f),
             bands31 = listOf(
                 2f, 3f, 4f, 4.8f, 4.5f, 3.8f, 2.5f, 1.5f, 0.5f, -0.5f,
@@ -247,6 +264,7 @@ object EqPresetCatalog {
         EqPresetItem(
             name = "Custom",
             description = "Perfil personalizado libre guardado por el usuario.",
+            bands10 = List(10) { 0.0f },
             bands = List(15) { 0.0f },
             bands31 = List(31) { 0.0f },
             paramFreq = 60f,

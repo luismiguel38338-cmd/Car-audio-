@@ -12,13 +12,10 @@ import com.example.model.EqualizerSettings
 import com.example.model.FaultSeverity
 import com.example.model.ParametricBand
 import com.example.model.ParametricFilterType
-import com.example.model.PioneerIlluminationColor
-import com.example.model.PioneerRadioStyle
 import com.example.model.RepeatMode
-import com.example.model.SubwooferPreset
 import com.example.model.TrackCategory
-import com.example.model.VerifiedRadioCatalog
-import com.example.ui.components.FiveLedColors
+import com.example.model.TutorialCatalog
+import com.example.ui.components.StudioLedColors
 import com.example.viewmodel.CarAudioViewModel
 import com.example.viewmodel.LibraryFilter
 import org.junit.Assert.assertEquals
@@ -91,8 +88,9 @@ class CarAudioEngineTest {
         )
         val flatEq = EqualizerSettings(
             isEnabled = false,
-            bands31 = List(31) { 0f },
+            bands10 = List(10) { 0f },
             bands15 = List(15) { 0f },
+            bands31 = List(31) { 0f },
             masterGainDb = 0f
         )
 
@@ -119,6 +117,7 @@ class CarAudioEngineTest {
         val eq = EqualizerSettings(
             isEnabled = true,
             masterGainDb = 0f,
+            bands10 = List(10) { 0f },
             bands31 = List(31) { 0f },
             parametricBands = listOf(
                 ParametricBand(1, enabled = true, freqHz = 1000f, gainDb = 6f, q = 2.0f, filterType = ParametricFilterType.PEAKING),
@@ -140,131 +139,119 @@ class CarAudioEngineTest {
     }
 
     @Test
-    fun `bass system subsonic cut and punch shape low frequencies`() {
-        val flatEq = EqualizerSettings(isEnabled = false, bands31 = List(31) { 0f }, bands15 = List(15) { 0f })
-        val dspPunch = DspSettings(
+    fun `anti double processing prevents simultaneous dynamicsprocessing and legacy effects`() {
+        val dpPlan = CarAudioEngine.resolveAntiDoubleProcessingPlan(
+            useDynamicsProcessing = true,
+            hasEqualizer = true,
+            hasBassBoost = true,
+            hasVirtualizer = true
+        )
+        assertTrue(dpPlan.antiDoubleProcessingSafe)
+        assertTrue(dpPlan.dynamicsProcessingActive)
+        assertFalse(dpPlan.usingFallbackEqualizer)
+        assertFalse(dpPlan.bassBoostActive)
+
+        val fallbackPlan = CarAudioEngine.resolveAntiDoubleProcessingPlan(
+            useDynamicsProcessing = false,
+            hasEqualizer = true,
+            hasBassBoost = true,
+            hasVirtualizer = true
+        )
+        assertTrue(fallbackPlan.antiDoubleProcessingSafe)
+        assertFalse(fallbackPlan.dynamicsProcessingActive)
+        assertTrue(fallbackPlan.usingFallbackEqualizer)
+        assertTrue(fallbackPlan.bassBoostActive)
+    }
+
+    @Test
+    fun `bass boost included in curve only when dynamics processing owns low end`() {
+        val flatEq = EqualizerSettings(isEnabled = false, bands10 = List(10) { 0f }, bands31 = List(31) { 0f })
+        val dsp = DspSettings(
             dspMasterEnabled = true,
             bassGainDb = 0f,
-            bassBoostEnabled = false,
-            hpfEnabled = false,
-            lpfEnabled = false,
-            subsonicFilterActive = true,
-            subsonicFrequencyHz = 35f,
-            bassPunchLevel = 8.0f
-        )
-        val gain20Hz = CarAudioEngine.computeEffectiveBandGainDb(20, dspPunch, flatEq)
-        val gain75Hz = CarAudioEngine.computeEffectiveBandGainDb(75, dspPunch, flatEq)
-
-        assertTrue("Subsonic 35Hz should strongly attenuate 20Hz, got $gain20Hz", gain20Hz < -4.0f)
-        assertTrue("Bass punch should boost 75Hz region, got $gain75Hz", gain75Hz > 3.0f)
-    }
-
-    @Test
-    fun `tweeter level and crossover shape high frequencies accurately`() {
-        val flatEq = EqualizerSettings(isEnabled = false, bands31 = List(31) { 0f }, bands15 = List(15) { 0f })
-        val dspTweeterBoost = DspSettings(
-            dspMasterEnabled = true,
+            midGainDb = 0f,
             trebleGainDb = 0f,
+            bassBoostEnabled = true,
+            bassBoostDb = 10f,
+            bassBoostFreqHz = 50f,
             hpfEnabled = false,
-            lpfEnabled = false,
-            tweeterHpfHz = 3500f,
-            tweeterLevelDb = 4.5f
+            lpfEnabled = false
         )
-        val gain250Hz = CarAudioEngine.computeEffectiveBandGainDb(250, dspTweeterBoost, flatEq)
-        val gain10kHz = CarAudioEngine.computeEffectiveBandGainDb(10000, dspTweeterBoost, flatEq)
-
-        assertEquals(0f, gain250Hz, 0.2f)
-        assertTrue("10kHz ($gain10kHz dB) should reflect +4.5 dB tweeter boost", gain10kHz > 3.8f)
+        val gainWithCurve = CarAudioEngine.computeEffectiveBandGainDb(50, dsp, flatEq, includeBassBoostInCurve = true)
+        val gainWithoutCurve = CarAudioEngine.computeEffectiveBandGainDb(50, dsp, flatEq, includeBassBoostInCurve = false)
+        assertTrue("Expected gain in curve > 3 dB, got $gainWithCurve", gainWithCurve > 3.0f)
+        assertEquals(0f, gainWithoutCurve, 0.05f)
     }
 
     @Test
-    fun `five led indicator colors strictly follow rojo verde rojo verde blanco`() {
-        assertEquals(
-            listOf("ROJO", "VERDE", "ROJO", "VERDE", "BLANCO"),
-            FiveLedColors.orderedNames
-        )
-        assertEquals(
-            listOf(FiveLedColors.RED, FiveLedColors.GREEN, FiveLedColors.RED, FiveLedColors.GREEN, FiveLedColors.WHITE),
-            FiveLedColors.orderedColors
-        )
+    fun `studio signal bar labels and commercial tutorial catalog are complete`() {
+        assertEquals(listOf("SUB", "GRAVE", "MEDIO", "PRES", "AGUD"), StudioLedColors.bandLabels)
+        assertEquals(10, TutorialCatalog.topics.size)
+        assertTrue(TutorialCatalog.topics.all { it.steps.isNotEmpty() && it.proTip.isNotBlank() })
     }
 
     @Test
-    fun `vip unlock persists and dismissing intro never revokes vip status`() {
+    fun `vip defaults locked and promo dismissal persists independently`() {
         val vm = CarAudioViewModel(app)
         assertFalse(vm.isVipUnlocked.value)
-        assertFalse(vm.vipIntroDismissed.value)
+        assertFalse(vm.vipPromoDismissed.value)
 
-        // Reject wrong code
-        assertFalse(vm.unlockVipWithCode("1234"))
-        assertFalse(vm.isVipUnlocked.value)
-
-        // Gated actions stay blocked while locked
+        // VIP-exclusive actions stay blocked when free
         vm.setHiResQuality(true)
         assertFalse(vm.dspSettings.value.hiResQualityEnabled)
-        vm.setTheme(CarAudioThemeType.CARBON_GOLD)
-        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm.currentTheme.value)
+        vm.setTheme(CarAudioThemeType.OBSIDIAN_STUDIO_VIP)
+        assertEquals(CarAudioThemeType.GRAPHITE_STUDIO, vm.currentTheme.value)
 
-        // Unlock VIP
-        assertTrue(vm.unlockVipWithCode("2020"))
-        assertTrue(vm.isVipUnlocked.value)
+        // Dismiss one-time promo permanently
+        vm.dismissVipPromoPermanently()
+        assertTrue(vm.vipPromoDismissed.value)
+        assertFalse(vm.isVipUnlocked.value)
 
-        vm.setHiResQuality(true)
-        vm.setTubeWarmth(6.5f)
-        vm.setTheme(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND)
-        vm.applySubwooferPreset(SubwooferPreset.DEEP_SUB_32HZ)
-
-        // Dismiss one-time VIP intro card; must NOT affect isVipUnlocked
-        vm.dismissVipIntroPermanently()
-        assertTrue(vm.vipIntroDismissed.value)
-        assertTrue(vm.isVipUnlocked.value)
-
-        // Switch sections; intro stays dismissed
-        vm.selectSection(AppSection.RADIO_PIONEER)
+        // Navigate across commercial sections; dismissal stays persisted
+        vm.selectSection(AppSection.AUDIO_LAB)
         vm.selectSection(AppSection.HOME)
-        assertTrue(vm.vipIntroDismissed.value)
+        assertTrue(vm.vipPromoDismissed.value)
 
-        // Recreate ViewModel to verify durable persistence across restart
         val vm2 = CarAudioViewModel(app)
-        assertTrue(vm2.isVipUnlocked.value)
-        assertTrue(vm2.vipIntroDismissed.value)
-        assertTrue(vm2.dspSettings.value.hiResQualityEnabled)
-        assertEquals(6.5f, vm2.dspSettings.value.tubeWarmthLevel, 0.01f)
-        assertEquals(CarAudioThemeType.VIP_OBSIDIAN_DIAMOND, vm2.currentTheme.value)
-
-        // Explicit lock reverts VIP exclusives to GRAPHITE_ELECTRIC_NEON
-        vm2.lockVip()
+        assertTrue(vm2.vipPromoDismissed.value)
         assertFalse(vm2.isVipUnlocked.value)
-        assertFalse(vm2.dspSettings.value.hiResQualityEnabled)
-        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm2.currentTheme.value)
-        // Intro dismissal stays permanently dismissed
-        assertTrue(vm2.vipIntroDismissed.value)
+        assertEquals(CarAudioThemeType.GRAPHITE_STUDIO, vm2.currentTheme.value)
     }
 
     @Test
-    fun `verified radio catalog and pioneer station presets persist cleanly`() {
-        assertEquals(12, VerifiedRadioCatalog.stations.size)
-        assertTrue(VerifiedRadioCatalog.stations.all { it.streamUrl.startsWith("https://") })
-
+    fun `queue operations artists and albums work coherently`() {
         val vm = CarAudioViewModel(app)
-        vm.selectPioneerStyle(PioneerRadioStyle.COMPETITION)
-        vm.selectPioneerIllumination(PioneerIlluminationColor.NEON_GREEN)
+        val t1 = AudioTrackItem("t1", "Pista Uno", artist = "Artista A", album = "Álbum X", durationSeconds = 180)
+        val t2 = AudioTrackItem("t2", "Pista Dos", artist = "Artista B", album = "Álbum Y", durationSeconds = 200)
+        val t3 = AudioTrackItem("t3", "Pista Tres", artist = "Artista A", album = "Álbum X", durationSeconds = 210)
 
-        val targetStation = VerifiedRadioCatalog.stations[2]
-        vm.toggleFavoriteStation(targetStation)
-        vm.setRadioSearchQuery("Synth")
-        assertEquals("Synth", vm.radioSearchQuery.value)
+        vm.addToQueue(t1, silent = true)
+        vm.addToQueue(t2, silent = true)
+        vm.playNextInQueue(t3)
 
-        val vm2 = CarAudioViewModel(app)
-        assertEquals(PioneerRadioStyle.COMPETITION, vm2.selectedPioneerStyle.value)
-        assertEquals(PioneerIlluminationColor.NEON_GREEN, vm2.pioneerIlluminationColor.value)
-        assertTrue(vm2.radioStations.value.first { it.id == targetStation.id }.isFavorite)
+        assertEquals(3, vm.queueTracks.value.size)
+        assertEquals("t3", vm.queueTracks.value[0].id)
+        assertEquals("t1", vm.queueTracks.value[1].id)
+        assertEquals("t2", vm.queueTracks.value[2].id)
+
+        vm.moveQueueItemDown(0)
+        assertEquals("t1", vm.queueTracks.value[0].id)
+        assertEquals("t3", vm.queueTracks.value[1].id)
+
+        vm.moveQueueItemUp(2)
+        assertEquals("t2", vm.queueTracks.value[1].id)
+
+        vm.removeFromQueue(1)
+        assertEquals(2, vm.queueTracks.value.size)
+
+        vm.clearQueue()
+        assertTrue(vm.queueTracks.value.isEmpty())
     }
 
     @Test
-    fun `music playlists and custom sound profiles persist independently`() {
+    fun `playlists and custom sound profiles persist independently`() {
         val vm = CarAudioViewModel(app)
-        vm.createPlaylist("Viaje Carretera")
+        vm.createPlaylist("Estudio Nocturno")
         assertEquals(1, vm.playlists.value.size)
         val plId = vm.playlists.value.first().id
 
@@ -272,17 +259,17 @@ class CarAudioEngineTest {
         vm.selectPlaylistFilter(plId)
         assertEquals(plId, vm.selectedPlaylistId.value)
 
-        vm.setFaderFrontRear(0.35f)
-        vm.setTweeterConfig(28, "Titanio", 4000f, 3.0f)
-        vm.saveCustomSoundProfile("Auto Tuning", "Setup diario")
+        vm.setBalancePan(0.25f)
+        vm.updateEqualizerBand10(0, 4.5f)
+        vm.saveCustomSoundProfile("Referencia Plano", "Setup auriculares")
         assertEquals(1, vm.customSoundProfiles.value.size)
 
         val vm2 = CarAudioViewModel(app)
         assertEquals(1, vm2.playlists.value.size)
-        assertEquals("Viaje Carretera", vm2.playlists.value.first().name)
+        assertEquals("Estudio Nocturno", vm2.playlists.value.first().name)
         assertTrue("user_track_1" in vm2.playlists.value.first().trackIds)
         assertEquals(1, vm2.customSoundProfiles.value.size)
-        assertEquals("Auto Tuning", vm2.customSoundProfiles.value.first().name)
+        assertEquals("Referencia Plano", vm2.customSoundProfiles.value.first().name)
 
         vm2.deleteCustomSoundProfile(vm2.customSoundProfiles.value.first().id)
         vm2.deletePlaylist(plId)
@@ -312,15 +299,15 @@ class CarAudioEngineTest {
     }
 
     @Test
-    fun `viewmodel persists dsp eq shuffle repeat and favorites across all 9 sections`() {
-        assertEquals(9, AppSection.entries.size)
+    fun `viewmodel persists eq 10 and 31 bands shuffle repeat and settings across 8 commercial sections`() {
+        assertEquals(8, AppSection.entries.size)
 
         val vm1 = CarAudioViewModel(app)
-        assertEquals(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON, vm1.currentTheme.value)
+        assertEquals(CarAudioThemeType.GRAPHITE_STUDIO, vm1.currentTheme.value)
         assertEquals(AppSection.HOME, vm1.selectedSection.value)
 
-        vm1.selectSection(AppSection.SOUND_TOOLS)
-        assertEquals(AppSection.SOUND_TOOLS, vm1.selectedSection.value)
+        vm1.selectSection(AppSection.AUDIO_METERS)
+        assertEquals(AppSection.AUDIO_METERS, vm1.selectedSection.value)
 
         vm1.toggleShuffle()
         assertTrue(vm1.shuffleEnabled.value)
@@ -332,28 +319,33 @@ class CarAudioEngineTest {
         vm1.setLiteVisualsEnabled(true)
         assertTrue(vm1.liteVisualsEnabled.value)
 
-        vm1.updateEqualizerBand(0, 7.5f)
-        assertEquals(7.5f, vm1.equalizerSettings.value.bands15[0], 0.01f)
-        assertEquals(7.5f, vm1.equalizerSettings.value.bands31[0], 0.01f)
+        vm1.updateEqualizerBand10(0, 6.5f)
+        assertEquals(6.5f, vm1.equalizerSettings.value.bands10[0], 0.01f)
+        assertEquals(6.5f, vm1.equalizerSettings.value.bands31[2], 0.01f)
+
+        vm1.updateEqualizerBand31(17, 4.0f)
+        assertEquals(4.0f, vm1.equalizerSettings.value.bands31[17], 0.01f)
+        assertEquals(4.0f, vm1.equalizerSettings.value.bands10[5], 0.01f)
 
         val testTrack = AudioTrackItem(
             id = "user_fav_test",
-            title = "Bass Test",
-            artist = "Car Audio",
+            title = "Lossless Test",
+            artist = "Estudio",
             durationSeconds = 120,
             category = TrackCategory.USER_CUSTOM
         )
         vm1.toggleFavorite(testTrack)
         vm1.setLibraryFilter(LibraryFilter.FAVORITES)
-        vm1.setSearchQuery("Bass")
-        assertEquals("Bass", vm1.searchQuery.value)
+        vm1.setSearchQuery("Lossless")
+        assertEquals("Lossless", vm1.searchQuery.value)
         assertEquals(LibraryFilter.FAVORITES, vm1.libraryFilter.value)
 
         val vm2 = CarAudioViewModel(app)
         assertTrue(vm2.shuffleEnabled.value)
         assertEquals(RepeatMode.ONE, vm2.repeatMode.value)
         assertTrue(vm2.liteVisualsEnabled.value)
-        assertEquals(7.5f, vm2.equalizerSettings.value.bands15[0], 0.01f)
+        assertEquals(6.5f, vm2.equalizerSettings.value.bands10[0], 0.01f)
+        assertEquals(4.0f, vm2.equalizerSettings.value.bands31[17], 0.01f)
         vm2.toggleShuffle()
         assertFalse(vm2.shuffleEnabled.value)
     }

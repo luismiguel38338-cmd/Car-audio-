@@ -7,7 +7,7 @@ import com.example.model.CarAudioThemeType
 
 @Composable
 fun CarAudioAppTheme(
-    themeType: CarAudioThemeType = CarAudioThemeType.GRAPHITE_ELECTRIC_NEON,
+    themeType: CarAudioThemeType = CarAudioThemeType.GRAPHITE_STUDIO,
     content: @Composable () -> Unit
 ) {
     val colorScheme = darkColorScheme(
@@ -26,7 +26,7 @@ fun CarAudioAppTheme(
         onSurface = themeType.textColor,
         surfaceVariant = themeType.cardColor,
         onSurfaceVariant = themeType.textSecondaryColor,
-        error = themeType.clipAlertColor
+        error = themeType.errorColor
     )
 
     MaterialTheme(
@@ -43,7 +43,7 @@ fun MyApplicationTheme(
     content: @Composable () -> Unit
 ) {
     CarAudioAppTheme(
-        themeType = CarAudioThemeType.GRAPHITE_ELECTRIC_NEON,
+        themeType = CarAudioThemeType.GRAPHITE_STUDIO,
         content = content
     )
 }

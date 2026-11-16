@@ -1,7 +1,7 @@
 # Add project specific ProGuard rules here.
-# Keep rules for Car Audio DSP Pro v6.0 release optimization & reflection safety.
+# Keep rules for Audio DSP Pro release optimization & reflection safety.
 
--keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
 -renamesourcefileattribute SourceFile
 
 # Preserve entry points, foreground services & broadcast receivers
@@ -15,5 +15,14 @@
     public <init>(android.app.Application);
 }
 
-# Preserve AudioModels & EqualizerModels data classes
+# Preserve models, Firestore POJOs (@DocumentId / @ServerTimestamp / @IgnoreExtraProperties), auth & repositories
 -keep class com.example.model.** { *; }
+-keep class com.example.auth.** { *; }
+-keep class com.example.data.** { *; }
+-keepclassmembers class com.example.model.** { *; }
+
+# Preserve Android Media3 & Credential Manager reflection classes
+-keep class androidx.media3.** { *; }
+-keep class androidx.credentials.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+-dontwarn com.google.errorprone.annotations.**

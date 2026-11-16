@@ -1,19 +1,12 @@
 package com.example.audio
 
 import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
-import android.media.AudioTrack
-import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.media.audiofx.BassBoost
 import android.media.audiofx.DynamicsProcessing
@@ -21,14 +14,12 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.media.audiofx.Visualizer
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import androidx.core.content.ContextCompat
 import com.example.model.AudioSessionTarget
-import com.example.model.AudioSourceMode
 import com.example.model.AudioTrackItem
+import com.example.model.DspCapabilityReport
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
 import com.example.model.FaultSeverity
@@ -57,17 +48,8 @@ class CarAudioEngine(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val fxLock = Any()
 
-    // System AudioManager for AudioFocus & Output Device detection
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var audioFocusRequest: AudioFocusRequest? = null
-    @Volatile private var hasAudioFocus = false
-    @Volatile private var pausedByFocusLoss = false
-    @Volatile private var isDucked = false
-
-    // Media Player for phone music files
-    private var mediaPlayer: MediaPlayer? = null
-    private var tickerJob: Job? = null
 
     // Real Android AudioFx pipeline
     private var equalizerFx: Equalizer? = null
@@ -75,12 +57,13 @@ class CarAudioEngine(private val context: Context) {
     private var virtualizerFx: Virtualizer? = null
     private var loudnessEnhancerFx: LoudnessEnhancer? = null
     private var dynamicsProcessingFx: DynamicsProcessing? = null
-    private var useDynamicsProcessingPostEq: Boolean = false
+    @Volatile private var useDynamicsProcessingPostEq: Boolean = false
     private var visualizerFx: Visualizer? = null
+
     @Volatile var activeAudioSessionId: Int = -1
         private set
 
-    // Reusable DynamicsProcessing stages (eliminates JNI/GC churn during slider drags)
+    // Reusable DynamicsProcessing stages (avoids JNI allocations on slider sweeps)
     private var cachedPostEq: DynamicsProcessing.Eq? = null
     private var cachedMbc: DynamicsProcessing.Mbc? = null
     private var cachedLimiter: DynamicsProcessing.Limiter? = null
@@ -136,28 +119,19 @@ class CarAudioEngine(private val context: Context) {
         private set
     @Volatile var splCalibrationOffsetDb: Float = 0.0f
     @Volatile var splWeighting: SplWeighting = SplWeighting.C_WEIGHTING
-    @Volatile var sourceMode: AudioSourceMode = AudioSourceMode.INTERNAL_DSP
-        private set
 
-    // Playback state
+    // Playback state mirrored from Media3 ExoPlayer service
     @Volatile var isPlaying = false
-        private set
-    @Volatile var isStreamingRadio = false
-        private set
-    @Volatile var isRadioBuffering = false
-        private set
-    @Volatile var activeStreamTitle: String? = null
         private set
     @Volatile var playbackPositionSeconds = 0
         private set
     @Volatile var currentTrack: AudioTrackItem? = null
         private set
-    var onTrackCompletedListener: (() -> Unit)? = null
     var onPlaybackStateChangedListener: (() -> Unit)? = null
 
-    // Master volume factor (0.0..1.0)
     @Volatile var volumeFactor: Float = 0.85f
         private set
+    var onVolumeChangedListener: ((Float) -> Unit)? = null
     @Volatile private var isVisualizerUiActive = true
 
     private val sampleRate = 44100
@@ -165,7 +139,7 @@ class CarAudioEngine(private val context: Context) {
     // AudioFX Routing & Device Compatibility
     @Volatile var externalAudioSessionId: Int = 0
         private set
-    @Volatile var lastActiveSessionPackage: String = "YouTube / Sistema"
+    @Volatile var lastActiveSessionPackage: String = "Sistema / Apps"
         private set
     @Volatile var sessionTarget: AudioSessionTarget = AudioSessionTarget.GLOBAL_MIX_BEST_EFFORT
         private set
@@ -179,22 +153,10 @@ class CarAudioEngine(private val context: Context) {
         private set
     var onSettingsChangedListener: ((DspSettings, EqualizerSettings) -> Unit)? = null
     var onAudioFaultListener: ((title: String, detail: String, severity: FaultSeverity) -> Unit)? = null
-    @Volatile var fxEngineStatus: String = "Inicializando AudioFX..."
+    @Volatile var fxEngineStatus: String = "Esperando sesión de audio Media3..."
         private set
-
-    private var noisyReceiverRegistered = false
-    private val becomingNoisyReceiver = object : BroadcastReceiver() {
-        override fun onReceive(ctx: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && isPlaying) {
-                pausePlayback()
-                onAudioFaultListener?.invoke(
-                    "Salida de Audio Desconectada",
-                    "Se pausó la música automáticamente al desconectar auriculares o Bluetooth.",
-                    FaultSeverity.INFO
-                )
-            }
-        }
-    }
+    @Volatile var capabilityReport: DspCapabilityReport = DspCapabilityReport()
+        private set
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
@@ -203,40 +165,6 @@ class CarAudioEngine(private val context: Context) {
 
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
             refreshOutputDeviceStatus()
-        }
-    }
-
-    private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                hasAudioFocus = true
-                if (isDucked) {
-                    isDucked = false
-                    applyPlayerVolume()
-                }
-                if (pausedByFocusLoss) {
-                    pausedByFocusLoss = false
-                    resumePlayback(currentDspSettings, currentEqualizerSettings)
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                isDucked = true
-                applyPlayerVolume()
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                hasAudioFocus = false
-                if (isPlaying) {
-                    pausedByFocusLoss = true
-                    pausePlayback()
-                }
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                hasAudioFocus = false
-                pausedByFocusLoss = false
-                if (isPlaying) {
-                    pausePlayback()
-                }
-            }
         }
     }
 
@@ -273,9 +201,6 @@ class CarAudioEngine(private val context: Context) {
             return freqs.map { RtaBand(label = it.first, freqHz = it.second, levelDb = -60f, peakDb = -60f) }
         }
 
-        /**
-         * Computes ISO 1/3-octave geometric upper cutoff frequency for accurate 31-band separation.
-         */
         fun computeIsoUpperCutoffHz(index: Int, freqs: List<Int> = EqualizerSettings.FREQUENCIES_HZ_31): Float {
             if (index >= freqs.lastIndex) return 22000f
             val f1 = freqs[index].toFloat().coerceAtLeast(15f)
@@ -284,16 +209,18 @@ class CarAudioEngine(private val context: Context) {
         }
 
         /**
-         * Pure acoustic transfer curve per frequency combining:
-         * - 31-band ISO graphic EQ
-         * - Master EQ gain
-         * - Smooth Gaussian Bell / Sigmoid Shelf / Notch 5-band Parametric EQ
-         * - 3-band Tonal Stage (Bass / Mid / Treble)
-         * - Sub-Bass & Fletcher-Munson Loudness Contour
-         * - Presence / Clarity / Exciter
-         * - Smooth Butterworth HPF & LPF crossover slopes
+         * Pure acoustic transfer curve per frequency with anti-double-processing awareness:
+         * - When [includeBassBoostInCurve] is true (DynamicsProcessing 31-band active), BassBoost is integrated
+         *   here while hardware BassBoost / Equalizer / LoudnessEnhancer stay disabled.
+         * - When [includeBassBoostInCurve] is false (legacy Equalizer + BassBoost fallback), BassBoost is delegated
+         *   solely to hardware BassBoost so low frequencies are never boosted twice.
          */
-        fun computeEffectiveBandGainDb(freqHz: Int, dsp: DspSettings, eq: EqualizerSettings): Float {
+        fun computeEffectiveBandGainDb(
+            freqHz: Int,
+            dsp: DspSettings,
+            eq: EqualizerSettings,
+            includeBassBoostInCurve: Boolean = true
+        ): Float {
             if (!dsp.dspMasterEnabled) return 0.0f
 
             var gainDb = 0.0f
@@ -313,7 +240,6 @@ class CarAudioEngine(private val context: Context) {
                 gainDb += eq.bands31.getOrElse(closestIdx) { 0.0f }
                 gainDb += eq.masterGainDb
 
-                // Smooth Gaussian / Sigmoid Parametric EQ
                 for (pb in eq.parametricBands) {
                     if (!pb.enabled || abs(pb.gainDb) < 0.05f) continue
                     val fc = pb.freqHz.coerceIn(20f, 20000f).toDouble()
@@ -354,27 +280,35 @@ class CarAudioEngine(private val context: Context) {
             if (abs(dsp.midGainDb) > 0.05f) gainDb += (dsp.midGainDb * midWeight).toFloat()
             if (abs(dsp.trebleGainDb) > 0.05f) gainDb += (dsp.trebleGainDb * trebleWeight).toFloat()
 
-            // Sub-Bass Extreme
+            // Bass Boost (integrated cleanly when DynamicsProcessing owns low-end)
+            if (includeBassBoostInCurve && dsp.bassBoostEnabled && dsp.bassBoostDb > 0.1f && freqHz <= 180) {
+                val fcBoost = dsp.bassBoostFreqHz.coerceIn(30f, 100f).toDouble()
+                val octDist = abs(log10(fDouble / fcBoost)) / log10(2.0)
+                val w = exp(-0.5 * (octDist / 0.85).pow(2.0)).toFloat()
+                gainDb += dsp.bassBoostDb * 0.45f * w
+            }
+
+            // Sub-Bass Extension
             if (dsp.subBassEnabled && dsp.subBassBoostDb > 0.1f && freqHz <= 110) {
                 val distOct = abs(log10(fDouble / dsp.subBassFreqHz.coerceIn(20f, 85f).toDouble())) / log10(2.0)
                 val w = exp(-0.5 * (distOct / 0.55).pow(2.0)).toFloat()
                 gainDb += dsp.subBassBoostDb * 0.65f * w
             }
 
-            // Bass Punch (63-85Hz chest impact)
+            // Punch (63-85Hz chest impact)
             if (dsp.bassPunchLevel > 0.1f && freqHz in 40..160) {
                 val punchOct = abs(log10(fDouble / 72.0)) / log10(2.0)
                 val w = exp(-0.5 * (punchOct / 0.48).pow(2.0)).toFloat()
                 gainDb += dsp.bassPunchLevel * 0.55f * w
             }
 
-            // Loudness Contour (Fletcher-Munson U-Curve)
+            // Loudness Contour
             if (dsp.loudnessEnabled && dsp.loudnessGainDb > 0.1f) {
                 gainDb += (dsp.loudnessGainDb * 0.5f * bassWeight).toFloat()
                 gainDb += (dsp.loudnessGainDb * 0.42f * trebleWeight).toFloat()
             }
 
-            // VIP Tube Warmth (Analog harmonic richness 140Hz-350Hz + smooth top sheen)
+            // VIP Tube Warmth
             if (dsp.tubeWarmthLevel > 0.1f) {
                 val warmOct = abs(log10(fDouble / 210.0)) / log10(2.0)
                 val warmW = exp(-0.5 * (warmOct / 0.85).pow(2.0)).toFloat()
@@ -388,7 +322,6 @@ class CarAudioEngine(private val context: Context) {
             // VIP Hi-Res Studio Clarity & Air
             if (dsp.hiResQualityEnabled) {
                 if (freqHz in 200..400) {
-                    // Clean up muddiness for studio separation
                     val mudOct = abs(log10(fDouble / 280.0)) / log10(2.0)
                     gainDb -= (1.4f * exp(-0.5 * (mudOct / 0.5).pow(2.0))).toFloat()
                 }
@@ -411,14 +344,7 @@ class CarAudioEngine(private val context: Context) {
                 gainDb += (dsp.exciterLevel * 0.4f * eW).toFloat()
             }
 
-            // Dedicated Tweeter Stage Shaping (around Tweeter HPF crossover)
-            if (abs(dsp.tweeterLevelDb) > 0.05f) {
-                val twCut = dsp.tweeterHpfHz.coerceIn(1800f, 8000f).toDouble()
-                val twWeight = 1.0 / (1.0 + exp(-3.6 * (log10(fDouble / twCut) / log10(2.0))))
-                gainDb += (dsp.tweeterLevelDb.coerceIn(-6f, 6f) * twWeight).toFloat()
-            }
-
-            // Dedicated Subsonic Protection Filter (when explicitly enabled in Bass System)
+            // Subsonic Protection Filter
             if (dsp.subsonicFilterActive && dsp.subsonicFrequencyHz > 16f) {
                 val fcSub = dsp.subsonicFrequencyHz.coerceIn(15f, 50f).toDouble()
                 val ratioSub = (fcSub / fDouble).coerceIn(0.01, 20.0)
@@ -426,7 +352,7 @@ class CarAudioEngine(private val context: Context) {
                 gainDb += attenSub.coerceIn(-24f, 0f)
             }
 
-            // Smooth Butterworth Crossover HPF / LPF Magnitude Response: -10*log10(1 + (fc/f)^(2n))
+            // Smooth Butterworth Frequency Filters (HPF / LPF)
             if (dsp.hpfEnabled && dsp.hpfFrequencyHz > 16f) {
                 val fc = dsp.hpfFrequencyHz.coerceIn(15f, 500f).toDouble()
                 val order = (dsp.hpfSlopeDb / 6).coerceIn(1, 8)
@@ -443,6 +369,27 @@ class CarAudioEngine(private val context: Context) {
             }
 
             return gainDb.coerceIn(-18f, 15f)
+        }
+
+        fun resolveAntiDoubleProcessingPlan(
+            useDynamicsProcessing: Boolean,
+            hasEqualizer: Boolean,
+            hasBassBoost: Boolean,
+            hasVirtualizer: Boolean
+        ): DspCapabilityReport {
+            val dpActive = useDynamicsProcessing
+            val fallbackEqActive = !dpActive && hasEqualizer
+            val fallbackBassActive = !dpActive && hasBassBoost
+            return DspCapabilityReport(
+                dynamicsProcessingSupported = dpActive,
+                dynamicsProcessingActive = dpActive,
+                usingFallbackEqualizer = fallbackEqActive,
+                bassBoostSupported = hasBassBoost,
+                bassBoostActive = fallbackBassActive,
+                virtualizerSupported = hasVirtualizer,
+                virtualizerActive = hasVirtualizer,
+                antiDoubleProcessingSafe = !(dpActive && (fallbackEqActive || fallbackBassActive))
+            )
         }
     }
 
@@ -514,6 +461,33 @@ class CarAudioEngine(private val context: Context) {
         return snapshot
     }
 
+    fun attachToPlayerSession(sessionId: Int) {
+        if (sessionId <= 0) return
+        sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
+        attachAudioFx(sessionId, currentDspSettings, currentEqualizerSettings)
+    }
+
+    fun syncPlaybackStateFromMedia3(
+        track: AudioTrackItem?,
+        playing: Boolean,
+        positionSeconds: Int
+    ) {
+        currentTrack = track
+        isPlaying = playing
+        playbackPositionSeconds = positionSeconds.coerceAtLeast(0)
+        try {
+            visualizerFx?.enabled = isVisualizerUiActive && playing && activeAudioSessionId > 0
+        } catch (_: Throwable) {}
+        if (!playing) {
+            leftVuLevel = 0f
+            rightVuLevel = 0f
+            bassEnergy = 0f
+            midEnergy = 0f
+            trebleEnergy = 0f
+        }
+        onPlaybackStateChangedListener?.invoke()
+    }
+
     fun attachToGlobalSystemSession(dsp: DspSettings? = null, eq: EqualizerSettings? = null) {
         val targetDsp = dsp ?: currentDspSettings
         val targetEq = eq ?: currentEqualizerSettings
@@ -525,7 +499,7 @@ class CarAudioEngine(private val context: Context) {
         if (sessionId >= 0) {
             externalAudioSessionId = sessionId
             lastActiveSessionPackage = packageName ?: "Reproductor Externo"
-            if (mediaPlayer == null || !isPlaying) {
+            if (!isPlaying) {
                 sessionTarget = if (sessionId > 0) {
                     AudioSessionTarget.EXTERNAL_APP
                 } else {
@@ -539,8 +513,8 @@ class CarAudioEngine(private val context: Context) {
     fun onExternalSessionClosed(sessionId: Int) {
         if (externalAudioSessionId == sessionId) {
             externalAudioSessionId = 0
-            lastActiveSessionPackage = "YouTube / Sistema"
-            if (mediaPlayer == null || !isPlaying) {
+            lastActiveSessionPackage = "Sistema / Apps"
+            if (!isPlaying) {
                 attachToGlobalSystemSession()
             }
         }
@@ -582,10 +556,11 @@ class CarAudioEngine(private val context: Context) {
             if (idx in newBands15.indices) newBands15[idx] = clamped
         }
         val updatedEq = currentEqualizerSettings.copy(
+            bands10 = EqualizerSettings.bands10From31(newBands31),
             bands31 = newBands31,
             bands15 = newBands15,
             isEnabled = true,
-            activePresetName = "En Vivo"
+            activePresetName = "Personalizado"
         )
         currentEqualizerSettings = updatedEq
         applyDspSettings(currentDspSettings, updatedEq)
@@ -623,25 +598,25 @@ class CarAudioEngine(private val context: Context) {
         val bassDb: Float
         val preampDb: Float
         when (presetName.uppercase()) {
-            "PUNCH BASS" -> {
-                bands5 = floatArrayOf(9f, 5f, -1f, 2f, 5f)
-                bassDb = 12f
-                preampDb = 4f
-            }
-            "YOUTUBE VOCAL" -> {
-                bands5 = floatArrayOf(1f, 0f, 6f, 4f, 2f)
-                bassDb = 2f
-                preampDb = 3f
-            }
-            "ROCK" -> {
-                bands5 = floatArrayOf(6f, 3f, -1f, 4f, 6f)
-                bassDb = 6f
+            "GRAVES" -> {
+                bands5 = floatArrayOf(7f, 4f, -1f, 2f, 4f)
+                bassDb = 8f
                 preampDb = 2f
             }
+            "VOCAL" -> {
+                bands5 = floatArrayOf(0f, 0f, 5f, 4f, 2f)
+                bassDb = 1f
+                preampDb = 2f
+            }
+            "ROCK" -> {
+                bands5 = floatArrayOf(5f, 3f, -1f, 4f, 5f)
+                bassDb = 4f
+                preampDb = 1f
+            }
             "CLUB" -> {
-                bands5 = floatArrayOf(11f, 7f, 1f, 5f, 8f)
-                bassDb = 15f
-                preampDb = 5f
+                bands5 = floatArrayOf(8f, 5f, 0f, 4f, 6f)
+                bassDb = 10f
+                preampDb = 3f
             }
             else -> {
                 bands5 = floatArrayOf(0f, 0f, 0f, 0f, 0f)
@@ -649,7 +624,6 @@ class CarAudioEngine(private val context: Context) {
                 preampDb = 0f
             }
         }
-        // Single atomic update (prevents 7 separate AudioFX commits / glitches)
         val new31 = MutableList(31) { idx ->
             when {
                 idx <= 6 -> bands5[0]
@@ -669,6 +643,7 @@ class CarAudioEngine(private val context: Context) {
             }
         }
         val updatedEq = currentEqualizerSettings.copy(
+            bands10 = EqualizerSettings.bands10From31(new31),
             bands31 = new31,
             bands15 = new15,
             isEnabled = true,
@@ -687,18 +662,7 @@ class CarAudioEngine(private val context: Context) {
 
     fun setVolume(volume: Float) {
         volumeFactor = volume.coerceIn(0f, 1f)
-        applyPlayerVolume()
-    }
-
-    private fun applyPlayerVolume() {
-        val duckMult = if (isDucked) 0.25f else 1.0f
-        val vol = (volumeFactor * duckMult).coerceIn(0f, 1f)
-        val pan = if (currentDspSettings.dspMasterEnabled) currentDspSettings.balancePan.coerceIn(-1f, 1f) else 0f
-        val left = (if (pan <= 0f) vol else vol * (1f - pan)).coerceIn(0f, 1f)
-        val right = (if (pan >= 0f) vol else vol * (1f + pan)).coerceIn(0f, 1f)
-        try {
-            mediaPlayer?.setVolume(left, right)
-        } catch (_: Throwable) {}
+        onVolumeChangedListener?.invoke(volumeFactor)
     }
 
     private fun attachAudioFx(sessionId: Int, dsp: DspSettings, eq: EqualizerSettings) {
@@ -711,7 +675,7 @@ class CarAudioEngine(private val context: Context) {
             activeAudioSessionId = sessionId
             releaseAudioFxLocked()
 
-            // 1. Hardware DynamicsProcessing (API 28+: 31-band PostEQ + MBC Compressor + Limiter + InputGain)
+            // 1. Hardware DynamicsProcessing (API 28+: unified 31-band PostEQ + MBC + Limiter + Balance InputGain)
             useDynamicsProcessingPostEq = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
@@ -752,7 +716,7 @@ class CarAudioEngine(private val context: Context) {
                 }
             }
 
-            // 2. Fallback Standard Android Equalizer & LoudnessEnhancer
+            // 2. Fallback Equalizer + LoudnessEnhancer + BassBoost (NEVER instantiated simultaneously with DynamicsProcessing!)
             if (!useDynamicsProcessingPostEq) {
                 try {
                     equalizerFx = Equalizer(0, sessionId)
@@ -764,16 +728,14 @@ class CarAudioEngine(private val context: Context) {
                 } catch (_: Throwable) {
                     loudnessEnhancerFx = null
                 }
+                try {
+                    bassBoostFx = BassBoost(0, sessionId)
+                } catch (_: Throwable) {
+                    bassBoostFx = null
+                }
             }
 
-            // 3. Hardware Bass Boost
-            try {
-                bassBoostFx = BassBoost(0, sessionId)
-            } catch (_: Throwable) {
-                bassBoostFx = null
-            }
-
-            // 4. Hardware Virtualizer (Stereo Spatializer)
+            // 3. Hardware Virtualizer (Stereo Spatializer)
             try {
                 virtualizerFx = Virtualizer(0, sessionId)
             } catch (_: Throwable) {
@@ -782,22 +744,45 @@ class CarAudioEngine(private val context: Context) {
 
             commitHardwareParameters(dsp, eq)
 
-            fxEngineStatus = when {
-                useDynamicsProcessingPostEq -> "DynamicsProcessing 32-bit + BassBoost"
-                equalizerFx != null -> "Ecualizador Hardware + BassBoost"
-                bassBoostFx != null -> "Solo BassBoost (EQ limitado)"
-                else -> "Modo Compatibilidad (AudioFX bloqueado por sesión)"
+            val eqBandCount = when {
+                useDynamicsProcessingPostEq -> EqualizerSettings.FREQUENCIES_HZ_31.size
+                equalizerFx != null -> runCatching { equalizerFx?.numberOfBands?.toInt() ?: 0 }.getOrDefault(0)
+                else -> 0
             }
+            val bassSupported = useDynamicsProcessingPostEq ||
+                runCatching { bassBoostFx?.strengthSupported == true }.getOrDefault(false)
+            val virtSupported = runCatching { virtualizerFx?.strengthSupported == true }.getOrDefault(false)
+
+            val summary = when {
+                useDynamicsProcessingPostEq -> "DynamicsProcessing 31B + Dinámica (Sin doble proceso)"
+                equalizerFx != null -> "Ecualizador Nativo (${eqBandCount}B) + BassBoost Hardware"
+                bassBoostFx != null -> "Solo BassBoost Hardware (EQ limitado)"
+                else -> "Modo Compatibilidad (AudioFX restringido por sesión)"
+            }
+            fxEngineStatus = summary
+
+            capabilityReport = DspCapabilityReport(
+                audioSessionId = sessionId,
+                dynamicsProcessingSupported = useDynamicsProcessingPostEq,
+                dynamicsProcessingActive = useDynamicsProcessingPostEq,
+                equalizerBandCount = eqBandCount,
+                usingFallbackEqualizer = !useDynamicsProcessingPostEq && equalizerFx != null,
+                bassBoostSupported = bassSupported,
+                bassBoostActive = !useDynamicsProcessingPostEq && bassBoostFx != null,
+                virtualizerSupported = virtSupported,
+                virtualizerActive = virtualizerFx != null,
+                antiDoubleProcessingSafe = true,
+                engineSummary = summary
+            )
 
             if (!useDynamicsProcessingPostEq && equalizerFx == null && sessionId > 0) {
                 onAudioFaultListener?.invoke(
                     "Motor AudioFX Limitado",
-                    "El hardware de audio no permitió enlazar el ecualizador completo en esta sesión.",
+                    "Este dispositivo no expuso el módulo completo de ecualización en hardware para la sesión actual.",
                     FaultSeverity.WARNING
                 )
             }
 
-            // 5. Visualizer: Only attach for local MediaPlayer sessions (> 0)
             if (sessionId > 0) {
                 try {
                     visualizerFx = Visualizer(sessionId).apply {
@@ -829,12 +814,12 @@ class CarAudioEngine(private val context: Context) {
         currentDspSettings = dsp
         currentEqualizerSettings = eq
 
-        applyPlayerVolume()
-
         if (equalizerFx == null && dynamicsProcessingFx == null && dsp.dspMasterEnabled) {
-            val sessionToAttach = if (activeAudioSessionId >= 0) activeAudioSessionId else externalAudioSessionId
-            attachAudioFx(sessionToAttach, dsp, eq)
-            return
+            val sessionToAttach = if (activeAudioSessionId > 0) activeAudioSessionId else externalAudioSessionId
+            if (sessionToAttach >= 0) {
+                attachAudioFx(sessionToAttach, dsp, eq)
+                return
+            }
         }
 
         val now = android.os.SystemClock.uptimeMillis()
@@ -859,12 +844,11 @@ class CarAudioEngine(private val context: Context) {
     }
 
     private fun commitHardwareParameters(dsp: DspSettings, eq: EqualizerSettings) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && useDynamicsProcessingPostEq) {
             dynamicsProcessingFx?.let { dp ->
                 try {
                     dp.enabled = dsp.dspMasterEnabled
 
-                    // Compute peak positive EQ boost for intelligent anti-clip headroom management
                     val freqs31 = EqualizerSettings.FREQUENCIES_HZ_31
                     var maxEqBoost = 0f
                     val postEq = cachedPostEq ?: DynamicsProcessing.Eq(true, dsp.dspMasterEnabled, freqs31.size).also {
@@ -872,7 +856,12 @@ class CarAudioEngine(private val context: Context) {
                     }
                     postEq.isEnabled = dsp.dspMasterEnabled
                     for (i in freqs31.indices) {
-                        val gain = computeEffectiveBandGainDb(freqs31[i], dsp, eq)
+                        val gain = computeEffectiveBandGainDb(
+                            freqHz = freqs31[i],
+                            dsp = dsp,
+                            eq = eq,
+                            includeBassBoostInCurve = true
+                        )
                         if (gain > maxEqBoost) maxEqBoost = gain
                         postEq.getBand(i).apply {
                             isEnabled = dsp.dspMasterEnabled
@@ -882,7 +871,6 @@ class CarAudioEngine(private val context: Context) {
                     }
                     dp.setPostEqAllChannelsTo(postEq)
 
-                    // Safe input headroom compensation when limiter is active
                     val rawInputGain = if (dsp.dspMasterEnabled) (dsp.preampDb + dsp.masterGainDb) else 0f
                     val compensatedInputGain = if (dsp.dspMasterEnabled && dsp.limiterEnabled && (rawInputGain + maxEqBoost) > 16f) {
                         val trim = ((rawInputGain + maxEqBoost) - 16f).coerceAtMost(8f)
@@ -890,9 +878,22 @@ class CarAudioEngine(private val context: Context) {
                     } else {
                         rawInputGain.coerceIn(-30f, 20f)
                     }
-                    dp.setInputGainAllChannelsTo(compensatedInputGain)
 
-                    // Hardware Multiband Compressor (4-way crossover with soft knee)
+                    val pan = if (dsp.dspMasterEnabled) dsp.balancePan.coerceIn(-1f, 1f) else 0f
+                    val leftTrimDb = if (pan > 0.01f) {
+                        if (pan >= 0.96f) -60f else (20f * log10((1f - pan).coerceAtLeast(0.01f)))
+                    } else 0f
+                    val rightTrimDb = if (pan < -0.01f) {
+                        if (pan <= -0.96f) -60f else (20f * log10((1f + pan).coerceAtLeast(0.01f)))
+                    } else 0f
+
+                    if (abs(pan) < 0.01f) {
+                        dp.setInputGainAllChannelsTo(compensatedInputGain)
+                    } else {
+                        dp.setInputGainbyChannel(0, (compensatedInputGain + leftTrimDb).coerceIn(-60f, 20f))
+                        dp.setInputGainbyChannel(1, (compensatedInputGain + rightTrimDb).coerceIn(-60f, 20f))
+                    }
+
                     val mbcBands = floatArrayOf(120f, 800f, 4000f, 20000f)
                     val mbc = cachedMbc ?: DynamicsProcessing.Mbc(true, dsp.dspMasterEnabled && dsp.compressorEnabled, mbcBands.size).also {
                         cachedMbc = it
@@ -916,7 +917,6 @@ class CarAudioEngine(private val context: Context) {
                     }
                     dp.setMbcAllChannelsTo(mbc)
 
-                    // Hardware Anti-Clip Limiter (brickwall safety + smooth release)
                     val limOn = dsp.dspMasterEnabled && dsp.limiterEnabled
                     val limiter = cachedLimiter ?: DynamicsProcessing.Limiter(
                         true, limOn, 0, 0.5f, 65.0f, 10.0f, dsp.limiterCeilingDb.coerceIn(-24f, -0.2f), 0f
@@ -932,17 +932,19 @@ class CarAudioEngine(private val context: Context) {
                     dp.setLimiterAllChannelsTo(limiter)
                 } catch (_: Throwable) {}
             }
-        }
-
-        // Standard Equalizer fallback
-        if (!useDynamicsProcessingPostEq) {
+        } else {
             try {
                 equalizerFx?.let { eqFx ->
                     val numBands = eqFx.numberOfBands
                     val (minLevel, maxLevel) = eqFx.bandLevelRange
                     for (b in 0 until numBands) {
                         val centerFreqHz = eqFx.getCenterFreq(b.toShort()) / 1000
-                        val targetGainDb = computeEffectiveBandGainDb(centerFreqHz, dsp, eq)
+                        val targetGainDb = computeEffectiveBandGainDb(
+                            freqHz = centerFreqHz,
+                            dsp = dsp,
+                            eq = eq,
+                            includeBassBoostInCurve = false
+                        )
                         val millibels = (targetGainDb * 100).toInt().coerceIn(minLevel.toInt(), maxLevel.toInt())
                         eqFx.setBandLevel(b.toShort(), millibels.toShort())
                     }
@@ -961,20 +963,18 @@ class CarAudioEngine(private val context: Context) {
                     le.enabled = dsp.dspMasterEnabled && (dsp.preampDb != 0f || dsp.masterGainDb != 0f)
                 }
             } catch (_: Throwable) {}
+
+            try {
+                bassBoostFx?.let { bb ->
+                    if (bb.strengthSupported) {
+                        val strength = ((dsp.bassBoostDb / 24.0f) * 1000f).toInt().coerceIn(0, 1000)
+                        bb.setStrength(strength.toShort())
+                    }
+                    bb.enabled = dsp.dspMasterEnabled && dsp.bassBoostEnabled && dsp.bassBoostDb > 0.2f
+                }
+            } catch (_: Throwable) {}
         }
 
-        // BassBoost
-        try {
-            bassBoostFx?.let { bb ->
-                if (bb.strengthSupported) {
-                    val strength = ((dsp.bassBoostDb / 24.0f) * 1000f).toInt().coerceIn(0, 1000)
-                    bb.setStrength(strength.toShort())
-                }
-                bb.enabled = dsp.dspMasterEnabled && dsp.bassBoostEnabled && dsp.bassBoostDb > 0.2f
-            }
-        } catch (_: Throwable) {}
-
-        // Virtualizer
         try {
             virtualizerFx?.let { virt ->
                 if (virt.strengthSupported) {
@@ -1036,7 +1036,6 @@ class CarAudioEngine(private val context: Context) {
     }
 
     private fun processPlaybackWaveform(waveform: ByteArray) {
-        sourceMode = AudioSourceMode.INTERNAL_DSP
         val n = waveform.size
         if (n == 0) return
 
@@ -1065,11 +1064,9 @@ class CarAudioEngine(private val context: Context) {
         val targetL = (if (pan <= 0f) targetLevel else targetLevel * (1f - pan * 0.6f)).coerceIn(0f, 1f)
         val targetR = (if (pan >= 0f) targetLevel * 0.98f else targetLevel * (1f + pan * 0.6f)).coerceIn(0f, 1f)
 
-        // Smooth ballistics (fast attack, gentle decay)
         leftVuLevel = if (targetL > leftVuLevel) leftVuLevel + (targetL - leftVuLevel) * 0.65f else leftVuLevel + (targetL - leftVuLevel) * 0.22f
         rightVuLevel = if (targetR > rightVuLevel) rightVuLevel + (targetR - rightVuLevel) * 0.65f else rightVuLevel + (targetR - rightVuLevel) * 0.22f
 
-        // Update quick waveform envelope backup for energy when FFT hasn't ticked yet
         val fallbackEnergy = (targetLevel * 0.85f).coerceIn(0f, 1f)
         if (bassEnergy < 0.01f && midEnergy < 0.01f) {
             bassEnergy = fallbackEnergy * 0.8f
@@ -1124,371 +1121,6 @@ class CarAudioEngine(private val context: Context) {
         rtaDirty = true
     }
 
-    // ==========================================
-    // AudioFocus & Noisy Headphone Guard
-    // ==========================================
-    private fun requestAudioFocus(): Boolean {
-        return try {
-            val res = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                    )
-                    .setAcceptsDelayedFocusGain(true)
-                    .setOnAudioFocusChangeListener(focusChangeListener)
-                    .build()
-                audioFocusRequest = req
-                audioManager.requestAudioFocus(req)
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.requestAudioFocus(
-                    focusChangeListener,
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN
-                )
-            }
-            hasAudioFocus = (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-            hasAudioFocus
-        } catch (_: Throwable) {
-            true
-        }
-    }
-
-    private fun abandonAudioFocus() {
-        hasAudioFocus = false
-        pausedByFocusLoss = false
-        isDucked = false
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.abandonAudioFocus(focusChangeListener)
-            }
-        } catch (_: Throwable) {}
-    }
-
-    private fun registerNoisyReceiver() {
-        if (noisyReceiverRegistered) return
-        try {
-            ContextCompat.registerReceiver(
-                context,
-                becomingNoisyReceiver,
-                IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-            noisyReceiverRegistered = true
-        } catch (_: Throwable) {}
-    }
-
-    private fun unregisterNoisyReceiver() {
-        if (!noisyReceiverRegistered) return
-        try {
-            context.unregisterReceiver(becomingNoisyReceiver)
-        } catch (_: Throwable) {}
-        noisyReceiverRegistered = false
-    }
-
-    // ==========================================
-    // Playback Operations (Music & Pioneer Radio)
-    // ==========================================
-    fun playTrack(track: AudioTrackItem, dspSettings: DspSettings, eqSettings: EqualizerSettings) {
-        stopPlayback(abandonFocus = false)
-        isStreamingRadio = false
-        isRadioBuffering = false
-        activeStreamTitle = null
-        currentTrack = track
-        playbackPositionSeconds = 0
-
-        if (track.customUri != null) {
-            playCustomUri(track.customUri, dspSettings, eqSettings)
-        }
-        onPlaybackStateChangedListener?.invoke()
-    }
-
-    fun playStreamUrl(
-        url: String,
-        stationTitle: String,
-        dspSettings: DspSettings,
-        eqSettings: EqualizerSettings,
-        onPrepared: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        stopPlayback(abandonFocus = false)
-        isStreamingRadio = true
-        isRadioBuffering = true
-        activeStreamTitle = stationTitle
-        currentTrack = null
-        playbackPositionSeconds = 0
-        onPlaybackStateChangedListener?.invoke()
-
-        try {
-            requestAudioFocus()
-            val mp = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                setDataSource(url)
-                setOnPreparedListener { player ->
-                    if (mediaPlayer !== player) return@setOnPreparedListener
-                    isRadioBuffering = false
-                    this@CarAudioEngine.isPlaying = true
-                    sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
-                    registerNoisyReceiver()
-                    attachAudioFx(player.audioSessionId, dspSettings, eqSettings)
-                    applyPlayerVolume()
-                    player.start()
-                    onPrepared()
-                    onPlaybackStateChangedListener?.invoke()
-                }
-                setOnErrorListener { _, what, extra ->
-                    isRadioBuffering = false
-                    this@CarAudioEngine.isPlaying = false
-                    stopPlayback()
-                    attachToGlobalSystemSession(dspSettings, eqSettings)
-                    val msg = "No se pudo conectar a \"$stationTitle\" (código $what/$extra). Verifica tu red internet."
-                    onAudioFaultListener?.invoke(
-                        "Error de Emisora Pioneer",
-                        msg,
-                        FaultSeverity.ERROR
-                    )
-                    onError(msg)
-                    true
-                }
-                setOnInfoListener { _, what, _ ->
-                    if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) {
-                        isRadioBuffering = true
-                        onPlaybackStateChangedListener?.invoke()
-                    } else if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) {
-                        isRadioBuffering = false
-                        onPlaybackStateChangedListener?.invoke()
-                    }
-                    false
-                }
-                prepareAsync()
-            }
-            mediaPlayer = mp
-        } catch (t: Throwable) {
-            isRadioBuffering = false
-            isPlaying = false
-            isStreamingRadio = false
-            stopPlayback()
-            attachToGlobalSystemSession(dspSettings, eqSettings)
-            val msg = "Stream no disponible para \"$stationTitle\": ${t.localizedMessage ?: "error de conexión"}."
-            onAudioFaultListener?.invoke("Fallo de Conexión Radio", msg, FaultSeverity.ERROR)
-            onError(msg)
-        }
-    }
-
-    fun togglePlayPause(dspSettings: DspSettings, eqSettings: EqualizerSettings) {
-        if (isPlaying) {
-            pausePlayback()
-        } else {
-            resumePlayback(dspSettings, eqSettings)
-        }
-    }
-
-    fun pausePlayback() {
-        isPlaying = false
-        isRadioBuffering = false
-        tickerJob?.cancel()
-        tickerJob = null
-        try {
-            visualizerFx?.enabled = false
-            mediaPlayer?.pause()
-        } catch (_: Exception) {}
-        unregisterNoisyReceiver()
-        leftVuLevel = 0f
-        rightVuLevel = 0f
-        bassEnergy = 0f
-        midEnergy = 0f
-        trebleEnergy = 0f
-        onPlaybackStateChangedListener?.invoke()
-    }
-
-    fun resumePlayback(dspSettings: DspSettings, eqSettings: EqualizerSettings) {
-        if (isStreamingRadio && mediaPlayer != null) {
-            requestAudioFocus()
-            try {
-                mediaPlayer?.start()
-                isPlaying = true
-                registerNoisyReceiver()
-                visualizerFx?.enabled = isVisualizerUiActive
-                applyPlayerVolume()
-                applyDspSettings(dspSettings, eqSettings)
-                onPlaybackStateChangedListener?.invoke()
-            } catch (_: Exception) {}
-            return
-        }
-        val track = currentTrack ?: return
-        requestAudioFocus()
-        if (mediaPlayer != null) {
-            try {
-                mediaPlayer?.start()
-                isPlaying = true
-                registerNoisyReceiver()
-                visualizerFx?.enabled = isVisualizerUiActive
-                applyPlayerVolume()
-                applyDspSettings(dspSettings, eqSettings)
-                startPlaybackTicker()
-                onPlaybackStateChangedListener?.invoke()
-            } catch (_: Exception) {
-                if (track.customUri != null) {
-                    playCustomUri(track.customUri, dspSettings, eqSettings)
-                }
-            }
-        } else if (track.customUri != null) {
-            playCustomUri(track.customUri, dspSettings, eqSettings)
-        }
-    }
-
-    fun stopPlayback(abandonFocus: Boolean = true) {
-        isPlaying = false
-        isRadioBuffering = false
-        isStreamingRadio = false
-        activeStreamTitle = null
-        tickerJob?.cancel()
-        tickerJob = null
-        unregisterNoisyReceiver()
-        try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-        } catch (_: Exception) {}
-        mediaPlayer = null
-        releaseAudioFx()
-        if (abandonFocus) {
-            abandonAudioFocus()
-        }
-        leftVuLevel = 0f
-        rightVuLevel = 0f
-        bassEnergy = 0f
-        midEnergy = 0f
-        trebleEnergy = 0f
-        onPlaybackStateChangedListener?.invoke()
-    }
-
-    fun seekTo(seconds: Int) {
-        playbackPositionSeconds = seconds.coerceIn(0, currentTrack?.durationSeconds ?: 0)
-        try {
-            mediaPlayer?.seekTo(seconds * 1000)
-        } catch (_: Exception) {}
-        onPlaybackStateChangedListener?.invoke()
-    }
-
-    private fun playCustomUri(uri: Uri, dsp: DspSettings, eq: EqualizerSettings) {
-        try {
-            requestAudioFocus()
-            val mp = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                setDataSource(context, uri)
-                setOnErrorListener { _, what, extra ->
-                    this@CarAudioEngine.isPlaying = false
-                    stopPlayback()
-                    onAudioFaultListener?.invoke(
-                        "Fallo en Reproductor de Audio",
-                        "No se pudo reproducir el archivo (código $what/$extra). Puede estar dañado o en un formato no soportado.",
-                        FaultSeverity.ERROR
-                    )
-                    true
-                }
-                prepare()
-                setOnCompletionListener {
-                    this@CarAudioEngine.isPlaying = false
-                    this@CarAudioEngine.playbackPositionSeconds = 0
-                    onTrackCompletedListener?.invoke()
-                }
-            }
-            mediaPlayer = mp
-            isPlaying = true
-            sessionTarget = AudioSessionTarget.INTERNAL_PLAYER
-            registerNoisyReceiver()
-            attachAudioFx(mp.audioSessionId, dsp, eq)
-            applyPlayerVolume()
-            mp.start()
-            startPlaybackTicker()
-            onPlaybackStateChangedListener?.invoke()
-        } catch (t: Throwable) {
-            stopPlayback()
-            attachToGlobalSystemSession(dsp, eq)
-            onAudioFaultListener?.invoke(
-                "Error al Abrir Pista",
-                "No se pudo cargar \"${currentTrack?.title ?: "Archivo"}\": ${t.localizedMessage ?: "archivo inaccesible o movido"}.",
-                FaultSeverity.ERROR
-            )
-        }
-    }
-
-    private fun startPlaybackTicker() {
-        tickerJob?.cancel()
-        tickerJob = scope.launch {
-            while (isActive && isPlaying) {
-                try {
-                    mediaPlayer?.let { mp ->
-                        if (mp.isPlaying) {
-                            playbackPositionSeconds = mp.currentPosition / 1000
-                        }
-                    }
-                } catch (_: Exception) {}
-                delay(250)
-            }
-        }
-    }
-
-    // Intro / Boot Sound
-    fun playIntroBootSound() {
-        scope.launch {
-            try {
-                val totalSamples = (sampleRate * 0.9).toInt()
-                val pcmBuffer = ShortArray(totalSamples)
-                for (i in 0 until totalSamples) {
-                    val t = i.toDouble() / sampleRate
-                    val env = sin(PI * (t / 0.9).coerceIn(0.0, 1.0))
-                    val sweepFreq = 65.0 + 380.0 * (t / 0.9)
-                    val sample = (sin(2.0 * PI * sweepFreq * t) * 0.42 + sin(2.0 * PI * 55.0 * t) * 0.42) * env
-                    pcmBuffer[i] = (sample.coerceIn(-1.0, 1.0) * Short.MAX_VALUE * 0.6).toInt().toShort()
-                }
-
-                val bootTrack = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(pcmBuffer.size * 2)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-
-                bootTrack.write(pcmBuffer, 0, pcmBuffer.size)
-                bootTrack.play()
-                delay(1000)
-                try {
-                    bootTrack.stop()
-                    bootTrack.release()
-                } catch (_: Exception) {}
-            } catch (_: Exception) {}
-        }
-    }
-
-    // Microphone RTA (Optional Real Acoustic Mic)
     @SuppressLint("MissingPermission")
     fun startMicRta(hasRecordPermission: Boolean) {
         if (!hasRecordPermission || isMicRtaActive) return
@@ -1536,7 +1168,6 @@ class CarAudioEngine(private val context: Context) {
     }
 
     private fun processMicPcm(buffer: ShortArray, readSize: Int) {
-        sourceMode = AudioSourceMode.REAL_MIC
         var sumSquares = 0.0
         var maxAmp = 0
         var clippedSamples = 0
@@ -1597,7 +1228,6 @@ class CarAudioEngine(private val context: Context) {
     }
 
     fun release() {
-        stopPlayback()
         stopMicRta()
         releaseAudioFx()
         try {

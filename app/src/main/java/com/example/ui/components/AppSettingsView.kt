@@ -5,9 +5,9 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,27 +23,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrightnessHigh
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -54,21 +52,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.R
 import com.example.model.AudioSessionTarget
 import com.example.model.CarAudioThemeType
+import com.example.model.CloudUserProfile
+import com.example.model.DspCapabilityReport
 import com.example.model.FaultSeverity
 import com.example.model.OutputDeviceStatus
 import com.example.model.SystemFaultAlert
@@ -80,49 +85,47 @@ import java.util.Locale
 @Composable
 fun AppSettingsView(
     theme: CarAudioThemeType,
+    userProfile: CloudUserProfile?,
+    cloudSyncActive: Boolean,
+    isDeletingAccount: Boolean,
     autoPlayIntro: Boolean,
     onToggleAutoPlayIntro: (Boolean) -> Unit,
     onReplayIntro: () -> Unit,
-    keepScreenOn: Boolean,
-    onToggleKeepScreenOn: (Boolean) -> Unit,
-    onSelectTheme: (CarAudioThemeType) -> Unit,
     onResetDspDefaults: () -> Unit,
-    liteVisuals: Boolean = false,
-    onToggleLiteVisuals: (Boolean) -> Unit = {},
-    isLowRamDevice: Boolean = false,
-    outputDeviceStatus: OutputDeviceStatus = OutputDeviceStatus(),
-    sessionTarget: AudioSessionTarget = AudioSessionTarget.GLOBAL_MIX_BEST_EFFORT,
-    isVipUnlocked: Boolean = false,
-    onRequestVipDialog: () -> Unit = {},
-    onLockVip: () -> Unit = {},
-    fxEngineStatus: String = "AudioFX Activo",
-    hasAudioPermission: Boolean = true,
-    hasNotificationPermission: Boolean = true,
-    faultAlerts: List<SystemFaultAlert> = emptyList(),
-    onRequestNotificationPermission: () -> Unit = {},
-    onRequestAudioPermission: () -> Unit = {},
-    onRefreshDiagnostics: () -> Unit = {},
-    onClearFaults: () -> Unit = {},
+    outputDeviceStatus: OutputDeviceStatus,
+    sessionTarget: AudioSessionTarget,
+    capabilityReport: DspCapabilityReport,
+    hasAudioPermission: Boolean,
+    hasNotificationPermission: Boolean,
+    faultAlerts: List<SystemFaultAlert>,
+    onRequestNotificationPermission: () -> Unit,
+    onRequestAudioPermission: () -> Unit,
+    onRefreshDiagnostics: () -> Unit,
+    onClearFaults: () -> Unit,
+    onSignOut: () -> Unit,
+    onConfirmDeleteAccount: (onError: (String) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showResetDialog by remember { mutableStateOf(false) }
-
-    val orderedThemes = remember {
-        listOf(CarAudioThemeType.GRAPHITE_ELECTRIC_NEON) +
-            CarAudioThemeType.entries.filter { it != CarAudioThemeType.GRAPHITE_ELECTRIC_NEON }
-    }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var deleteStep by remember { mutableIntStateOf(0) } // 0=hidden, 1=first warning, 2=final confirmation
+    var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+
+    if (showPrivacyDialog) {
+        PrivacyPolicyDialog(theme = theme, onDismiss = { showPrivacyDialog = false })
+    }
 
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
             containerColor = theme.cardColor,
-            title = { Text("Restablecer DSP a Fábrica", fontWeight = FontWeight.Bold, color = theme.textColor) },
+            title = { Text("Restablecer Laboratorio DSP", fontWeight = FontWeight.Bold, color = theme.textColor) },
             text = {
                 Text(
-                    "Esta acción regresará todas las ganancias, filtros y ecualizadores a valores planos (FLAT).",
+                    "Esta acción regresará las 10 y 31 bandas, filtros y dinámica a valores planos (Flat).",
                     color = theme.textSecondaryColor
                 )
             },
@@ -132,13 +135,69 @@ fun AppSettingsView(
                         onResetDspDefaults()
                         showResetDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor)
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor)
                 ) {
-                    Text("Restablecer Todo", color = theme.onPrimaryColor, fontWeight = FontWeight.Bold)
+                    Text("Restablecer", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancelar", color = theme.textSecondaryColor)
+                }
+            }
+        )
+    }
+
+    if (deleteStep > 0) {
+        AlertDialog(
+            onDismissRequest = { if (!isDeletingAccount) deleteStep = 0 },
+            containerColor = theme.cardColor,
+            title = {
+                Text(
+                    text = if (deleteStep == 1) "¿Eliminar tu Cuenta?" else "Confirmación Irreversible",
+                    color = theme.errorColor,
+                    fontWeight = FontWeight.Black
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (deleteStep == 1) {
+                            "Se borrarán tu perfil, configuraciones de audio personalizadas y listas guardadas en Cloud Firestore."
+                        } else {
+                            "Esta acción eliminará permanentemente tu cuenta de usuario y todos tus datos en la nube. ¿Deseas continuar?"
+                        },
+                        color = theme.textSecondaryColor,
+                        fontSize = 12.5.sp
+                    )
+                    if (!deleteErrorMessage.isNullOrBlank()) {
+                        Text(deleteErrorMessage!!, color = theme.errorColor, fontSize = 11.5.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !isDeletingAccount,
+                    onClick = {
+                        if (deleteStep == 1) {
+                            deleteErrorMessage = null
+                            deleteStep = 2
+                        } else {
+                            deleteErrorMessage = null
+                            onConfirmDeleteAccount { err -> deleteErrorMessage = err }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.errorColor, contentColor = theme.textColor)
+                ) {
+                    if (isDeletingAccount) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = theme.textColor)
+                    } else {
+                        Text(if (deleteStep == 1) "Continuar" else "Eliminar Todo", fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !isDeletingAccount, onClick = { deleteStep = 0 }) {
                     Text("Cancelar", color = theme.textSecondaryColor)
                 }
             }
@@ -150,108 +209,111 @@ fun AppSettingsView(
             .fillMaxSize()
             .background(theme.backgroundColor)
             .verticalScroll(scrollState)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(14.dp)
+            .testTag("app_settings_view"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. ACCESO VIP STUDIO
+        // 1. Google Account & Cloud Sync Card
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isVipUnlocked) theme.surfaceColor else theme.cardColor),
-            border = BorderStroke(1.3.dp, theme.primaryColor.copy(alpha = if (isVipUnlocked) 0.7f else 0.45f)),
+            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+            border = BorderStroke(1.dp, theme.cardColor),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("settings_vip_card")
+                .testTag("settings_account_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(
-                            imageVector = if (isVipUnlocked) Icons.Default.WorkspacePremium else Icons.Default.Lock,
-                            contentDescription = "Acceso VIP Studio",
-                            tint = theme.primaryColor
+                    val photoUrl = userProfile?.photoUrl
+                    if (!photoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context).data(photoUrl).crossfade(true).build(),
+                            contentDescription = "Avatar Google",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .border(1.2.dp, theme.accentColor, CircleShape)
                         )
-                        Text(
-                            text = if (isVipUnlocked) "VIP STUDIO ACTIVO" else "ACCESO VIP STUDIO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            color = theme.textColor
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
+                            contentDescription = "Usuario",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isVipUnlocked) theme.primaryColor else theme.surfaceColor)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(userProfile?.displayName ?: "Usuario Google", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(userProfile?.email ?: "Sesión activa", color = theme.textSecondaryColor, fontSize = 11.5.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(Icons.Default.CloudDone, contentDescription = null, tint = if (cloudSyncActive) theme.accentColor else theme.textSecondaryColor, modifier = Modifier.size(16.dp))
                         Text(
-                            text = if (isVipUnlocked) "DESBLOQUEADO" else "BLOQUEADO",
-                            color = if (isVipUnlocked) theme.onPrimaryColor else theme.textSecondaryColor,
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Black
+                            text = if (cloudSyncActive) "SYNC ON" else "LOCAL",
+                            color = if (cloudSyncActive) theme.accentColor else theme.textSecondaryColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                 }
-                HorizontalDivider(color = theme.backgroundColor.copy(alpha = 0.6f), thickness = 0.8.dp)
 
-                if (isVipUnlocked) {
-                    Text(
-                        text = "Todos los módulos Pro están activos: Motor Hi-Res Studio, Calidez Analógica, Presencia Vocal, Claridad HD, Excitador Armónico, Pendientes 36/48 dB/oct, Presets VIP y Temas Exclusivos.",
-                        color = theme.textSecondaryColor,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
+                HorizontalDivider(color = theme.cardColor)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     OutlinedButton(
-                        onClick = onLockVip,
+                        onClick = onSignOut,
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, theme.textSecondaryColor.copy(alpha = 0.4f)),
+                        border = BorderStroke(1.dp, theme.cardColor),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings_lock_vip_button")
+                            .weight(1f)
+                            .testTag("settings_sign_out_button")
                     ) {
-                        Text("Bloquear Acceso VIP", color = theme.textSecondaryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    Text(
-                        text = "Ingresa tu clave VIP para desbloquear mejoras de calidad HD, módulos avanzados de bajos, filtros paramétricos completos y estilos visuales exclusivos.",
-                        color = theme.textSecondaryColor,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                    Button(
-                        onClick = onRequestVipDialog,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings_unlock_vip_button")
-                    ) {
-                        Icon(Icons.Default.WorkspacePremium, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = theme.textColor, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("DESBLOQUEAR FUNCIONES VIP", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Text("Cerrar Sesión", color = theme.textColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { deleteStep = 1 },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, theme.errorColor.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("settings_delete_account_button")
+                    ) {
+                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = theme.errorColor, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Eliminar Cuenta", color = theme.errorColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // 2. CENTRO DE DIAGNÓSTICO Y NOTIFICACIONES DE FALLOS
+        // 2. DSP Diagnostics & Permissions
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.45f)),
+            border = BorderStroke(1.dp, theme.cardColor),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("settings_diagnostics_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -259,451 +321,215 @@ fun AppSettingsView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = theme.primaryColor)
-                        Text("DIAGNÓSTICO Y ALERTAS DE FALLOS", fontWeight = FontWeight.Black, fontSize = 12.sp, color = theme.textColor)
+                        Icon(Icons.Default.Headphones, contentDescription = null, tint = theme.accentColor)
+                        Text("DIAGNÓSTICO DE AUDIO Y PERMISOS", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = onRefreshDiagnostics) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Verificar sistema", tint = theme.primaryColor, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Verificar", color = theme.primaryColor, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                        if (faultAlerts.isNotEmpty()) {
-                            TextButton(onClick = onClearFaults) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Limpiar historial", tint = theme.textSecondaryColor, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Limpiar", color = theme.textSecondaryColor, fontSize = 10.5.sp)
-                            }
-                        }
+                    TextButton(onClick = onRefreshDiagnostics) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Revisar", color = theme.accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
 
-                DiagnosticStatusRow(
-                    label = "Motor AudioFX",
-                    value = fxEngineStatus,
-                    isOk = !fxEngineStatus.contains("error", ignoreCase = true) && !fxEngineStatus.contains("fall", ignoreCase = true),
-                    theme = theme
-                )
-                DiagnosticStatusRow(
-                    label = "Dispositivo de Salida",
-                    value = "${outputDeviceStatus.label} • ${sessionTarget.label}",
-                    isOk = true,
-                    theme = theme
-                )
-                DiagnosticStatusRow(
-                    label = "Permiso de Música Local",
-                    value = if (hasAudioPermission) "Concedido" else "Denegado (toca para activar)",
-                    isOk = hasAudioPermission,
-                    theme = theme,
-                    onClick = if (!hasAudioPermission) onRequestAudioPermission else null
-                )
-                DiagnosticStatusRow(
-                    label = "Permiso de Notificaciones",
-                    value = if (hasNotificationPermission) "Activo (alertará si algo falla)" else "Inactivo (toca para activar)",
-                    isOk = hasNotificationPermission,
-                    theme = theme,
-                    onClick = if (!hasNotificationPermission) onRequestNotificationPermission else null
-                )
+                DiagnosticStatusRow("Motor DSP", capabilityReport.engineSummary, theme)
+                DiagnosticStatusRow("Sesión AudioFX", sessionTarget.label, theme)
+                DiagnosticStatusRow("Salida Activa", outputDeviceStatus.label, theme)
+                DiagnosticStatusRow("Anti Doble Proceso", if (capabilityReport.antiDoubleProcessingSafe) "Verificado y Seguro" else "Revisar", theme)
 
-                Text(
-                    text = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) • ${sessionTarget.detail}",
-                    color = theme.textSecondaryColor,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp
-                )
-
-                if (faultAlerts.isEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(theme.cardColor)
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRequestAudioPermission,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, if (hasAudioPermission) theme.accentColor.copy(alpha = 0.4f) else theme.clipAlertColor),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF00E676), modifier = Modifier.size(16.dp))
+                        Icon(
+                            imageVector = if (hasAudioPermission) Icons.Default.CheckCircle else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (hasAudioPermission) theme.accentColor else theme.clipAlertColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Sin fallos recientes. El sistema monitorea archivos, clipping y desconexiones en tiempo real.",
-                            color = theme.textSecondaryColor,
-                            fontSize = 10.5.sp,
-                            lineHeight = 14.sp
+                            text = if (hasAudioPermission) "Música OK" else "Permiso Música",
+                            color = theme.textColor,
+                            fontSize = 10.5.sp
                         )
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "HISTORIAL DE ALERTAS (${faultAlerts.size})",
-                            color = theme.primaryColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        faultAlerts.take(6).forEach { alert ->
-                            val sevColor = when (alert.severity) {
-                                FaultSeverity.ERROR -> theme.errorColor
-                                FaultSeverity.WARNING -> Color(0xFFFFB300)
-                                FaultSeverity.INFO -> theme.accentColor
-                            }
-                            val sevIcon = when (alert.severity) {
-                                FaultSeverity.ERROR -> Icons.Default.Error
-                                FaultSeverity.WARNING -> Icons.Default.Warning
-                                FaultSeverity.INFO -> Icons.Default.Info
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(theme.cardColor)
-                                    .border(1.dp, sevColor.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(sevIcon, contentDescription = null, tint = sevColor, modifier = Modifier.size(16.dp))
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(alert.title, color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Text(
-                                            text = timeFormatter.format(Date(alert.timestampMs)),
-                                            color = theme.textSecondaryColor,
-                                            fontSize = 9.5.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                    Text(alert.message, color = theme.textSecondaryColor, fontSize = 10.sp, lineHeight = 13.5.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3. RENDIMIENTO, PANTALLA Y BURBUJA FLOTANTE
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.35f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Speed, contentDescription = null, tint = theme.primaryColor)
-                    Text("RENDIMIENTO, PANTALLA Y FLOTANTE", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
-                }
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Mantener Pantalla Encendida", color = theme.textColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Ideal cuando usas la app conectada al estéreo del auto.", color = theme.textSecondaryColor, fontSize = 10.sp)
-                    }
-                    Switch(
-                        checked = keepScreenOn,
-                        onCheckedChange = onToggleKeepScreenOn,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = theme.primaryColor,
-                            checkedTrackColor = theme.primaryColor.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier.testTag("keep_screen_on_switch")
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Modo Ligero (Teléfonos Modestos)", color = theme.textColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            text = if (isLowRamDevice) {
-                                "Dispositivo de poca RAM detectado: optimiza gráficos sin perder calidad DSP."
-                            } else {
-                                "Reduce animaciones y tasa de espectro para máxima fluidez."
-                            },
-                            color = theme.textSecondaryColor,
-                            fontSize = 10.sp
-                        )
-                    }
-                    Switch(
-                        checked = liteVisuals,
-                        onCheckedChange = onToggleLiteVisuals,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = theme.primaryColor,
-                            checkedTrackColor = theme.primaryColor.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier.testTag("toggle_lite_visuals_switch")
-                    )
-                }
-
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.PictureInPicture, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(18.dp))
-                    Text("Burbuja Flotante (YouTube / Apps Externas)", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = {
-                        if (Settings.canDrawOverlays(context)) {
-                            FloatingEqualizerService.start(context)
-                        } else {
-                            try {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("ABRIR BURBUJA FLOTANTE", fontSize = 11.sp, fontWeight = FontWeight.Black)
-                }
-            }
-        }
-
-        // 4. ESTILOS VISUALES (FREE + VIP)
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.3f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = theme.primaryColor)
-                    Text("ESTILOS VISUALES", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
-                }
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
-
-                orderedThemes.forEach { themeItem ->
-                    val isSelected = theme == themeItem
-                    val locked = themeItem.isVipOnly && !isVipUnlocked
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) theme.primaryColor.copy(alpha = 0.16f) else theme.backgroundColor)
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) theme.primaryColor else theme.cardColor,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable {
-                                if (locked) onRequestVipDialog() else onSelectTheme(themeItem)
-                            }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    OutlinedButton(
+                        onClick = onRequestNotificationPermission,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, if (hasNotificationPermission) theme.accentColor.copy(alpha = 0.4f) else theme.clipAlertColor),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(themeItem.primaryColor)
-                                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Text(
-                                        text = themeItem.displayName,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) theme.primaryColor else theme.textColor
-                                    )
-                                    if (themeItem.isVipOnly) {
-                                        Text(
-                                            text = "VIP",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = theme.primaryColor
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = themeItem.subtitle,
-                                    fontSize = 10.sp,
-                                    color = theme.textSecondaryColor
-                                )
-                            }
-                        }
-                        if (isSelected) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(theme.primaryColor)
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text("ACTIVO", fontSize = 9.sp, fontWeight = FontWeight.Black, color = theme.onPrimaryColor)
-                            }
-                        } else if (locked) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Tema VIP bloqueado",
-                                tint = theme.primaryColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (hasNotificationPermission) Icons.Default.CheckCircle else Icons.Default.NotificationsActive,
+                            contentDescription = null,
+                            tint = if (hasNotificationPermission) theme.accentColor else theme.clipAlertColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (hasNotificationPermission) "Notif. OK" else "Notificaciones",
+                            color = theme.textColor,
+                            fontSize = 10.5.sp
+                        )
                     }
                 }
             }
         }
 
-        // 5. BIENVENIDA, TUTORIAL Y RESTABLECER DSP
+        // 3. Tools, Onboarding, Privacy & Reset
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.35f)),
+            border = BorderStroke(1.dp, theme.cardColor),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, tint = theme.primaryColor)
-                    Text("BIENVENIDA, TUTORIAL Y FÁBRICA", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = theme.textColor)
-                }
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Mostrar Bienvenida al Iniciar", color = theme.textColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Pantalla de bienvenida y guía rápida al abrir la app.", color = theme.textSecondaryColor, fontSize = 10.sp)
+                        Text("Mostrar bienvenida al iniciar", color = theme.textColor, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Guía rápida inicial de estudio", color = theme.textSecondaryColor, fontSize = 10.5.sp)
                     }
                     Switch(
                         checked = autoPlayIntro,
                         onCheckedChange = onToggleAutoPlayIntro,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = theme.primaryColor,
-                            checkedTrackColor = theme.primaryColor.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier.testTag("toggle_auto_intro_switch")
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
                     )
                 }
-                Button(
+
+                OutlinedButton(
                     onClick = onReplayIntro,
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.cardColor, contentColor = theme.textColor),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("replay_intro_button")
-                ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("VER BIENVENIDA Y TUTORIAL", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-
-                HorizontalDivider(color = theme.cardColor, thickness = 0.8.dp)
-
-                Button(
-                    onClick = { showResetDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.cardColor),
-                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.cardColor),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.RestartAlt, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.PlayCircle, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("RESTABLECER VALORES FLAT", color = theme.accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Ver Bienvenida y Guía Rápida", color = theme.textColor, fontSize = 11.5.sp)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+                                )
+                            } catch (_: Throwable) {}
+                        } else {
+                            FloatingEqualizerService.start(context)
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.cardColor),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PictureInPicture, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Abrir Ecualizador Flotante Rápido", color = theme.textColor, fontSize = 11.5.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { showPrivacyDialog = true },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.cardColor),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_privacy_button")
+                ) {
+                    Icon(Icons.Default.PrivacyTip, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Política de Privacidad y Seguridad de Datos", color = theme.textColor, fontSize = 11.5.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { showResetDialog = true },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.clipAlertColor.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.RestartAlt, contentDescription = null, tint = theme.clipAlertColor, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Restablecer Laboratorio DSP a Plano (Flat)", color = theme.clipAlertColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        // 6. ACERCA DE
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.25f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+        // 4. Fault Alerts Log
+        if (faultAlerts.isNotEmpty()) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
+                border = BorderStroke(1.dp, theme.cardColor),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "CAR AUDIO DSP PRO",
-                    color = theme.primaryColor,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = "Versión 6.5.0 • Studio Pro Edition",
-                    color = theme.textColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Radio Pioneer en vivo, reproductor local con listas, panel 5-LED dinámico, diagnóstico de fallos y procesador AudioFX de 31 bandas.",
-                    color = theme.textSecondaryColor,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp
-                )
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("REGISTRO DE EVENTOS (${faultAlerts.size})", color = theme.textColor, fontSize = 11.5.sp, fontWeight = FontWeight.Black)
+                        TextButton(onClick = onClearFaults) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Limpiar eventos", tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Limpiar", color = theme.accentColor, fontSize = 11.sp)
+                        }
+                    }
+                    faultAlerts.take(6).forEach { alert ->
+                        val sevColor = when (alert.severity) {
+                            FaultSeverity.ERROR -> theme.errorColor
+                            FaultSeverity.WARNING -> theme.clipAlertColor
+                            FaultSeverity.INFO -> theme.accentColor
+                        }
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (alert.severity == FaultSeverity.ERROR) Icons.Default.Error else Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = sevColor,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Column {
+                                Text("${alert.title} • ${timeFormatter.format(Date(alert.timestampMs))}", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(alert.message, color = theme.textSecondaryColor, fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
-private fun DiagnosticStatusRow(
-    label: String,
-    value: String,
-    isOk: Boolean,
-    theme: CarAudioThemeType,
-    onClick: (() -> Unit)? = null
-) {
+private fun DiagnosticStatusRow(label: String, value: String, theme: CarAudioThemeType) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(theme.cardColor)
-            .let { if (onClick != null) it.clickable { onClick() } else it }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .background(theme.backgroundColor)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            Icon(
-                imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Warning,
-                contentDescription = null,
-                tint = if (isOk) Color(0xFF00E676) else Color(0xFFFFB300),
-                modifier = Modifier.size(15.dp)
-            )
-            Column {
-                Text(label, color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(value, color = if (isOk) theme.textSecondaryColor else Color(0xFFFFB300), fontSize = 10.sp)
-            }
-        }
-        if (onClick != null) {
-            Text("ACTIVAR", color = theme.primaryColor, fontSize = 10.sp, fontWeight = FontWeight.Black)
-        }
+        Text(label, color = theme.textSecondaryColor, fontSize = 11.sp)
+        Text(value, color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
 }

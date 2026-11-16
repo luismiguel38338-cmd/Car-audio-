@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/car_audio_dsp_icon_1794824449077"
+        android:drawable="@drawable/app_icon_dsp_studio_1794828267413"
         android:gravity="center" />
 </layer-list>

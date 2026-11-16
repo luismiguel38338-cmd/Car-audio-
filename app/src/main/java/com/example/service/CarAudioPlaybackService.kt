@@ -1,234 +1,123 @@
 package com.example.service
 
 import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.media.MediaMetadata
-import android.media.session.MediaSession
-import android.media.session.PlaybackState
-import android.os.Build
-import android.os.IBinder
-import com.example.audio.AlbumArtCache
+import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
+import com.example.MainActivity
+import com.example.R
 import com.example.audio.CarAudioEngine
+import com.example.model.FaultSeverity
 import com.example.notification.CarAudioNotificationHelper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 
-/**
- * Foreground media playback service keeping background music, lock-screen metadata,
- * Bluetooth AVRCP info, and notification transport controls active even when the UI is minimized.
- */
-class CarAudioPlaybackService : Service() {
+@OptIn(UnstableApi::class)
+class CarAudioPlaybackService : MediaSessionService() {
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val audioEngine by lazy { CarAudioEngine.getInstance(applicationContext) }
     private var mediaSession: MediaSession? = null
-
-    companion object {
-        const val ACTION_UPDATE_STATE = "com.example.action.UPDATE_PLAYBACK"
-        const val ACTION_PLAY_PAUSE = "com.example.action.PLAY_PAUSE"
-        const val ACTION_NEXT = "com.example.action.NEXT"
-        const val ACTION_PREV = "com.example.action.PREV"
-        const val ACTION_STOP = "com.example.action.STOP"
-
-        var onSkipNextRequested: (() -> Unit)? = null
-        var onSkipPrevRequested: (() -> Unit)? = null
-
-        fun sync(context: Context) {
-            try {
-                val intent = Intent(context, CarAudioPlaybackService::class.java).apply {
-                    action = ACTION_UPDATE_STATE
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-            } catch (_: Throwable) {}
-        }
-
-        fun stop(context: Context) {
-            try {
-                val intent = Intent(context, CarAudioPlaybackService::class.java).apply {
-                    action = ACTION_STOP
-                }
-                context.startService(intent)
-            } catch (_: Throwable) {}
-        }
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
+    private var exoPlayer: ExoPlayer? = null
+    private val audioEngine by lazy { CarAudioEngine.getInstance(applicationContext) }
 
     override fun onCreate() {
         super.onCreate()
         CarAudioNotificationHelper.initNotificationChannels(this)
-        mediaSession = MediaSession(this, "CarAudioDspSession").apply {
-            setCallback(object : MediaSession.Callback() {
-                override fun onPlay() {
-                    audioEngine.resumePlayback(audioEngine.currentDspSettings, audioEngine.currentEqualizerSettings)
-                    refreshNotificationAndSession()
-                }
 
-                override fun onPause() {
-                    audioEngine.pausePlayback()
-                    refreshNotificationAndSession()
-                }
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build()
 
-                override fun onSkipToNext() {
-                    onSkipNextRequested?.invoke()
-                }
+        val player = ExoPlayer.Builder(this)
+            .setAudioAttributes(audioAttributes, true)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
 
-                override fun onSkipToPrevious() {
-                    onSkipPrevRequested?.invoke()
-                }
-
-                override fun onSeekTo(pos: Long) {
-                    audioEngine.seekTo((pos / 1000L).toInt())
-                    refreshNotificationAndSession()
-                }
-
-                override fun onStop() {
-                    audioEngine.stopPlayback()
-                    stopForegroundCompat()
-                    stopSelf()
-                }
-            })
-            isActive = true
+        player.volume = audioEngine.volumeFactor
+        audioEngine.onVolumeChangedListener = { vol ->
+            try {
+                exoPlayer?.volume = vol.coerceIn(0f, 1f)
+            } catch (_: Throwable) {}
         }
-    }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_PLAY_PAUSE -> {
-                audioEngine.togglePlayPause(audioEngine.currentDspSettings, audioEngine.currentEqualizerSettings)
-                refreshNotificationAndSession()
-            }
-            ACTION_NEXT -> onSkipNextRequested?.invoke()
-            ACTION_PREV -> onSkipPrevRequested?.invoke()
-            ACTION_STOP -> {
-                audioEngine.stopPlayback()
-                stopForegroundCompat()
-                stopSelf()
-                return START_NOT_STICKY
-            }
-            else -> refreshNotificationAndSession()
-        }
-        return START_NOT_STICKY
-    }
-
-    private fun refreshNotificationAndSession() {
-        val track = audioEngine.currentTrack
-        val title = track?.title ?: "CAR AUDIO DSP PRO"
-        val artist = track?.artist ?: "Reproductor Local"
-        val playing = audioEngine.isPlaying
-        val session = mediaSession ?: return
-
-        val stateCode = if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
-        val actions = PlaybackState.ACTION_PLAY or
-            PlaybackState.ACTION_PAUSE or
-            PlaybackState.ACTION_PLAY_PAUSE or
-            PlaybackState.ACTION_SKIP_TO_NEXT or
-            PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-            PlaybackState.ACTION_SEEK_TO or
-            PlaybackState.ACTION_STOP
-
-        session.setPlaybackState(
-            PlaybackState.Builder()
-                .setActions(actions)
-                .setState(stateCode, audioEngine.playbackPositionSeconds * 1000L, 1.0f)
-                .build()
-        )
-
-        val cachedArt: Bitmap? = AlbumArtCache.getCached(track?.customUri)
-        publishNotification(session, title, artist, track?.durationSeconds ?: 0, playing, cachedArt)
-
-        if (track?.customUri != null && cachedArt == null) {
-            serviceScope.launch {
-                val loaded = AlbumArtCache.loadOrGet(applicationContext, track.customUri)
-                if (loaded != null && audioEngine.currentTrack?.id == track.id) {
-                    publishNotification(session, title, artist, track.durationSeconds, audioEngine.isPlaying, loaded)
+        player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
+                    audioEngine.attachToPlayerSession(audioSessionId)
                 }
             }
-        }
-    }
 
-    private fun publishNotification(
-        session: MediaSession,
-        title: String,
-        artist: String,
-        durationSec: Int,
-        playing: Boolean,
-        albumArt: Bitmap?
-    ) {
-        val metadataBuilder = MediaMetadata.Builder()
-            .putString(MediaMetadata.METADATA_KEY_TITLE, title)
-            .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
-            .putLong(MediaMetadata.METADATA_KEY_DURATION, durationSec * 1000L)
-        if (albumArt != null) {
-            metadataBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, albumArt)
-        }
-        session.setMetadata(metadataBuilder.build())
-
-        val notif = CarAudioNotificationHelper.buildMediaPlaybackNotification(
-            context = this,
-            mediaSession = session,
-            title = title,
-            artist = artist,
-            isPlaying = playing,
-            isDspActive = audioEngine.currentDspSettings.dspMasterEnabled,
-            albumArt = albumArt,
-            prevPendingIntent = actionIntent(ACTION_PREV, 10),
-            playPausePendingIntent = actionIntent(ACTION_PLAY_PAUSE, 11),
-            nextPendingIntent = actionIntent(ACTION_NEXT, 12),
-            stopPendingIntent = actionIntent(ACTION_STOP, 13)
-        )
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    CarAudioNotificationHelper.NOTIFICATION_ID_MONITOR,
-                    notif,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val sid = player.audioSessionId
+                if (sid != C.AUDIO_SESSION_ID_UNSET && sid > 0 && audioEngine.activeAudioSessionId != sid) {
+                    audioEngine.attachToPlayerSession(sid)
+                }
+                audioEngine.syncPlaybackStateFromMedia3(
+                    track = audioEngine.currentTrack,
+                    playing = isPlaying,
+                    positionSeconds = (player.currentPosition / 1000L).toInt()
                 )
-            } else {
-                startForeground(CarAudioNotificationHelper.NOTIFICATION_ID_MONITOR, notif)
             }
-        } catch (_: Throwable) {}
-    }
 
-    private fun actionIntent(action: String, reqCode: Int): PendingIntent {
-        val intent = Intent(this, CarAudioPlaybackService::class.java).apply { this.action = action }
-        return PendingIntent.getService(
+            override fun onPlayerError(error: PlaybackException) {
+                audioEngine.onAudioFaultListener?.invoke(
+                    "Error en Reproductor Media3",
+                    "No se pudo reproducir el archivo seleccionado: ${error.localizedMessage ?: error.errorCodeName}.",
+                    FaultSeverity.ERROR
+                )
+            }
+        })
+
+        val sessionActivityIntent = PendingIntent.getActivity(
             this,
-            reqCode,
-            intent,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+            .setChannelId(CarAudioNotificationHelper.CHANNEL_ID_STATUS)
+            .setNotificationId(CarAudioNotificationHelper.NOTIFICATION_ID_MONITOR)
+            .build()
+            .apply {
+                setSmallIcon(R.drawable.ic_notification_dsp)
+            }
+        setMediaNotificationProvider(notificationProvider)
+
+        exoPlayer = player
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivityIntent)
+            .build()
     }
 
-    private fun stopForegroundCompat() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-        } catch (_: Throwable) {}
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+        return mediaSession
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = mediaSession?.player
+        if (player == null || !player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED) {
+            stopSelf()
+        }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
+        audioEngine.onVolumeChangedListener = null
+        mediaSession?.run {
+            player.release()
+            release()
+            mediaSession = null
+        }
+        exoPlayer = null
         super.onDestroy()
-        serviceScope.cancel()
-        try {
-            mediaSession?.isActive = false
-            mediaSession?.release()
-        } catch (_: Throwable) {}
-        mediaSession = null
     }
 }
