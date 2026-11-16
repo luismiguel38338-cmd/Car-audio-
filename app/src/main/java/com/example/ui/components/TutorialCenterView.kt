@@ -21,11 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -99,7 +99,7 @@ fun TutorialCenterView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.MenuBook, contentDescription = null, tint = theme.accentColor)
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, tint = theme.accentColor)
                             Column {
                                 Text("CENTRO DE TUTORIALES", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.Black)
                                 Text("10 guías interactivas paso a paso", color = theme.textSecondaryColor, fontSize = 11.sp)

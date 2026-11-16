@@ -19,13 +19,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -229,7 +229,7 @@ fun AudioMetersView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.ShowChart, contentDescription = null, tint = theme.accentColor)
+                        Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null, tint = theme.accentColor)
                         Text("OSCILOSCOPIO DE FORMA DE ONDA", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
                     }
                     Text(

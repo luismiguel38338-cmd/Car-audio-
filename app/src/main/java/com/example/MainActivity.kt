@@ -47,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Error
@@ -56,7 +57,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -278,7 +278,7 @@ private fun sectionIcon(section: AppSection): ImageVector = when (section) {
     AppSection.MUSIC_PLAYER -> Icons.Default.LibraryMusic
     AppSection.AUDIO_LAB -> Icons.Default.Equalizer
     AppSection.AUDIO_METERS -> Icons.Default.GraphicEq
-    AppSection.TUTORIALS -> Icons.Default.MenuBook
+    AppSection.TUTORIALS -> Icons.AutoMirrored.Filled.MenuBook
     AppSection.PERSONALIZATION -> Icons.Default.Palette
     AppSection.VIP_ZONE -> Icons.Default.WorkspacePremium
     AppSection.SETTINGS -> Icons.Default.Settings

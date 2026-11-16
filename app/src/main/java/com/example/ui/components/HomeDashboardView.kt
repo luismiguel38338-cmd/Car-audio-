@@ -23,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
@@ -30,11 +32,9 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -549,7 +549,7 @@ fun HomeDashboardView(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(Icons.Default.QueueMusic, contentDescription = pl.name, tint = theme.accentColor, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = pl.name, tint = theme.accentColor, modifier = Modifier.size(20.dp))
                                     Column {
                                         Text(pl.name, color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("${pl.trackIds.size} pistas", color = theme.textSecondaryColor, fontSize = 10.sp)
@@ -601,7 +601,7 @@ fun HomeDashboardView(
             Triple(AppSection.MUSIC_PLAYER, Icons.Default.LibraryMusic, "$tracksCount pistas • Canciones, Artistas, Álbumes y Cola"),
             Triple(AppSection.AUDIO_LAB, Icons.Default.Tune, capabilityReport.engineSummary),
             Triple(AppSection.AUDIO_METERS, Icons.Default.GraphicEq, "RTA 31B, Osciloscopio, VU dBFS y Batería"),
-            Triple(AppSection.TUTORIALS, Icons.Default.MenuBook, "10 guías interactivas de audio y DSP"),
+            Triple(AppSection.TUTORIALS, Icons.AutoMirrored.Filled.MenuBook, "10 guías interactivas de audio y DSP"),
             Triple(AppSection.PERSONALIZATION, Icons.Default.Palette, "Estilos Grafito, Plata y Azul Hielo"),
             Triple(AppSection.SETTINGS, Icons.Default.Settings, "Cuenta Google, Firestore, Privacidad y Sistema")
         )
