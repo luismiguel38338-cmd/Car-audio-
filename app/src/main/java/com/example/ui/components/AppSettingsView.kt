@@ -5,9 +5,9 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,14 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -42,37 +42,33 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.example.R
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.model.AudioSessionTarget
 import com.example.model.CarAudioThemeType
-import com.example.model.CloudUserProfile
 import com.example.model.DspCapabilityReport
 import com.example.model.FaultSeverity
 import com.example.model.OutputDeviceStatus
@@ -85,9 +81,11 @@ import java.util.Locale
 @Composable
 fun AppSettingsView(
     theme: CarAudioThemeType,
-    userProfile: CloudUserProfile?,
-    cloudSyncActive: Boolean,
-    isDeletingAccount: Boolean,
+    onSelectTheme: (CarAudioThemeType) -> Unit,
+    liteVisuals: Boolean,
+    onToggleLiteVisuals: (Boolean) -> Unit,
+    keepScreenOn: Boolean,
+    onToggleKeepScreenOn: (Boolean) -> Unit,
     autoPlayIntro: Boolean,
     onToggleAutoPlayIntro: (Boolean) -> Unit,
     onReplayIntro: () -> Unit,
@@ -102,20 +100,63 @@ fun AppSettingsView(
     onRequestAudioPermission: () -> Unit,
     onRefreshDiagnostics: () -> Unit,
     onClearFaults: () -> Unit,
-    onSignOut: () -> Unit,
-    onConfirmDeleteAccount: (onError: (String) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showResetDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
-    var deleteStep by remember { mutableIntStateOf(0) } // 0=hidden, 1=first warning, 2=final confirmation
-    var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
+    var showTutorialsDialog by remember { mutableStateOf(false) }
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     if (showPrivacyDialog) {
         PrivacyPolicyDialog(theme = theme, onDismiss = { showPrivacyDialog = false })
+    }
+
+    if (showTutorialsDialog) {
+        Dialog(
+            onDismissRequest = { showTutorialsDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = theme.backgroundColor,
+                border = BorderStroke(1.dp, theme.cardColor)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(theme.surfaceColor)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "GUÍAS Y TUTORIALES DEL ESTUDIO",
+                            color = theme.textColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        TextButton(onClick = { showTutorialsDialog = false }) {
+                            Text("Cerrar", color = theme.accentColor, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    TutorialCenterView(
+                        theme = theme,
+                        onReplayQuickGuide = {
+                            showTutorialsDialog = false
+                            onReplayIntro()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
     }
 
     if (showResetDialog) {
@@ -148,62 +189,6 @@ fun AppSettingsView(
         )
     }
 
-    if (deleteStep > 0) {
-        AlertDialog(
-            onDismissRequest = { if (!isDeletingAccount) deleteStep = 0 },
-            containerColor = theme.cardColor,
-            title = {
-                Text(
-                    text = if (deleteStep == 1) "¿Eliminar tu Cuenta?" else "Confirmación Irreversible",
-                    color = theme.errorColor,
-                    fontWeight = FontWeight.Black
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (deleteStep == 1) {
-                            "Se borrarán tu perfil, configuraciones de audio personalizadas y listas guardadas en Cloud Firestore."
-                        } else {
-                            "Esta acción eliminará permanentemente tu cuenta de usuario y todos tus datos en la nube. ¿Deseas continuar?"
-                        },
-                        color = theme.textSecondaryColor,
-                        fontSize = 12.5.sp
-                    )
-                    if (!deleteErrorMessage.isNullOrBlank()) {
-                        Text(deleteErrorMessage!!, color = theme.errorColor, fontSize = 11.5.sp)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    enabled = !isDeletingAccount,
-                    onClick = {
-                        if (deleteStep == 1) {
-                            deleteErrorMessage = null
-                            deleteStep = 2
-                        } else {
-                            deleteErrorMessage = null
-                            onConfirmDeleteAccount { err -> deleteErrorMessage = err }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = theme.errorColor, contentColor = theme.textColor)
-                ) {
-                    if (isDeletingAccount) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = theme.textColor)
-                    } else {
-                        Text(if (deleteStep == 1) "Continuar" else "Eliminar Todo", fontWeight = FontWeight.Bold)
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(enabled = !isDeletingAccount, onClick = { deleteStep = 0 }) {
-                    Text("Cancelar", color = theme.textSecondaryColor)
-                }
-            }
-        )
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -213,14 +198,14 @@ fun AppSettingsView(
             .testTag("app_settings_view"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Google Account & Cloud Sync Card
+        // 1. 3D Automotive Themes & Performance Optimization
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
             border = BorderStroke(1.dp, theme.cardColor),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("settings_account_card")
+                .testTag("settings_appearance_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -228,77 +213,106 @@ fun AppSettingsView(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val photoUrl = userProfile?.photoUrl
-                    if (!photoUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context).data(photoUrl).crossfade(true).build(),
-                            contentDescription = "Avatar Google",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .border(1.2.dp, theme.accentColor, CircleShape)
-                        )
-                    } else {
-                        Image(
-                            painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
-                            contentDescription = "Usuario",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(userProfile?.displayName ?: "Usuario Google", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(userProfile?.email ?: "Sesión activa", color = theme.textSecondaryColor, fontSize = 11.5.sp)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Icon(Icons.Default.CloudDone, contentDescription = null, tint = if (cloudSyncActive) theme.accentColor else theme.textSecondaryColor, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Palette, contentDescription = null, tint = theme.accentColor)
+                    Column {
                         Text(
-                            text = if (cloudSyncActive) "SYNC ON" else "LOCAL",
-                            color = if (cloudSyncActive) theme.accentColor else theme.textSecondaryColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace
+                            text = "Apariencia y rendimiento",
+                            color = theme.textColor,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
+                        Text(
+                            text = "Temas visuales de estudio y opciones de fluidez",
+                            color = theme.textSecondaryColor,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CarAudioThemeType.entries.forEach { item ->
+                        val isSelected = item == theme
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) item.cardColor else theme.backgroundColor)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) item.accentColor else theme.cardColor,
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable { onSelectTheme(item) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .testTag("theme_option_${item.id}"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(item.surfaceColor)
+                                    .border(2.dp, item.accentColor, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(item.primaryColor)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.displayName,
+                                    color = theme.textColor,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = item.subtitle,
+                                    color = theme.textSecondaryColor,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (isSelected) {
+                                Text(
+                                    text = "ACTIVO",
+                                    color = theme.accentColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
                     }
                 }
 
                 HorizontalDivider(color = theme.cardColor)
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onSignOut,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, theme.cardColor),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("settings_sign_out_button")
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = theme.textColor, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Cerrar Sesión", color = theme.textColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                    }
+                SettingsToggleRow(
+                    title = "Efectos Visuales Ligeros (Gama Baja/Media)",
+                    subtitle = "Reduce animaciones y efectos para máxima fluidez y menor consumo",
+                    checked = liteVisuals,
+                    onCheckedChange = onToggleLiteVisuals,
+                    theme = theme,
+                    modifier = Modifier.testTag("settings_lite_visuals_switch")
+                )
 
-                    OutlinedButton(
-                        onClick = { deleteStep = 1 },
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, theme.errorColor.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("settings_delete_account_button")
-                    ) {
-                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = theme.errorColor, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Eliminar Cuenta", color = theme.errorColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                SettingsToggleRow(
+                    title = "Mantener Pantalla Encendida",
+                    subtitle = "Ideal cuando usas el teléfono montado en el tablero del vehículo",
+                    checked = keepScreenOn,
+                    onCheckedChange = onToggleKeepScreenOn,
+                    theme = theme,
+                    modifier = Modifier.testTag("settings_keep_screen_switch")
+                )
             }
         }
 
@@ -322,7 +336,7 @@ fun AppSettingsView(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Headphones, contentDescription = null, tint = theme.accentColor)
-                        Text("DIAGNÓSTICO DE AUDIO Y PERMISOS", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Text("Diagnóstico de audio y permisos", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     TextButton(onClick = onRefreshDiagnostics) {
                         Icon(Icons.Default.Refresh, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
@@ -382,7 +396,7 @@ fun AppSettingsView(
             }
         }
 
-        // 3. Tools, Onboarding, Privacy & Reset
+        // 3. Tutorials, Tools, Privacy & Reset
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
@@ -393,21 +407,30 @@ fun AppSettingsView(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Button(
+                    onClick = { showTutorialsDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = theme.primaryColor,
+                        contentColor = theme.onPrimaryColor
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("settings_tutorials_button")
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Mostrar bienvenida al iniciar", color = theme.textColor, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Guía rápida inicial de estudio", color = theme.textSecondaryColor, fontSize = 10.5.sp)
-                    }
-                    Switch(
-                        checked = autoPlayIntro,
-                        onCheckedChange = onToggleAutoPlayIntro,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
-                    )
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Centro de Tutoriales (10 Guías DSP)", fontSize = 12.sp, fontWeight = FontWeight.Black)
                 }
+
+                SettingsToggleRow(
+                    title = "Mostrar guía rápida al iniciar",
+                    subtitle = "Desactivado por defecto para abrir directo en el reproductor",
+                    checked = autoPlayIntro,
+                    onCheckedChange = onToggleAutoPlayIntro,
+                    theme = theme
+                )
 
                 OutlinedButton(
                     onClick = onReplayIntro,
@@ -516,6 +539,35 @@ fun AppSettingsView(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    theme: CarAudioThemeType,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+            Text(title, color = theme.textColor, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = theme.textSecondaryColor, fontSize = 10.5.sp, lineHeight = 14.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = theme.primaryColor,
+                checkedTrackColor = theme.accentColor.copy(alpha = 0.45f)
+            )
+        )
     }
 }
 

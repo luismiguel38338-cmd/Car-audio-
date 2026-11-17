@@ -271,8 +271,8 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
                 .border(1.dp, theme.cardColor, RoundedCornerShape(22.dp))
         ) {
             Image(
-                painter = painterResource(id = R.drawable.img_studio_hero_1794828268351),
-                contentDescription = "Audio DSP Pro Estudio Móvil",
+                painter = painterResource(id = R.drawable.img_car_audio_cockpit_1794912323387),
+                contentDescription = "Car Audio DSP Pro Cabina 3D",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -298,7 +298,7 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
-                    contentDescription = "Logo Audio DSP Pro",
+                    contentDescription = "Logo Car Audio DSP Pro",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(52.dp)
@@ -314,7 +314,7 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
                         letterSpacing = 1.2.sp
                     )
                     Text(
-                        text = "AUDIO DSP PRO",
+                        text = "CAR AUDIO DSP PRO",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black
@@ -326,7 +326,7 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Reproducción Musical Real y Procesamiento DSP",
+            text = "Cabina Automotriz 3D y Procesamiento DSP Real",
             color = theme.textColor,
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
@@ -337,7 +337,7 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Escucha tu biblioteca local con Media3 y ExoPlayer, moldea tu sonido en el Laboratorio de 10 y 31 bandas, analiza el espectro RTA y sincroniza tu cuenta en la nube.",
+            text = "Escucha tu biblioteca local con Media3 y ExoPlayer, moldea tu sonido en el ecualizador de 31 y 10 bandas, compara ajustes A/B y lanza búsquedas directas a YouTube Music.",
             color = theme.textSecondaryColor,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -352,22 +352,22 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
         ) {
             WelcomePill(
                 icon = Icons.Default.LibraryMusic,
-                title = "Biblioteca Real",
+                title = "Mi Música",
                 subtitle = "Media3 & Cola",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
             WelcomePill(
                 icon = Icons.Default.Equalizer,
-                title = "Lab DSP 31B",
-                subtitle = "Sin doble proceso",
+                title = "EQ 31 Bandas",
+                subtitle = "Comparador A/B",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
             WelcomePill(
                 icon = Icons.Default.GraphicEq,
-                title = "Medidores RTA",
-                subtitle = "VU, Onda & mA",
+                title = "Cabina 3D",
+                subtitle = "Subs & RTA/dB",
                 theme = theme,
                 modifier = Modifier.weight(1f)
             )
@@ -413,13 +413,13 @@ private fun QuickStartGuideStep(theme: CarAudioThemeType) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "Cómo Usar Audio DSP Pro",
+            text = "Cómo Usar Car Audio DSP Pro",
             color = theme.textColor,
             fontSize = 21.sp,
             fontWeight = FontWeight.Black
         )
         Text(
-            text = "Cuatro pasos rápidos para comenzar; encontrarás las 10 guías completas dentro de la pestaña Tutoriales.",
+            text = "Cuatro pasos rápidos para comenzar; encontrarás las 10 guías completas dentro de Configuración > Tutoriales.",
             color = theme.textSecondaryColor,
             fontSize = 12.5.sp,
             lineHeight = 18.sp
@@ -435,22 +435,22 @@ private fun QuickStartGuideStep(theme: CarAudioThemeType) {
         QuickGuideRow(
             step = "2",
             icon = Icons.Default.Tune,
-            title = "Calibra el Laboratorio de Audio",
-            desc = "Ajusta el ecualizador de 10 o 31 bandas, Bass Boost, balance estéreo, compresor y limitador con arquitectura libre de doble procesamiento.",
+            title = "Calibra EQ y Comparador A/B",
+            desc = "Ajusta 31 o 10 bandas, Bass Boost, filtros HPF/LPF y alterna configuraciones A ↔ B al instante mientras escuchas.",
             theme = theme
         )
         QuickGuideRow(
             step = "3",
             icon = Icons.Default.GraphicEq,
-            title = "Supervisa Espectro y Clipping",
-            desc = "Consulta el analizador RTA en tiempo real, el osciloscopio de forma de onda, niveles RMS dBFS y el consumo real de batería.",
+            title = "Supervisa Subwoofers 3D y RTA",
+            desc = "Observa la cabina 3D sincronizada al ritmo, el analizador RTA, el osciloscopio, RMS dBFS y telemetría de batería.",
             theme = theme
         )
         QuickGuideRow(
             step = "4",
             icon = Icons.Default.CloudDone,
-            title = "Sincroniza con tu Cuenta Google",
-            desc = "Guarda tus perfiles de sonido, listas favoritas y última posición de reproducción de forma segura en Firebase Firestore.",
+            title = "YouTube Music y Presets Locales",
+            desc = "Busca canciones para abrir en YouTube Music y guarda tus presets favoritos localmente sin cuentas obligatorias.",
             theme = theme
         )
     }

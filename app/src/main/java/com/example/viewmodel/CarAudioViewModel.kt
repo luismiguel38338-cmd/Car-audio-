@@ -20,12 +20,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.example.audio.CarAudioEngine
 import com.example.data.FirebaseUserRepository
 import com.example.data.LocalPreferencesStore
+import com.example.model.AbSlot
 import com.example.model.AlbumSummary
 import com.example.model.AppSection
 import com.example.model.ArtistSummary
@@ -37,6 +39,7 @@ import com.example.model.CloudSoundPreset
 import com.example.model.CloudUserProfile
 import com.example.model.CustomSoundProfile
 import com.example.model.DevicePowerTelemetry
+import com.example.model.DspAbSnapshot
 import com.example.model.DspCapabilityReport
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
@@ -44,6 +47,8 @@ import com.example.model.EqPresetItem
 import com.example.model.EqualizerSettings
 import com.example.model.FaultActionType
 import com.example.model.FaultSeverity
+import com.example.model.FolderSummary
+import com.example.model.LibrarySortOrder
 import com.example.model.MusicPlaylist
 import com.example.model.OutputDeviceStatus
 import com.example.model.ParametricFilterType
@@ -51,6 +56,7 @@ import com.example.model.RepeatMode
 import com.example.model.RtaBand
 import com.example.model.SystemFaultAlert
 import com.example.model.TrackCategory
+import com.example.model.YouTubeMusicItem
 import com.example.notification.CarAudioNotificationHelper
 import com.example.service.CarAudioPlaybackService
 import com.google.common.util.concurrent.ListenableFuture
@@ -99,19 +105,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         get() = localStore.dontShowIntroAgain
 
     private val _showSplashScreen = MutableStateFlow(
-        !localStore.onboardingCompleted || (localStore.introEnabled && !localStore.dontShowIntroAgain)
+        localStore.introEnabled && !localStore.dontShowIntroAgain
     )
     val showSplashScreen: StateFlow<Boolean> = _showSplashScreen.asStateFlow()
 
     private val _autoPlayIntro = MutableStateFlow(localStore.introEnabled)
     val autoPlayIntro: StateFlow<Boolean> = _autoPlayIntro.asStateFlow()
 
-    // Authoritative VIP entitlement (driven by Firestore profile.vipStatus in cloud sessions)
-    private val _isVipUnlocked = MutableStateFlow(localStore.isVipUnlocked)
+    // Full unlocked automotive studio state (no mandatory login or VIP paywall)
+    private val _isVipUnlocked = MutableStateFlow(true)
     val isVipUnlocked: StateFlow<Boolean> = _isVipUnlocked.asStateFlow()
 
-    // Permanently dismissible VIP banner state (independent from VIP membership)
-    private val _vipPromoDismissed = MutableStateFlow(localStore.vipPromoDismissed)
+    private val _vipPromoDismissed = MutableStateFlow(true)
     val vipPromoDismissed: StateFlow<Boolean> = _vipPromoDismissed.asStateFlow()
 
     private val _keepScreenOn = MutableStateFlow(localStore.keepScreenOn)
@@ -120,13 +125,13 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _liteVisualsEnabled = MutableStateFlow(localStore.getLiteVisualsEnabled(systemLowRam))
     val liteVisualsEnabled: StateFlow<Boolean> = _liteVisualsEnabled.asStateFlow()
 
-    private val _currentTheme = MutableStateFlow(localStore.loadTheme(_isVipUnlocked.value))
+    private val _currentTheme = MutableStateFlow(localStore.loadTheme(true))
     val currentTheme: StateFlow<CarAudioThemeType> = _currentTheme.asStateFlow()
 
     private val _selectedSection = MutableStateFlow(AppSection.HOME)
     val selectedSection: StateFlow<AppSection> = _selectedSection.asStateFlow()
 
-    private val _dspSettings = MutableStateFlow(localStore.loadDspSettings(_isVipUnlocked.value))
+    private val _dspSettings = MutableStateFlow(localStore.loadDspSettings(true))
     val dspSettings: StateFlow<DspSettings> = _dspSettings.asStateFlow()
 
     private val _equalizerSettings = MutableStateFlow(localStore.loadEqualizerSettings())
@@ -135,8 +140,28 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _eqPresets = MutableStateFlow(localStore.loadPresetsCatalog())
     val eqPresets: StateFlow<List<EqPresetItem>> = _eqPresets.asStateFlow()
 
-    private val _customSoundProfiles = MutableStateFlow(localStore.loadCustomSoundProfiles(_isVipUnlocked.value))
+    private val _customSoundProfiles = MutableStateFlow(localStore.loadCustomSoundProfiles(true))
     val customSoundProfiles: StateFlow<List<CustomSoundProfile>> = _customSoundProfiles.asStateFlow()
+
+    // Live A/B Comparison Snapshots
+    private val _abSlotA = MutableStateFlow(localStore.loadAbSnapshot(AbSlot.A))
+    val abSlotA: StateFlow<DspAbSnapshot?> = _abSlotA.asStateFlow()
+
+    private val _abSlotB = MutableStateFlow(localStore.loadAbSnapshot(AbSlot.B))
+    val abSlotB: StateFlow<DspAbSnapshot?> = _abSlotB.asStateFlow()
+
+    private val _activeAbSlot = MutableStateFlow(localStore.loadActiveAbSlot())
+    val activeAbSlot: StateFlow<AbSlot?> = _activeAbSlot.asStateFlow()
+
+    // YouTube Music Integration (Compliant Deep-Links, Shortcuts & Search History)
+    private val _ytSearchQuery = MutableStateFlow("")
+    val ytSearchQuery: StateFlow<String> = _ytSearchQuery.asStateFlow()
+
+    private val _ytSavedItems = MutableStateFlow(localStore.loadYouTubeMusicItems())
+    val ytSavedItems: StateFlow<List<YouTubeMusicItem>> = _ytSavedItems.asStateFlow()
+
+    private val _ytSearchHistory = MutableStateFlow(localStore.loadYouTubeSearchHistory())
+    val ytSearchHistory: StateFlow<List<String>> = _ytSearchHistory.asStateFlow()
 
     // Music Library, Queue, Playlists, Search & Filters
     private val _favoriteIds = MutableStateFlow(localStore.loadFavoriteIds())
@@ -159,16 +184,39 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _libraryFilter = MutableStateFlow(LibraryFilter.ALL)
     val libraryFilter: StateFlow<LibraryFilter> = _libraryFilter.asStateFlow()
 
+    private val _librarySortOrder = MutableStateFlow(localStore.loadSortOrder())
+    val librarySortOrder: StateFlow<LibrarySortOrder> = _librarySortOrder.asStateFlow()
+
+    private val _recentTrackKeys = MutableStateFlow(localStore.loadRecentTrackKeys())
+    private val _trackPlayCounts = MutableStateFlow(localStore.loadPlayCounts())
+    val trackPlayCounts: StateFlow<Map<String, Int>> = _trackPlayCounts.asStateFlow()
+
+    private val _playbackSpeed = MutableStateFlow(localStore.playbackSpeed)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _playbackPitch = MutableStateFlow(localStore.playbackPitch)
+    val playbackPitch: StateFlow<Float> = _playbackPitch.asStateFlow()
+
+    private val _sleepTimerRemainingSec = MutableStateFlow<Int?>(null)
+    val sleepTimerRemainingSec: StateFlow<Int?> = _sleepTimerRemainingSec.asStateFlow()
+
+    private val _sleepTimerStopAfterTrack = MutableStateFlow(false)
+    val sleepTimerStopAfterTrack: StateFlow<Boolean> = _sleepTimerStopAfterTrack.asStateFlow()
+
+    private var sleepTimerJob: Job? = null
+    private var preSleepVolume: Float? = null
+
     val filteredTracks: StateFlow<List<AudioTrackItem>> = combine(
-        _tracks,
-        _searchQuery,
-        _libraryFilter,
-        _playlists,
-        _selectedPlaylistId
-    ) { list, query, filter, playlistsList, selectedPlId ->
+        combine(_tracks, _searchQuery, _libraryFilter) { list, query, filter ->
+            Triple(list, query, filter)
+        },
+        combine(_playlists, _selectedPlaylistId, _librarySortOrder) { playlistsList, selectedPlId, sortOrder ->
+            Triple(playlistsList, selectedPlId, sortOrder)
+        }
+    ) { (list, query, filter), (playlistsList, selectedPlId, sortOrder) ->
         val q = query.trim().lowercase()
         val plTrackIds = selectedPlId?.let { id -> playlistsList.firstOrNull { it.id == id }?.trackIds?.toSet() }
-        list.filter { item ->
+        val filtered = list.filter { item ->
             val matchesPlaylist = plTrackIds == null || item.id in plTrackIds || item.stableKey in plTrackIds
             val matchesFilter = when (filter) {
                 LibraryFilter.ALL -> true
@@ -178,9 +226,43 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             val matchesQuery = q.isEmpty() ||
                 item.title.lowercase().contains(q) ||
                 item.artist.lowercase().contains(q) ||
-                item.album.lowercase().contains(q)
+                item.album.lowercase().contains(q) ||
+                item.folderName.lowercase().contains(q)
             matchesPlaylist && matchesFilter && matchesQuery
         }
+        when (sortOrder) {
+            LibrarySortOrder.RECENT -> filtered.sortedByDescending { it.dateAddedSec }
+            LibrarySortOrder.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            LibrarySortOrder.ARTIST -> filtered.sortedWith(compareBy<AudioTrackItem> { it.artist.lowercase() }.thenBy { it.title.lowercase() })
+            LibrarySortOrder.DURATION -> filtered.sortedByDescending { it.durationSeconds }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentTracks: StateFlow<List<AudioTrackItem>> = combine(_tracks, _recentTrackKeys) { all, keys ->
+        if (all.isEmpty() || keys.isEmpty()) return@combine emptyList()
+        val byKey = all.associateBy { it.stableKey }
+        val byId = all.associateBy { it.id }
+        keys.mapNotNull { k -> byKey[k] ?: byId[k] }.distinctBy { it.stableKey }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val mostPlayedTracks: StateFlow<List<AudioTrackItem>> = combine(_tracks, _trackPlayCounts) { all, counts ->
+        if (all.isEmpty() || counts.isEmpty()) return@combine emptyList()
+        all.mapNotNull { tr ->
+            val count = counts[tr.stableKey] ?: counts[tr.id] ?: 0
+            if (count > 0) tr to count else null
+        }.sortedByDescending { it.second }.map { it.first }.take(15)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val folders: StateFlow<List<FolderSummary>> = _tracks.map { list ->
+        list.groupBy { it.folderName.ifBlank { "Música" } }
+            .map { (folder, items) ->
+                FolderSummary(
+                    name = folder,
+                    trackCount = items.size,
+                    sampleArtUri = items.firstOrNull { it.albumArtUri != null }?.albumArtUri
+                )
+            }
+            .sortedBy { it.name.lowercase() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val artists: StateFlow<List<ArtistSummary>> = _tracks.map { list ->
@@ -384,6 +466,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         startTelemetryLoop()
     }
 
+    private fun toExoRepeatMode(mode: RepeatMode): Int = when (mode) {
+        RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+        RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+    }
+
+    private fun fromExoRepeatMode(exoMode: Int): RepeatMode = when (exoMode) {
+        Player.REPEAT_MODE_ONE -> RepeatMode.ONE
+        Player.REPEAT_MODE_ALL -> RepeatMode.ALL
+        else -> RepeatMode.OFF
+    }
+
     private fun connectMedia3Controller() {
         try {
             val token = SessionToken(context, ComponentName(context, CarAudioPlaybackService::class.java))
@@ -395,7 +489,48 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                         val controller = future.get()
                         mediaController = controller
                         controller.volume = _volumeLevel.value
+                        controller.shuffleModeEnabled = _shuffleEnabled.value
+                        controller.repeatMode = toExoRepeatMode(_repeatMode.value)
+                        controller.playbackParameters = PlaybackParameters(_playbackSpeed.value, _playbackPitch.value)
+
                         controller.addListener(object : Player.Listener {
+                            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                                if (_sleepTimerStopAfterTrack.value && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                                    _sleepTimerStopAfterTrack.value = false
+                                    controller.pause()
+                                    _isPlaying.value = false
+                                    _isAnyAudioPlaying.value = false
+                                    audioEngine.syncPlaybackStateFromMedia3(_currentTrack.value, false, 0)
+                                    return
+                                }
+                                val id = mediaItem?.mediaId ?: return
+                                val matched = _queueTracks.value.firstOrNull { it.stableKey == id || it.id == id }
+                                    ?: _tracks.value.firstOrNull { it.stableKey == id || it.id == id }
+                                if (matched != null && matched.stableKey != _currentTrack.value?.stableKey) {
+                                    _currentTrack.value = matched
+                                    _playbackSeconds.value = 0
+                                    recordTrackPlay(matched)
+                                    localStore.lastTrackKey = matched.stableKey
+                                    localStore.lastPositionSeconds = 0
+                                    audioEngine.syncPlaybackStateFromMedia3(matched, controller.isPlaying, 0)
+                                }
+                            }
+
+                            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                                if (_shuffleEnabled.value != shuffleModeEnabled) {
+                                    _shuffleEnabled.value = shuffleModeEnabled
+                                    localStore.shuffleEnabled = shuffleModeEnabled
+                                }
+                            }
+
+                            override fun onRepeatModeChanged(repeatMode: Int) {
+                                val mapped = fromExoRepeatMode(repeatMode)
+                                if (_repeatMode.value != mapped) {
+                                    _repeatMode.value = mapped
+                                    localStore.saveRepeatMode(mapped)
+                                }
+                            }
+
                             override fun onIsPlayingChanged(isPlaying: Boolean) {
                                 _isPlaying.value = isPlaying
                                 _isAnyAudioPlaying.value = isPlaying
@@ -407,6 +542,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
                             override fun onPlaybackStateChanged(playbackState: Int) {
                                 if (playbackState == Player.STATE_ENDED) {
+                                    if (_sleepTimerStopAfterTrack.value) {
+                                        _sleepTimerStopAfterTrack.value = false
+                                    }
                                     handleTrackCompletion()
                                 }
                             }
@@ -676,9 +814,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     // =====================================================================
     private fun needsLiveVisualizer(section: AppSection = _selectedSection.value): Boolean {
         return section == AppSection.HOME ||
-            section == AppSection.MUSIC_PLAYER ||
-            section == AppSection.AUDIO_LAB ||
-            section == AppSection.AUDIO_METERS ||
+            section == AppSection.PLAYER ||
+            section == AppSection.EQUALIZER ||
+            section == AppSection.AUDIO_TOOLS ||
             _isMicRta.value
     }
 
@@ -789,6 +927,11 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         _libraryFilter.value = filter
     }
 
+    fun setLibrarySortOrder(order: LibrarySortOrder) {
+        _librarySortOrder.value = order
+        localStore.saveSortOrder(order)
+    }
+
     fun toggleFavorite(track: AudioTrackItem) {
         val currentFavs = _favoriteIds.value.toMutableSet()
         val nowFav = !track.isFavorite
@@ -808,10 +951,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         _queueTracks.value = _queueTracks.value.map {
             if (it.id == track.id || it.stableKey == track.stableKey) it.copy(isFavorite = nowFav) else it
         }
-        if (_currentTrack.value?.id == track.id) {
+        if (_currentTrack.value?.id == track.id || _currentTrack.value?.stableKey == track.stableKey) {
             _currentTrack.value = _currentTrack.value?.copy(isFavorite = nowFav)
         }
         scheduleProfileCloudSync()
+    }
+
+    private fun extractFolderName(rawPath: String?): String {
+        if (rawPath.isNullOrBlank()) return "Música"
+        val cleaned = rawPath.trim('/').trim()
+        if (cleaned.isEmpty()) return "Música"
+        val parts = cleaned.split('/').filter { it.isNotBlank() }
+        return if (parts.isEmpty()) "Música" else parts.last()
     }
 
     fun scanDeviceMusicLibrary() {
@@ -834,15 +985,32 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
                 if (hasPerm) {
                     try {
-                        val projection = arrayOf(
-                            MediaStore.Audio.Media._ID,
-                            MediaStore.Audio.Media.TITLE,
-                            MediaStore.Audio.Media.ARTIST,
-                            MediaStore.Audio.Media.ALBUM,
-                            MediaStore.Audio.Media.DURATION,
-                            MediaStore.Audio.Media.ALBUM_ID,
-                            MediaStore.Audio.Media.MIME_TYPE
-                        )
+                        val projection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            arrayOf(
+                                MediaStore.Audio.Media._ID,
+                                MediaStore.Audio.Media.TITLE,
+                                MediaStore.Audio.Media.ARTIST,
+                                MediaStore.Audio.Media.ALBUM,
+                                MediaStore.Audio.Media.DURATION,
+                                MediaStore.Audio.Media.ALBUM_ID,
+                                MediaStore.Audio.Media.MIME_TYPE,
+                                MediaStore.Audio.Media.RELATIVE_PATH,
+                                MediaStore.Audio.Media.DATE_ADDED
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            arrayOf(
+                                MediaStore.Audio.Media._ID,
+                                MediaStore.Audio.Media.TITLE,
+                                MediaStore.Audio.Media.ARTIST,
+                                MediaStore.Audio.Media.ALBUM,
+                                MediaStore.Audio.Media.DURATION,
+                                MediaStore.Audio.Media.ALBUM_ID,
+                                MediaStore.Audio.Media.MIME_TYPE,
+                                MediaStore.Audio.Media.DATA,
+                                MediaStore.Audio.Media.DATE_ADDED
+                            )
+                        }
                         val selection = "${MediaStore.Audio.Media.DURATION} >= 3000"
                         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
                         context.contentResolver.query(
@@ -859,6 +1027,14 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                             val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                             val albumIdCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
                             val mimeCol = cursor.getColumnIndex(MediaStore.Audio.Media.MIME_TYPE)
+                            val dateAddedCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
+                            val relPathCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+                            } else -1
+                            @Suppress("DEPRECATION")
+                            val dataCol = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                                cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                            } else -1
 
                             while (cursor.moveToNext()) {
                                 val id = cursor.getLong(idCol)
@@ -877,6 +1053,16 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                                 val durationSec = (cursor.getLong(durCol) / 1000L).toInt().coerceAtLeast(1)
                                 val mime = if (mimeCol >= 0) cursor.getString(mimeCol) else null
                                 val formatLabel = formatMimeLabel(mime)
+                                val dateAddedSec = if (dateAddedCol >= 0) cursor.getLong(dateAddedCol) else 0L
+                                val folder = when {
+                                    relPathCol >= 0 -> extractFolderName(cursor.getString(relPathCol))
+                                    dataCol >= 0 -> {
+                                        val filePath = cursor.getString(dataCol)
+                                        val parent = filePath?.substringBeforeLast('/')
+                                        extractFolderName(parent)
+                                    }
+                                    else -> "Música"
+                                }
                                 val artUri = if (albumIdCol >= 0) {
                                     val albumId = cursor.getLong(albumIdCol)
                                     if (albumId > 0L) {
@@ -900,7 +1086,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                                         customUri = contentUri,
                                         albumArtUri = artUri,
                                         isFavorite = favs.contains(trackId) || favs.contains(uriKey),
-                                        audioFormatLabel = formatLabel
+                                        audioFormatLabel = formatLabel,
+                                        folderName = folder,
+                                        dateAddedSec = dateAddedSec
                                     )
                                 )
                             }
@@ -1065,18 +1253,65 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun allKnownTracks(): List<AudioTrackItem> =
+        (_tracks.value + _queueTracks.value).distinctBy { it.stableKey }
+
     fun playArtist(artistName: String) {
-        val list = _tracks.value.filter { it.artist.equals(artistName, ignoreCase = true) }
+        val list = allKnownTracks().filter { it.artist.equals(artistName, ignoreCase = true) }
         if (list.isEmpty()) return
         setQueueInternal(list)
         playTrack(list.first())
     }
 
     fun playAlbum(albumTitle: String) {
-        val list = _tracks.value.filter { it.album.equals(albumTitle, ignoreCase = true) }
+        val list = allKnownTracks().filter { it.album.equals(albumTitle, ignoreCase = true) }
         if (list.isEmpty()) return
         setQueueInternal(list)
         playTrack(list.first())
+    }
+
+    fun playFolder(folderName: String) {
+        val list = allKnownTracks().filter { it.folderName.equals(folderName, ignoreCase = true) }
+        if (list.isEmpty()) return
+        setQueueInternal(list)
+        playTrack(list.first())
+    }
+
+    fun playPlaylist(playlistId: String, shuffled: Boolean = false) {
+        val pl = _playlists.value.firstOrNull { it.id == playlistId } ?: return
+        val ids = pl.trackIds.toSet()
+        val list = allKnownTracks().filter { it.id in ids || it.stableKey in ids }
+        if (list.isEmpty()) return
+        val finalQueue = if (shuffled) list.shuffled() else list
+        setQueueInternal(finalQueue)
+        playTrack(finalQueue.first())
+    }
+
+    fun playAllTracks(shuffled: Boolean = false, sourceList: List<AudioTrackItem> = filteredTracks.value) {
+        val source = if (sourceList.isNotEmpty()) sourceList else _tracks.value
+        if (source.isEmpty()) return
+        if (shuffled && !_shuffleEnabled.value) {
+            _shuffleEnabled.value = true
+            localStore.shuffleEnabled = true
+        } else if (!shuffled && _shuffleEnabled.value) {
+            _shuffleEnabled.value = false
+            localStore.shuffleEnabled = false
+        }
+        val finalQueue = if (shuffled) source.shuffled() else source
+        setQueueInternal(finalQueue)
+        playTrack(finalQueue.first())
+    }
+
+    private fun recordTrackPlay(track: AudioTrackItem) {
+        val key = track.stableKey
+        val updatedRecent = (listOf(key) + _recentTrackKeys.value.filter { it != key }).take(25)
+        _recentTrackKeys.value = updatedRecent
+        localStore.saveRecentTrackKeys(updatedRecent)
+
+        val nextCounts = _trackPlayCounts.value.toMutableMap()
+        nextCounts[key] = (nextCounts[key] ?: 0) + 1
+        _trackPlayCounts.value = nextCounts
+        localStore.savePlayCounts(nextCounts)
     }
 
     // =====================================================================
@@ -1092,7 +1327,16 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     fun addToQueue(track: AudioTrackItem, silent: Boolean = false) {
         if (_queueTracks.value.any { it.stableKey == track.stableKey }) return
-        setQueueInternal(_queueTracks.value + track)
+        val updated = _queueTracks.value + track
+        setQueueInternal(updated)
+        try {
+            track.customUri?.let { uri ->
+                val mc = mediaController
+                if (mc != null && mc.mediaItemCount > 0) {
+                    mc.addMediaItem(buildMediaItem(track, uri))
+                }
+            }
+        } catch (_: Throwable) {}
     }
 
     fun playNextInQueue(track: AudioTrackItem) {
@@ -1102,8 +1346,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             val idx = currentList.indexOfFirst { it.stableKey == current.stableKey }
             if (idx >= 0) idx + 1 else 0
         } else 0
-        currentList.add(insertIndex.coerceIn(0, currentList.size), track)
+        val clampedIdx = insertIndex.coerceIn(0, currentList.size)
+        currentList.add(clampedIdx, track)
         setQueueInternal(currentList)
+        try {
+            val mc = mediaController
+            val uri = track.customUri
+            if (mc != null && uri != null && mc.mediaItemCount > 0) {
+                val activeIdx = mc.currentMediaItemIndex.coerceAtLeast(0)
+                val targetExoIdx = (activeIdx + 1).coerceIn(0, mc.mediaItemCount)
+                mc.addMediaItem(targetExoIdx, buildMediaItem(track, uri))
+            }
+        } catch (_: Throwable) {}
     }
 
     fun removeFromQueue(index: Int) {
@@ -1211,12 +1465,15 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     // =====================================================================
-    // Playback Controls (Media3 + AudioEngine DSP mirror)
+    // Playback Controls (Real Multi-Item Media3 Timeline + Speed/Pitch + Sleep Timer)
     // =====================================================================
     fun toggleShuffle() {
         val next = !_shuffleEnabled.value
         _shuffleEnabled.value = next
         localStore.shuffleEnabled = next
+        try {
+            mediaController?.shuffleModeEnabled = next
+        } catch (_: Throwable) {}
     }
 
     fun cycleRepeatMode() {
@@ -1227,6 +1484,119 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
         _repeatMode.value = next
         localStore.saveRepeatMode(next)
+        try {
+            mediaController?.repeatMode = toExoRepeatMode(next)
+        } catch (_: Throwable) {}
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        val clamped = speed.coerceIn(0.5f, 2.0f)
+        _playbackSpeed.value = clamped
+        localStore.playbackSpeed = clamped
+        applyPlaybackParametersToController()
+    }
+
+    fun setPlaybackPitch(pitch: Float) {
+        val clamped = pitch.coerceIn(0.5f, 2.0f)
+        _playbackPitch.value = clamped
+        localStore.playbackPitch = clamped
+        applyPlaybackParametersToController()
+    }
+
+    fun resetPlaybackSpeedPitch() {
+        _playbackSpeed.value = 1.0f
+        _playbackPitch.value = 1.0f
+        localStore.playbackSpeed = 1.0f
+        localStore.playbackPitch = 1.0f
+        applyPlaybackParametersToController()
+    }
+
+    private fun applyPlaybackParametersToController() {
+        try {
+            mediaController?.playbackParameters = PlaybackParameters(_playbackSpeed.value, _playbackPitch.value)
+        } catch (_: Throwable) {}
+    }
+
+    fun startSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        _sleepTimerStopAfterTrack.value = false
+        if (minutes <= 0) {
+            _sleepTimerRemainingSec.value = null
+            restorePreSleepVolumeIfNeeded()
+            return
+        }
+        val totalSeconds = minutes * 60
+        _sleepTimerRemainingSec.value = totalSeconds
+        preSleepVolume = _volumeLevel.value
+        sleepTimerJob = viewModelScope.launch {
+            var remaining = totalSeconds
+            while (remaining > 0 && isActive) {
+                delay(1000L)
+                remaining--
+                _sleepTimerRemainingSec.value = remaining
+                val baseVol = preSleepVolume ?: _volumeLevel.value
+                if (remaining in 1..10 && baseVol > 0.05f) {
+                    val factor = remaining / 10f
+                    val faded = (baseVol * factor).coerceIn(0.02f, 1f)
+                    audioEngine.setVolume(faded)
+                    try {
+                        mediaController?.volume = faded
+                    } catch (_: Throwable) {}
+                }
+            }
+            if (isActive && remaining <= 0) {
+                _sleepTimerRemainingSec.value = null
+                try {
+                    mediaController?.pause()
+                } catch (_: Throwable) {}
+                _isPlaying.value = false
+                _isAnyAudioPlaying.value = false
+                audioEngine.syncPlaybackStateFromMedia3(_currentTrack.value, false, _playbackSeconds.value)
+                restorePreSleepVolumeIfNeeded()
+            }
+        }
+    }
+
+    fun toggleSleepAfterCurrentTrack() {
+        val next = !_sleepTimerStopAfterTrack.value
+        _sleepTimerStopAfterTrack.value = next
+        if (next) {
+            sleepTimerJob?.cancel()
+            _sleepTimerRemainingSec.value = null
+            restorePreSleepVolumeIfNeeded()
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerRemainingSec.value = null
+        _sleepTimerStopAfterTrack.value = false
+        restorePreSleepVolumeIfNeeded()
+    }
+
+    private fun restorePreSleepVolumeIfNeeded() {
+        val saved = preSleepVolume ?: return
+        preSleepVolume = null
+        _volumeLevel.value = saved
+        audioEngine.setVolume(saved)
+        try {
+            mediaController?.volume = saved
+        } catch (_: Throwable) {}
+    }
+
+    private fun buildMediaItem(track: AudioTrackItem, uri: Uri): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+            .setAlbumTitle(track.album)
+            .setArtworkUri(track.albumArtUri)
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(track.stableKey)
+            .setUri(uri)
+            .setMediaMetadata(metadata)
+            .build()
     }
 
     fun playTrack(track: AudioTrackItem, startPositionSec: Int = 0) {
@@ -1239,26 +1609,26 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         _playbackSeconds.value = startPositionSec.coerceAtLeast(0)
         localStore.lastTrackKey = track.stableKey
         localStore.lastPositionSeconds = startPositionSec.coerceAtLeast(0)
+        recordTrackPlay(track)
 
         audioEngine.syncPlaybackStateFromMedia3(track, playing = true, positionSeconds = startPositionSec)
         audioEngine.applyDspSettings(_dspSettings.value, _equalizerSettings.value)
 
+        val playableQueue = _queueTracks.value.filter { it.customUri != null }
         val uri = track.customUri
         if (uri != null) {
             try {
-                val metadata = MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .setArtist(track.artist)
-                    .setAlbumTitle(track.album)
-                    .setArtworkUri(track.albumArtUri)
-                    .build()
-                val mediaItem = MediaItem.Builder()
-                    .setMediaId(track.id)
-                    .setUri(uri)
-                    .setMediaMetadata(metadata)
-                    .build()
                 mediaController?.let { mc ->
-                    mc.setMediaItem(mediaItem, startPositionSec * 1000L)
+                    val items = if (playableQueue.isNotEmpty()) {
+                        playableQueue.mapNotNull { item -> item.customUri?.let { u -> buildMediaItem(item, u) } }
+                    } else {
+                        listOf(buildMediaItem(track, uri))
+                    }
+                    val startIdx = playableQueue.indexOfFirst { it.stableKey == track.stableKey }.coerceAtLeast(0)
+                    mc.setMediaItems(items, startIdx, startPositionSec * 1000L)
+                    mc.shuffleModeEnabled = _shuffleEnabled.value
+                    mc.repeatMode = toExoRepeatMode(_repeatMode.value)
+                    mc.playbackParameters = PlaybackParameters(_playbackSpeed.value, _playbackPitch.value)
                     mc.prepare()
                     mc.play()
                 }
@@ -1325,6 +1695,12 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun nextTrack() {
+        val mc = mediaController
+        if (mc != null && mc.mediaItemCount > 1 && mc.hasNextMediaItem()) {
+            mc.seekToNextMediaItem()
+            if (!mc.isPlaying) mc.play()
+            return
+        }
         val list = if (_queueTracks.value.isNotEmpty()) _queueTracks.value else _tracks.value
         if (list.isEmpty()) return
         if (_shuffleEnabled.value && list.size > 1) {
@@ -1340,12 +1716,18 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun previousTrack() {
-        val list = if (_queueTracks.value.isNotEmpty()) _queueTracks.value else _tracks.value
-        if (list.isEmpty()) return
+        val mc = mediaController
         if (_playbackSeconds.value > 4 && _currentTrack.value != null) {
             seekTo(0)
             return
         }
+        if (mc != null && mc.mediaItemCount > 1 && mc.hasPreviousMediaItem()) {
+            mc.seekToPreviousMediaItem()
+            if (!mc.isPlaying) mc.play()
+            return
+        }
+        val list = if (_queueTracks.value.isNotEmpty()) _queueTracks.value else _tracks.value
+        if (list.isEmpty()) return
         val current = _currentTrack.value
         val idx = if (current != null) list.indexOfFirst { it.id == current.id } else -1
         val prevIdx = if (idx > 0) idx - 1 else list.size - 1
@@ -1364,6 +1746,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
 
     fun setVolume(volume: Float) {
         val clamped = volume.coerceIn(0f, 1f)
+        preSleepVolume = null
         _volumeLevel.value = clamped
         audioEngine.setVolume(clamped)
         try {
@@ -1427,7 +1810,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                     val rms = audioEngine.rmsLevelDb
                     if (abs(_rmsDb.value - rms) > 0.3f) _rmsDb.value = rms
 
-                    if (_selectedSection.value == AppSection.AUDIO_METERS || _isMicRta.value) {
+                    if (_selectedSection.value == AppSection.AUDIO_TOOLS || _isMicRta.value) {
                         _rtaBands.value = audioEngine.getRtaSnapshot()
                         _oscilloscopeWave.value = audioEngine.rawOscilloscopePcm.copyOf()
                     }
@@ -1557,7 +1940,6 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setTheme(theme: CarAudioThemeType) {
-        if (theme.isVipOnly && !_isVipUnlocked.value) return
         _currentTheme.value = theme
         localStore.saveThemeId(theme.id)
         scheduleProfileCloudSync()
@@ -1727,17 +2109,14 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setHiResQuality(enabled: Boolean) {
-        if (enabled && !_isVipUnlocked.value) return
         updateAndCommitDsp(_dspSettings.value.copy(hiResQualityEnabled = enabled))
     }
 
     fun setTubeWarmth(level: Float) {
-        if (level > 0f && !_isVipUnlocked.value) return
         updateAndCommitDsp(_dspSettings.value.copy(tubeWarmthLevel = level.coerceIn(0f, 10f)))
     }
 
     fun setPresence(enabled: Boolean, level: Float) {
-        if (enabled && !_isVipUnlocked.value) return
         updateAndCommitDsp(
             _dspSettings.value.copy(
                 presenceEnabled = enabled,
@@ -1747,7 +2126,6 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setClarity(enabled: Boolean, level: Float) {
-        if (enabled && !_isVipUnlocked.value) return
         updateAndCommitDsp(
             _dspSettings.value.copy(
                 clarityEnabled = enabled,
@@ -1757,7 +2135,6 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setExciter(enabled: Boolean, level: Float) {
-        if (enabled && !_isVipUnlocked.value) return
         updateAndCommitDsp(
             _dspSettings.value.copy(
                 exciterEnabled = enabled,
@@ -1888,7 +2265,6 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectPreset(preset: EqPresetItem) {
-        if (preset.isVip && !_isVipUnlocked.value) return
         val new31 = if (preset.bands31.size == 31) preset.bands31 else expand10To31(preset.bands10)
         val new10 = if (preset.bands10.size == 10) preset.bands10 else EqualizerSettings.bands10From31(new31)
         updateAndCommitEq(
@@ -2000,15 +2376,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun applyCustomSoundProfile(profile: CustomSoundProfile) {
-        val newDsp = profile.dspSettings.let { d ->
-            if (_isVipUnlocked.value) d else d.copy(
-                hiResQualityEnabled = false,
-                tubeWarmthLevel = 0f,
-                presenceEnabled = false,
-                clarityEnabled = false,
-                exciterEnabled = false
-            )
-        }
+        val newDsp = profile.dspSettings
         val b31 = if (profile.eqBands31.size == 31) profile.eqBands31 else expand10To31(profile.eqBands10)
         val b10 = if (profile.eqBands10.size == 10) profile.eqBands10 else EqualizerSettings.bands10From31(b31)
         val newEq = _equalizerSettings.value.copy(
@@ -2034,6 +2402,157 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // =====================================================================
+    // Live A/B Configuration Comparison
+    // =====================================================================
+    fun captureAbSlot(slot: AbSlot) {
+        val eq = _equalizerSettings.value
+        val dsp = _dspSettings.value
+        val snapshot = DspAbSnapshot(
+            slot = slot,
+            name = "${slot.label} • ${eq.activePresetName}",
+            dspSettings = dsp,
+            bands10 = eq.bands10.toList(),
+            bands31 = eq.bands31.toList(),
+            savedAtMs = System.currentTimeMillis()
+        )
+        when (slot) {
+            AbSlot.A -> _abSlotA.value = snapshot
+            AbSlot.B -> _abSlotB.value = snapshot
+        }
+        _activeAbSlot.value = slot
+        localStore.saveAbSnapshot(slot, snapshot)
+        localStore.saveActiveAbSlot(slot)
+    }
+
+    fun applyAbSlot(slot: AbSlot) {
+        val snapshot = when (slot) {
+            AbSlot.A -> _abSlotA.value
+            AbSlot.B -> _abSlotB.value
+        } ?: run {
+            captureAbSlot(slot)
+            return
+        }
+        val b31 = if (snapshot.bands31.size == 31) snapshot.bands31 else expand10To31(snapshot.bands10)
+        val b10 = if (snapshot.bands10.size == 10) snapshot.bands10 else EqualizerSettings.bands10From31(b31)
+        val updatedEq = _equalizerSettings.value.copy(
+            isEnabled = true,
+            bands10 = b10,
+            bands15 = b10To15(b10),
+            bands31 = b31,
+            activePresetName = snapshot.name
+        )
+        _dspSettings.value = snapshot.dspSettings
+        _equalizerSettings.value = updatedEq
+        _activeAbSlot.value = slot
+        audioEngine.applyDspSettings(snapshot.dspSettings, updatedEq)
+        localStore.saveDspSettings(snapshot.dspSettings)
+        localStore.saveEqualizerSettings(updatedEq)
+        localStore.saveActiveAbSlot(slot)
+    }
+
+    fun toggleAbComparison() {
+        val snapA = _abSlotA.value
+        val snapB = _abSlotB.value
+        when {
+            snapA == null && snapB == null -> {
+                captureAbSlot(AbSlot.A)
+            }
+            snapA != null && snapB == null -> {
+                captureAbSlot(AbSlot.B)
+            }
+            snapA == null && snapB != null -> {
+                captureAbSlot(AbSlot.A)
+            }
+            else -> {
+                val nextSlot = if (_activeAbSlot.value == AbSlot.A) AbSlot.B else AbSlot.A
+                applyAbSlot(nextSlot)
+            }
+        }
+    }
+
+    fun clearAbSlot(slot: AbSlot) {
+        when (slot) {
+            AbSlot.A -> _abSlotA.value = null
+            AbSlot.B -> _abSlotB.value = null
+        }
+        if (_activeAbSlot.value == slot) {
+            _activeAbSlot.value = null
+            localStore.saveActiveAbSlot(null)
+        }
+        localStore.saveAbSnapshot(slot, null)
+    }
+
+    // =====================================================================
+    // YouTube Music Integration (Official App / Web Search Shortcuts)
+    // =====================================================================
+    fun setYtSearchQuery(query: String) {
+        _ytSearchQuery.value = query
+    }
+
+    fun recordYtSearch(query: String) {
+        val clean = query.trim()
+        if (clean.isEmpty()) return
+        val updated = (listOf(clean) + _ytSearchHistory.value.filterNot { it.equals(clean, ignoreCase = true) }).take(12)
+        _ytSearchHistory.value = updated
+        localStore.saveYouTubeSearchHistory(updated)
+    }
+
+    fun saveYtShortcut(
+        title: String,
+        artist: String = "",
+        customUrl: String? = null,
+        favorite: Boolean = false
+    ) {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return
+        val cleanArtist = artist.trim()
+        val cleanUrl = customUrl?.trim()?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        val item = YouTubeMusicItem(
+            id = "yt_${System.currentTimeMillis()}_${cleanTitle.hashCode()}",
+            title = cleanTitle,
+            artist = cleanArtist,
+            category = if (cleanUrl != null) "Enlace guardado" else "Búsqueda guardada",
+            customUrl = cleanUrl,
+            isFavorite = favorite
+        )
+        val updated = listOf(item) + _ytSavedItems.value.filterNot {
+            it.title.equals(cleanTitle, ignoreCase = true) && it.artist.equals(cleanArtist, ignoreCase = true)
+        }
+        _ytSavedItems.value = updated
+        localStore.saveYouTubeMusicItems(updated)
+    }
+
+    fun toggleYtFavorite(id: String) {
+        val updated = _ytSavedItems.value.map { item ->
+            if (item.id == id) item.copy(isFavorite = !item.isFavorite) else item
+        }
+        _ytSavedItems.value = updated
+        localStore.saveYouTubeMusicItems(updated)
+    }
+
+    fun removeYtItem(id: String) {
+        val updated = _ytSavedItems.value.filterNot { it.id == id }
+        _ytSavedItems.value = updated
+        localStore.saveYouTubeMusicItems(updated)
+    }
+
+    fun clearYtHistory() {
+        _ytSearchHistory.value = emptyList()
+        localStore.saveYouTubeSearchHistory(emptyList())
+    }
+
+    fun buildYouTubeMusicSearchUri(query: String): Uri {
+        val clean = query.trim()
+        return if (clean.startsWith("https://music.youtube.com") || clean.startsWith("http://music.youtube.com")) {
+            Uri.parse(clean)
+        } else if (clean.isEmpty()) {
+            Uri.parse("https://music.youtube.com/")
+        } else {
+            Uri.parse("https://music.youtube.com/search?q=${Uri.encode(clean)}")
+        }
+    }
+
     fun toggleMicRta(hasRecordPermission: Boolean) {
         if (!hasRecordPermission) return
         if (audioEngine.isMicRtaActive) {
@@ -2044,6 +2563,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _isMicRta.value = true
         }
         audioEngine.setVisualizerActive(uiActive && needsLiveVisualizer())
+        audioEngine.ensureVisualizerAttached()
     }
 
     private fun expand10To31(b10: List<Float>): List<Float> {

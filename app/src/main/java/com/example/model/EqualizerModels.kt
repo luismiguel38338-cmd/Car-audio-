@@ -217,7 +217,7 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "VIP Estudio Master",
+            name = "Estudio Master Pro",
             description = "Curva de masterización Hi-Res con separación estéreo limpia y aire de estudio.",
             bands10 = listOf(4.0f, 3.4f, 0.5f, -0.5f, 0.8f, 2.4f, 2.6f, 3.0f, 5.0f, 4.2f),
             bands = listOf(3.5f, 4.5f, 3.5f, 1.5f, 0.5f, -0.5f, 0f, 1.0f, 2.2f, 3.0f, 2.5f, 2.8f, 4.0f, 5.0f, 4.5f),
@@ -229,11 +229,11 @@ object EqPresetCatalog {
             paramFreq = 42f,
             paramGain = 4.5f,
             paramQ = 1.3f,
-            isVip = true
+            isVip = false
         ),
         EqPresetItem(
-            name = "VIP Sub-Bass Extremo",
-            description = "Excursión profunda controlada en 25-50 Hz sin opacar las voces.",
+            name = "Sub-Bass Competición",
+            description = "Excursión profunda controlada en 25-50 Hz para subwoofer automotriz sin opacar voces.",
             bands10 = listOf(9.5f, 8.0f, 1.5f, -1.5f, 0.5f, 2.8f, 3.2f, 3.4f, 4.6f, 3.2f),
             bands = listOf(8f, 10f, 8.5f, 4.5f, 1.0f, -1.5f, -1.0f, 0.5f, 2.0f, 3.5f, 3.0f, 3.0f, 4.0f, 4.5f, 3.5f),
             bands31 = listOf(
@@ -244,11 +244,11 @@ object EqPresetCatalog {
             paramFreq = 36f,
             paramGain = 8.0f,
             paramQ = 1.5f,
-            isVip = true
+            isVip = false
         ),
         EqPresetItem(
-            name = "VIP Sala de Conciertos",
-            description = "Amplitud acústica inmersiva, calidez analógica y brillo sedoso.",
+            name = "Acústica Cabina Pro",
+            description = "Amplitud acústica inmersiva para cabina de vehículo, calidez analógica y brillo sedoso.",
             bands10 = listOf(4.0f, 3.8f, 0.5f, -0.8f, 1.0f, 3.2f, 3.8f, 4.0f, 5.5f, 4.2f),
             bands = listOf(3f, 4.5f, 4f, 2f, 0.5f, -1f, -0.5f, 1f, 2.5f, 3.5f, 4f, 3.5f, 4.5f, 5.5f, 5f),
             bands31 = listOf(
@@ -259,7 +259,7 @@ object EqPresetCatalog {
             paramFreq = 60f,
             paramGain = 4.0f,
             paramQ = 1.2f,
-            isVip = true
+            isVip = false
         ),
         EqPresetItem(
             name = "Custom",

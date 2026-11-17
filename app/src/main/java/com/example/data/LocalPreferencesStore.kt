@@ -2,9 +2,11 @@ package com.example.data
 
 import android.content.Context
 import android.net.Uri
+import com.example.model.AbSlot
 import com.example.model.AudioTrackItem
 import com.example.model.CarAudioThemeType
 import com.example.model.CustomSoundProfile
+import com.example.model.DspAbSnapshot
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqPresetItem
@@ -12,34 +14,35 @@ import com.example.model.EqualizerSettings
 import com.example.model.MusicPlaylist
 import com.example.model.RepeatMode
 import com.example.model.TrackCategory
+import com.example.model.YouTubeMusicItem
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Device-local JSON/SharedPreferences store for DSP settings, cached tracks, playlists, and UI flags.
- * Cloud data per user is synced separately via [FirebaseUserRepository].
+ * Device-local JSON/SharedPreferences store for DSP settings, A/B snapshots,
+ * cached tracks, playlists, YouTube Music shortcuts, and UI flags.
  */
 class LocalPreferencesStore(context: Context) {
     private val prefs = context.getSharedPreferences("car_audio_dsp_prefs", Context.MODE_PRIVATE)
 
     var introEnabled: Boolean
-        get() = prefs.getBoolean("intro_video_enabled", true)
+        get() = prefs.getBoolean("intro_video_enabled", false)
         set(value) = prefs.edit().putBoolean("intro_video_enabled", value).apply()
 
     var dontShowIntroAgain: Boolean
-        get() = prefs.getBoolean("dont_show_again", false)
+        get() = prefs.getBoolean("dont_show_again", true)
         set(value) = prefs.edit().putBoolean("dont_show_again", value).apply()
 
     var onboardingCompleted: Boolean
-        get() = prefs.getBoolean("onboarding_completed", false)
+        get() = prefs.getBoolean("onboarding_completed", true)
         set(value) = prefs.edit().putBoolean("onboarding_completed", value).apply()
 
     var vipPromoDismissed: Boolean
-        get() = prefs.getBoolean("vip_intro_dismissed", false)
+        get() = prefs.getBoolean("vip_intro_dismissed", true)
         set(value) = prefs.edit().putBoolean("vip_intro_dismissed", value).apply()
 
     var isVipUnlocked: Boolean
-        get() = prefs.getBoolean("vip_unlocked", false)
+        get() = prefs.getBoolean("vip_unlocked", true)
         set(value) = prefs.edit().putBoolean("vip_unlocked", value).apply()
 
     var keepScreenOn: Boolean
@@ -64,10 +67,76 @@ class LocalPreferencesStore(context: Context) {
         get() = prefs.getInt("last_position_sec", 0)
         set(value) = prefs.edit().putInt("last_position_sec", value.coerceAtLeast(0)).apply()
 
-    fun loadTheme(vipUnlocked: Boolean): CarAudioThemeType {
+    var playbackSpeed: Float
+        get() = prefs.getFloat("playback_speed", 1.0f).coerceIn(0.5f, 2.0f)
+        set(value) = prefs.edit().putFloat("playback_speed", value.coerceIn(0.5f, 2.0f)).apply()
+
+    var playbackPitch: Float
+        get() = prefs.getFloat("playback_pitch", 1.0f).coerceIn(0.5f, 2.0f)
+        set(value) = prefs.edit().putFloat("playback_pitch", value.coerceIn(0.5f, 2.0f)).apply()
+
+    fun loadSortOrder(): com.example.model.LibrarySortOrder {
+        val raw = prefs.getString("library_sort_order", com.example.model.LibrarySortOrder.RECENT.name)
+        return try {
+            com.example.model.LibrarySortOrder.valueOf(raw ?: com.example.model.LibrarySortOrder.RECENT.name)
+        } catch (_: Throwable) {
+            com.example.model.LibrarySortOrder.RECENT
+        }
+    }
+
+    fun saveSortOrder(order: com.example.model.LibrarySortOrder) {
+        prefs.edit().putString("library_sort_order", order.name).apply()
+    }
+
+    fun loadRecentTrackKeys(): List<String> {
+        val raw = prefs.getString("recent_track_keys_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { idx -> arr.optString(idx, "") }.filter { it.isNotBlank() }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    fun saveRecentTrackKeys(keys: List<String>) {
+        try {
+            prefs.edit().putString("recent_track_keys_json", JSONArray(keys.take(25)).toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun loadPlayCounts(): Map<String, Int> {
+        val raw = prefs.getString("track_play_counts_json", null) ?: return emptyMap()
+        return try {
+            val obj = JSONObject(raw)
+            val out = LinkedHashMap<String, Int>()
+            val iter = obj.keys()
+            while (iter.hasNext()) {
+                val key = iter.next()
+                val count = obj.optInt(key, 0)
+                if (key.isNotBlank() && count > 0) {
+                    out[key] = count
+                }
+            }
+            out
+        } catch (_: Throwable) {
+            emptyMap()
+        }
+    }
+
+    fun savePlayCounts(counts: Map<String, Int>) {
+        try {
+            val obj = JSONObject()
+            counts.entries
+                .sortedByDescending { it.value }
+                .take(250)
+                .forEach { (k, v) -> if (v > 0) obj.put(k, v) }
+            prefs.edit().putString("track_play_counts_json", obj.toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun loadTheme(vipUnlocked: Boolean = true): CarAudioThemeType {
         val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.GRAPHITE_STUDIO.id)
-        val found = CarAudioThemeType.fromId(savedId)
-        return if (found.isVipOnly && !vipUnlocked) CarAudioThemeType.GRAPHITE_STUDIO else found
+        return CarAudioThemeType.fromId(savedId)
     }
 
     fun saveThemeId(themeId: String) {
@@ -218,10 +287,10 @@ class LocalPreferencesStore(context: Context) {
         } catch (_: Throwable) {}
     }
 
-    fun loadDspSettings(vipUnlocked: Boolean): DspSettings {
+    fun loadDspSettings(vipUnlocked: Boolean = true): DspSettings {
         val raw = prefs.getString("saved_dsp_json", null) ?: return DspSettings()
         return try {
-            dspFromJson(JSONObject(raw), vipUnlocked)
+            dspFromJson(JSONObject(raw))
         } catch (_: Throwable) {
             DspSettings()
         }
@@ -276,7 +345,7 @@ class LocalPreferencesStore(context: Context) {
         } catch (_: Throwable) {}
     }
 
-    fun loadCustomSoundProfiles(vipUnlocked: Boolean): List<CustomSoundProfile> {
+    fun loadCustomSoundProfiles(vipUnlocked: Boolean = true): List<CustomSoundProfile> {
         val raw = prefs.getString("saved_sound_profiles_json", null) ?: return emptyList()
         return try {
             val arr = JSONArray(raw)
@@ -297,7 +366,7 @@ class LocalPreferencesStore(context: Context) {
                     name = obj.getString("name"),
                     description = obj.optString("desc", ""),
                     createdAtMs = obj.optLong("createdAt", System.currentTimeMillis()),
-                    dspSettings = dspFromJson(dspObj, vipUnlocked),
+                    dspSettings = dspFromJson(dspObj),
                     eqBands10 = b10,
                     eqBands15 = if (b15Arr != null && b15Arr.length() == 15) List(15) { b15Arr.optDouble(it, 0.0).toFloat() } else List(15) { 0f },
                     eqBands31 = b31
@@ -378,11 +447,131 @@ class LocalPreferencesStore(context: Context) {
         } catch (_: Throwable) {}
     }
 
+    // =====================================================================
+    // A/B Comparison Snapshots Persistence
+    // =====================================================================
+    fun loadAbSnapshot(slot: AbSlot): DspAbSnapshot? {
+        val raw = prefs.getString("ab_snapshot_${slot.name}", null) ?: return null
+        return try {
+            val obj = JSONObject(raw)
+            val b10Arr = obj.optJSONArray("b10")
+            val b31Arr = obj.optJSONArray("b31")
+            val b31 = if (b31Arr != null && b31Arr.length() == 31) {
+                List(31) { b31Arr.optDouble(it, 0.0).toFloat() }
+            } else List(31) { 0f }
+            val b10 = if (b10Arr != null && b10Arr.length() == 10) {
+                List(10) { b10Arr.optDouble(it, 0.0).toFloat() }
+            } else EqualizerSettings.bands10From31(b31)
+            DspAbSnapshot(
+                slot = slot,
+                name = obj.optString("name", slot.label),
+                dspSettings = dspFromJson(obj.optJSONObject("dsp") ?: JSONObject()),
+                bands10 = b10,
+                bands31 = b31,
+                savedAtMs = obj.optLong("savedAt", System.currentTimeMillis())
+            )
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun saveAbSnapshot(slot: AbSlot, snapshot: DspAbSnapshot?) {
+        try {
+            val key = "ab_snapshot_${slot.name}"
+            if (snapshot == null) {
+                prefs.edit().remove(key).apply()
+                return
+            }
+            val obj = JSONObject().apply {
+                put("name", snapshot.name)
+                put("savedAt", snapshot.savedAtMs)
+                put("dsp", dspToJson(snapshot.dspSettings))
+                put("b10", JSONArray(snapshot.bands10.map { it.toDouble() }))
+                put("b31", JSONArray(snapshot.bands31.map { it.toDouble() }))
+            }
+            prefs.edit().putString(key, obj.toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun loadActiveAbSlot(): AbSlot? {
+        val raw = prefs.getString("active_ab_slot", null) ?: return null
+        return try {
+            AbSlot.valueOf(raw)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun saveActiveAbSlot(slot: AbSlot?) {
+        if (slot == null) prefs.edit().remove("active_ab_slot").apply()
+        else prefs.edit().putString("active_ab_slot", slot.name).apply()
+    }
+
+    // =====================================================================
+    // YouTube Music Saved Shortcuts & Search History Persistence
+    // =====================================================================
+    fun loadYouTubeMusicItems(): List<YouTubeMusicItem> {
+        val raw = prefs.getString("yt_music_items_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i ->
+                val obj = arr.getJSONObject(i)
+                YouTubeMusicItem(
+                    id = obj.getString("id"),
+                    title = obj.getString("title"),
+                    artist = obj.optString("artist", ""),
+                    category = obj.optString("category", "Búsqueda directa"),
+                    customUrl = obj.optString("url", "").takeIf { it.isNotBlank() },
+                    isFavorite = obj.optBoolean("fav", false),
+                    addedAtMs = obj.optLong("addedAt", System.currentTimeMillis())
+                )
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    fun saveYouTubeMusicItems(items: List<YouTubeMusicItem>) {
+        try {
+            val arr = JSONArray()
+            items.forEach { item ->
+                arr.put(
+                    JSONObject().apply {
+                        put("id", item.id)
+                        put("title", item.title)
+                        put("artist", item.artist)
+                        put("category", item.category)
+                        put("url", item.customUrl ?: "")
+                        put("fav", item.isFavorite)
+                        put("addedAt", item.addedAtMs)
+                    }
+                )
+            }
+            prefs.edit().putString("yt_music_items_json", arr.toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun loadYouTubeSearchHistory(): List<String> {
+        val raw = prefs.getString("yt_search_history_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i -> arr.optString(i, "") }.filter { it.isNotBlank() }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    fun saveYouTubeSearchHistory(history: List<String>) {
+        try {
+            prefs.edit().putString("yt_search_history_json", JSONArray(history).toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }
 
-    private fun dspFromJson(o: JSONObject, vipUnlocked: Boolean): DspSettings {
+    private fun dspFromJson(o: JSONObject): DspSettings {
         return DspSettings(
             dspMasterEnabled = o.optBoolean("master", true),
             preampDb = o.optDouble("preamp", 0.0).toFloat(),
@@ -412,13 +601,13 @@ class LocalPreferencesStore(context: Context) {
             lpfEnabled = o.optBoolean("lpfEn", false),
             lpfFrequencyHz = o.optDouble("lpfHz", 19000.0).toFloat(),
             lpfSlopeDb = o.optInt("lpfSlope", 24),
-            hiResQualityEnabled = vipUnlocked && o.optBoolean("hiRes", false),
-            tubeWarmthLevel = if (vipUnlocked) o.optDouble("tube", 0.0).toFloat() else 0f,
-            presenceEnabled = vipUnlocked && o.optBoolean("presEn", false),
+            hiResQualityEnabled = o.optBoolean("hiRes", false),
+            tubeWarmthLevel = o.optDouble("tube", 0.0).toFloat(),
+            presenceEnabled = o.optBoolean("presEn", false),
             presenceLevel = o.optDouble("presLvl", 2.0).toFloat(),
-            clarityEnabled = vipUnlocked && o.optBoolean("clarEn", false),
+            clarityEnabled = o.optBoolean("clarEn", false),
             clarityLevel = o.optDouble("clarLvl", 2.5).toFloat(),
-            exciterEnabled = vipUnlocked && o.optBoolean("excEn", false),
+            exciterEnabled = o.optBoolean("excEn", false),
             exciterLevel = o.optDouble("excLvl", 3.0).toFloat()
         )
     }

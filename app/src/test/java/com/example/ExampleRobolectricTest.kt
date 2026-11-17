@@ -15,11 +15,11 @@ import org.robolectric.annotation.Config
 class ExampleRobolectricTest {
 
     @Test
-    fun `read app name from context and verify commercial sections`() {
+    fun `read app name from context and verify automotive sections`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("Audio DSP Pro", appName)
-        assertEquals(8, AppSection.entries.size)
+        assertEquals("Car Audio DSP Pro", appName)
+        assertEquals(9, AppSection.entries.size)
         assertFalse(AppSection.entries.any { it.route.contains("radio", ignoreCase = true) })
     }
 }

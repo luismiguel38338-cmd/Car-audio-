@@ -9,14 +9,85 @@ enum class AppSection(
     val shortTitle: String,
     val subtitle: String
 ) {
-    HOME("home", "Inicio", "Inicio", "Panel principal y acceso rápido"),
-    MUSIC_PLAYER("music_player", "Música", "Música", "Biblioteca, artistas, álbumes, listas y cola"),
-    AUDIO_LAB("audio_lab", "Laboratorio de Audio", "Lab DSP", "Ecualizador 10/31 bandas, filtros y dinámica"),
-    AUDIO_METERS("audio_meters", "Medidores y RTA", "Medidores", "Analizador de espectro, osciloscopio, VU y batería"),
-    TUTORIALS("tutorials", "Tutoriales", "Guías", "Centro interactivo de guías de audio DSP"),
-    PERSONALIZATION("personalization", "Apariencia", "Estilos", "Temas de estudio y rendimiento visual"),
-    VIP_ZONE("vip_zone", "Zona VIP", "VIP", "Herramientas Hi-Res y estado de membresía"),
-    SETTINGS("settings", "Configuración", "Ajustes", "Cuenta Google, nube Firebase, diagnóstico y privacidad")
+    HOME("home", "Inicio", "Inicio", "Tu música, recientes y accesos rápidos"),
+    MY_MUSIC("my_music", "Mi música", "Biblioteca", "Canciones, álbumes, artistas, carpetas y listas"),
+    PLAYER("player", "Reproductor", "Repro", "Reproducción, temporizador, velocidad y cola"),
+    EQUALIZER("equalizer", "Ecualizador", "EQ", "Ecualizador de 31 y 10 bandas, paramétrico y A/B"),
+    YOUTUBE_MUSIC("youtube_music", "YouTube Music", "YT Music", "Búsqueda y accesos directos oficiales"),
+    AUDIO_TOOLS("audio_tools", "Estudio DSP", "Estudio", "Graves, dinámica, filtros, RTA y medidores"),
+    PRESETS("presets", "Presets", "Presets", "Perfiles calibrados y comparación A / B"),
+    FAVORITES("favorites", "Favoritos", "Favoritos", "Canciones favoritas, listas y accesos guardados"),
+    SETTINGS("settings", "Configuración", "Ajustes", "Apariencia, reproducción, guías y diagnóstico")
+}
+
+enum class LibrarySortOrder(val label: String) {
+    RECENT("Recientes"),
+    TITLE("Título A–Z"),
+    ARTIST("Artista"),
+    DURATION("Duración")
+}
+
+enum class AbSlot(val label: String, val badge: String) {
+    A("Configuración A", "A"),
+    B("Configuración B", "B")
+}
+
+@Immutable
+data class DspAbSnapshot(
+    val slot: AbSlot,
+    val name: String,
+    val dspSettings: DspSettings,
+    val bands10: List<Float>,
+    val bands31: List<Float>,
+    val savedAtMs: Long = System.currentTimeMillis()
+)
+
+@Immutable
+data class YouTubeMusicItem(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val category: String = "Búsqueda directa",
+    val customUrl: String? = null,
+    val isFavorite: Boolean = false,
+    val addedAtMs: Long = System.currentTimeMillis()
+) {
+    val resolvedUrl: String
+        get() {
+            val raw = customUrl?.trim()
+            if (!raw.isNullOrBlank()) return raw
+            val query = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" ").trim()
+            return "https://music.youtube.com/search?q=${Uri.encode(query)}"
+        }
+}
+
+object YouTubeMusicCatalog {
+    val quickLaunchSearches: List<YouTubeMusicItem> = listOf(
+        YouTubeMusicItem(
+            id = "yt_search_acoustic_ref",
+            title = "Acoustic Studio Hi-Fi",
+            artist = "Calibración Vocal",
+            category = "Referencia"
+        ),
+        YouTubeMusicItem(
+            id = "yt_search_bass_test",
+            title = "Deep Sub Bass Test 35Hz",
+            artist = "Prueba de Graves",
+            category = "Graves"
+        ),
+        YouTubeMusicItem(
+            id = "yt_search_electronic_club",
+            title = "Night Drive Electronic Mix",
+            artist = "Sesión Nocturna",
+            category = "Electrónica"
+        ),
+        YouTubeMusicItem(
+            id = "yt_search_rock_classics",
+            title = "Rock Clásico Alta Dinámica",
+            artist = "Guitarras y Batería",
+            category = "Rock"
+        )
+    )
 }
 
 @Immutable
@@ -32,7 +103,9 @@ data class AudioTrackItem(
     val albumArtUri: Uri? = null,
     val isFavorite: Boolean = false,
     val audioFormatLabel: String = "Audio HD",
-    val bitrateKbps: Int = 0
+    val bitrateKbps: Int = 0,
+    val folderName: String = "Música",
+    val dateAddedSec: Long = 0L
 ) {
     val stableKey: String
         get() = customUri?.toString() ?: id
@@ -54,14 +127,21 @@ data class AlbumSummary(
     val sampleArtUri: Uri? = null
 )
 
+@Immutable
+data class FolderSummary(
+    val name: String,
+    val trackCount: Int,
+    val sampleArtUri: Uri? = null
+)
+
 enum class TrackCategory {
     USER_CUSTOM
 }
 
 enum class RepeatMode(val label: String) {
-    OFF("Normal"),
-    ALL("Repetir Todo"),
-    ONE("Repetir 1")
+    OFF("Sin repetir"),
+    ALL("Repetir todo"),
+    ONE("Repetir una")
 }
 
 enum class OutputKind {
@@ -199,7 +279,7 @@ data class DspSettings(
     val clarityEnabled: Boolean = false,
     val clarityLevel: Float = 2.5f,
 
-    // VIP Studio Enhancers
+    // Studio Enhancers
     val hiResQualityEnabled: Boolean = false,
     val tubeWarmthLevel: Float = 0.0f, // 0 to 10
 
@@ -290,123 +370,123 @@ object TutorialCatalog {
     val topics: List<TutorialTopic> = listOf(
         TutorialTopic(
             id = 1,
-            title = "1. Primeros pasos",
+            title = "1. Acceso directo y cabina 3D",
             category = "Inicio rápido",
-            summary = "Conecta tu cuenta Google, prepara tus permisos multimedia y activa el motor DSP nativo.",
+            summary = "Ingresa directo al panel automotriz sin cuentas obligatorias ni sonidos automáticos al arrancar.",
             steps = listOf(
-                "Inicia sesión con Google para respaldar tus playlists, presets y preferencias en Firebase.",
-                "Concede el permiso de Audio Local para descubrir las canciones, artistas y álbumes de tu dispositivo.",
-                "Verifica que el botón de encendido maestro DSP esté activo en la barra superior."
+                "Abre Car Audio DSP Pro directamente en la cabina automotriz 3D.",
+                "Concede el permiso de Audio Local en Mi música para listar tus canciones, álbumes y artistas.",
+                "Verifica el encendido maestro DSP en la barra superior y observa los subwoofers vibrar al ritmo."
             ),
-            proTip = "El límite de seguridad (-0.5 dB) viene activado por defecto para proteger tus auriculares contra picos digitales."
+            proTip = "El limitador de seguridad (-0.5 dB) protege las bocinas y auriculares contra picos digitales."
         ),
         TutorialTopic(
             id = 2,
-            title = "2. Cómo importar música",
-            category = "Biblioteca",
-            summary = "Escanea carpetas de tu teléfono o selecciona archivos individuales en alta resolución.",
+            title = "2. Cómo cargar música del teléfono",
+            category = "Mi música",
+            summary = "Escanea carpetas locales con MediaStore o importa archivos MP3, FLAC, WAV y AAC.",
             steps = listOf(
-                "Abre la sección Música desde la barra inferior.",
-                "Pulsa 'Escanear Teléfono' para indexar automáticamente archivos MP3, FLAC, WAV, AAC u OGG.",
-                "Usa el botón 'Importar Archivos' para elegir pistas específicas mediante el selector seguro de Android."
+                "Entra a la sección Mi música desde la barra inferior o el menú.",
+                "Pulsa 'Escanear Teléfono' para detectar automáticamente la biblioteca del dispositivo.",
+                "Usa 'Importar Archivos' para elegir canciones específicas sin copiar archivos duplicados."
             ),
-            proTip = "Solo mostramos archivos reales autorizados en tu dispositivo; nunca mezclamos pistas de demostración falsas."
+            proTip = "Todas las canciones mostradas son archivos reales del teléfono reproducidos con Media3/ExoPlayer."
         ),
         TutorialTopic(
             id = 3,
-            title = "3. Cómo utilizar el reproductor",
-            category = "Reproducción",
-            summary = "Navega por canciones, artistas, álbumes, listas y administra la cola de reproducción.",
+            title = "3. Consola Reproductor y Cola",
+            category = "Reproductor",
+            summary = "Controla reproducción continua en segundo plano, orden de cola y Bluetooth vehicular.",
             steps = listOf(
-                "Alterna entre las pestañas Canciones, Artistas, Álbumes, Listas y Cola.",
-                "Usa el menú de cada pista para añadirla a la Cola, reproducirla a continuación o guardarla en Favoritos.",
-                "Controla la reproducción desde la barra de notificaciones, pantalla bloqueada o auriculares Bluetooth."
+                "Abre Reproductor para ver el subwoofer 3D animado y la carátula en tiempo real.",
+                "Usa Siguiente, Anterior, Barra de tiempo, Aleatorio, Repetir y Volumen.",
+                "Organiza la cola de reproducción reordenando canciones o guardando pistas en Favoritos."
             ),
-            proTip = "La última canción y su posición exacta se guardan automáticamente en tu cuenta."
+            proTip = "La reproducción sigue activa con la pantalla apagada y muestra controles en la notificación."
         ),
         TutorialTopic(
             id = 4,
-            title = "4. Cómo configurar el ecualizador",
-            category = "Laboratorio DSP",
-            summary = "Elige entre 10 bandas rápidas, 31 bandas de alta precisión o 5 bandas paramétricas.",
+            title = "4. Ecualizador de 31 y 10 bandas",
+            category = "Ecualizador",
+            summary = "Ajusta curvas quirúrgicas de 1/3 de octava, 10 bandas rápidas o 5 bandas paramétricas.",
             steps = listOf(
-                "Entra al Laboratorio de Audio y activa el módulo Ecualizador.",
-                "En 10 Bandas ajusta los rangos principales (31 Hz a 16 kHz) de forma ágil.",
-                "En 31 Bandas (cuando tu dispositivo soporta DynamicsProcessing API 28+) realiza ajustes quirúrgicos de 1/3 de octava."
+                "Ve a Ecualizador y activa el interruptor del módulo.",
+                "Elige 31 Bandas ISO (DynamicsProcessing API 28+) o 10 Bandas ISO para ajustes rápidos.",
+                "Usa el botón 'Plano 0 dB' en cualquier momento para restaurar la curva lineal."
             ),
-            proTip = "Nuestro motor evita el doble procesamiento apagando las etapas redundantes automáticamente."
+            proTip = "El motor evita el doble procesamiento apagando las etapas heredadas cuando DynamicsProcessing está activo."
         ),
         TutorialTopic(
             id = 5,
-            title = "5. Cómo mejorar los bajos",
-            category = "Graves y Sub-Bass",
-            summary = "Logra graves profundos y firmes sin saturar ni embarrar las voces.",
+            title = "5. Comparación rápida A / B",
+            category = "Comparador A/B",
+            summary = "Guarda dos configuraciones de audio diferentes (A y B) y altérnalas en vivo con un toque.",
             steps = listOf(
-                "Ajusta el control Bass Boost entre +2 dB y +6 dB según el tamaño de tus auriculares o altavoces.",
-                "Activa el Filtro Subsónico entre 24 Hz y 30 Hz para eliminar frecuencias inaudibles que consumen energía.",
-                "Si buscas mayor definición, atenúa levemente alrededor de 250 Hz (-1 dB a -2 dB) en el ecualizador."
+                "Ajusta tu primera curva y pulsa 'Guardar A' en el Ecualizador o en Presets.",
+                "Modifica graves, ecualización o filtros para probar otra idea y pulsa 'Guardar B'.",
+                "Toca el botón A ↔ B para comparar ambas configuraciones en tiempo real mientras suena la música."
             ),
-            proTip = "Sube el grave poco a poco mientras observas el medidor de Clipping en la pestaña Medidores."
+            proTip = "Igualar la ganancia entre A y B ayuda a juzgar la claridad real sin engañarte por el volumen."
         ),
         TutorialTopic(
             id = 6,
-            title = "6. Cómo configurar los agudos",
-            category = "Claridad y Aire",
-            summary = "Añade brillo, aire y detalle vocal sin provocar fatiga auditiva.",
+            title = "6. Graves, Sub-Bass y Filtros HPF/LPF",
+            category = "Herramientas de audio",
+            summary = "Obtén bajos potentes y controlados en cabina automotriz sin distorsionar medios ni voces.",
             steps = listOf(
-                "En la pestaña Tono del Laboratorio, eleva Agudos entre +1 dB y +3 dB.",
-                "Usa las bandas de 8 kHz a 16 kHz para dar sensación de espacio y detalle en platillos.",
-                "Si percibes sibilancia excesiva en voces ('eses' fuertes), reduce suavemente entre 5 kHz y 6.3 kHz."
+                "En Herramientas de audio ajusta Bass Boost entre +2 dB y +6 dB alrededor de 45-55 Hz.",
+                "Activa el Filtro Subsónico o Pasa-Altos (24-30 Hz) para proteger subwoofers de excursión innecesaria.",
+                "Atenúa suavemente 250 Hz (-1 a -2 dB) si sientes los bajos retumbantes."
             ),
-            proTip = "Activa Presencia o Claridad en niveles moderados si escuchas a volumen bajo."
+            proTip = "Observa el contador de Clipping en RTA y Medidores para asegurarte de no saturar la salida."
         ),
         TutorialTopic(
             id = 7,
-            title = "7. Cómo utilizar los presets",
-            category = "Presets",
-            summary = "Aplica curvas calibradas por género o estilo en un solo toque.",
+            title = "7. Integración con YouTube Music",
+            category = "YouTube Music",
+            summary = "Busca canciones o artistas y ábrelos directamente en la app oficial de YouTube Music.",
             steps = listOf(
-                "Abre la pestaña Presets dentro del Laboratorio de Audio.",
-                "Toca cualquier preset de estudio (Flat, Estudio Equilibrado, Graves Limpios, Vocal, Rock, etc.).",
-                "Al modificar cualquier banda después de cargar un preset, el perfil cambia automáticamente a Personalizado."
+                "Abre la sección YouTube Music desde el menú o el acceso rápido en Inicio.",
+                "Escribe el nombre de una canción, artista o género y pulsa 'Abrir en YouTube Music'.",
+                "Guarda tus enlaces y búsquedas frecuentes como accesos rápidos o márcalos en Favoritos."
             ),
-            proTip = "Usa 'Flat' como punto de partida neutral cuando cambies de auriculares."
+            proTip = "Por respeto a las políticas y derechos de autor, los enlaces lanzan el reproductor oficial de YouTube Music sin descargar audio."
         ),
         TutorialTopic(
             id = 8,
-            title = "8. Cómo funciona el analizador de espectro",
+            title = "8. Analizador RTA 31B y Medidor dB",
             category = "Medidores",
-            summary = "Interpreta las 31 bandas RTA, el osciloscopio de onda y el nivel VU/RMS en dBFS.",
+            summary = "Mide el espectro de 20 Hz a 20 kHz, forma de onda, niveles VU/RMS y batería.",
             steps = listOf(
-                "Abre la sección Medidores y reproduce una canción para ver las barras RTA de 20 Hz a 20 kHz.",
-                "Observa los picos blancos superiores y el osciloscopio inferior para detectar compresión o recorte.",
-                "Opcionalmente activa el modo Micrófono RTA (requiere permiso de micrófono) para medir la respuesta acústica real de tu sala."
+                "Entra a Herramientas de audio > pestaña RTA y Medidores dB.",
+                "Reproduce una canción para ver las 31 barras de frecuencia, picos máximos y osciloscopio.",
+                "Activa opcionalmente el Micrófono RTA para medir la acústica real dentro del vehículo."
             ),
-            proTip = "Si los picos golpean 0 dBFS repetidamente, activa el Limitador o reduce el Preamplificador."
+            proTip = "Si los picos tocan 0 dBFS, activa el Limitador o baja unos dB en Preamplificador."
         ),
         TutorialTopic(
             id = 9,
-            title = "9. Cómo guardar configuraciones",
-            category = "Nube Firebase",
-            summary = "Guarda tus propios perfiles de ecualización y filtros con sincronización en la nube.",
+            title = "9. Presets y perfiles guardados",
+            category = "Presets",
+            summary = "Aplica curvas calibradas por género o guarda tus propias configuraciones en el teléfono.",
             steps = listOf(
-                "Dentro del Laboratorio de Audio, pulsa 'Guardar Configuración' en la pestaña Presets.",
-                "Asigna un nombre y una descripción breve a tu ajuste.",
-                "Tus configuraciones se guardan tanto en el dispositivo como en tu cuenta de Firebase Firestore."
+                "Visita la sección Presets para probar curvas listas (Estudio, Sub-Bass Competición, Vocal, Club, Rock).",
+                "Pulsa 'Guardar Configuración Actual' para almacenar tu mezcla de EQ, bajos, balance y filtros.",
+                "Carga o elimina tus perfiles locales cuando cambies de bocinas o auriculares."
             ),
-            proTip = "Al iniciar sesión en otro teléfono con la misma cuenta Google, recuperarás tus perfiles guardados."
+            proTip = "Todos los presets y ajustes de estudio están desbloqueados sin suscripciones ni registros."
         ),
         TutorialTopic(
             id = 10,
-            title = "10. Cómo utilizar las funciones VIP",
-            category = "Zona VIP",
-            summary = "Conoce los módulos avanzados Hi-Res, temas exclusivos y cómo se gestiona tu membresía.",
+            title = "10. Optimización para gama baja/media",
+            category = "Configuración",
+            summary = "Ajusta la cabina 3D automotriz para lograr máxima fluidez en cualquier teléfono Android.",
             steps = listOf(
-                "Visita Zona VIP para comparar las funciones gratuitas frente a las herramientas avanzadas VIP.",
-                "Las cuentas VIP acceden a procesamiento Hi-Res Studio, calidez analógica, presets maestros y temas de diseño.",
-                "Tu estado VIP se valida desde el servidor de tu cuenta y se restaura al iniciar sesión."
+                "Ve a Configuración y explora los 6 estilos visuales automotrices.",
+                "Activa 'Efectos Visuales Ligeros' para reducir pasadas de iluminación 3D y ahorrar batería.",
+                "Usa 'Mantener Pantalla Encendida' si colocas el teléfono en el tablero del vehículo."
             ),
-            proTip = "Si cierras el aviso promocional en Inicio, no volverá a mostrarse automáticamente."
+            proTip = "El procesamiento de audio DSP mantiene la misma calidad sonora incluso con visuales ligeros activos."
         )
     )
 }

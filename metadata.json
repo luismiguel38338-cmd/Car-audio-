@@ -1,6 +1,6 @@
 {
-  "name": "Audio DSP Pro",
-  "description": "Plataforma profesional de reproducción musical y procesamiento DSP de audio para Android con Media3/ExoPlayer, ecualizador de 10 y 31 bandas, laboratorio de audio, analizador RTA y osciloscopio en tiempo real, sincronización en la nube con Firebase, centro de tutoriales y sistema VIP.",
+  "name": "Car Audio DSP Pro",
+  "description": "Reproductor y estudio de audio automotriz 3D para Android con Media3/ExoPlayer, cabina 3D reactiva con subwoofers e iluminación LED, ecualizador de 10 y 31 bandas, comparación A/B, analizador RTA y accesos directos a YouTube Music.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

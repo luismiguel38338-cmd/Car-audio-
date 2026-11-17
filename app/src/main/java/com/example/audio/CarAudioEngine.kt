@@ -1,13 +1,16 @@
 package com.example.audio
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.DynamicsProcessing
 import android.media.audiofx.Equalizer
@@ -17,6 +20,8 @@ import android.media.audiofx.Visualizer
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
+import java.util.UUID
 import com.example.model.AudioSessionTarget
 import com.example.model.AudioTrackItem
 import com.example.model.DspCapabilityReport
@@ -59,6 +64,7 @@ class CarAudioEngine(private val context: Context) {
     private var dynamicsProcessingFx: DynamicsProcessing? = null
     @Volatile private var useDynamicsProcessingPostEq: Boolean = false
     private var visualizerFx: Visualizer? = null
+    @Volatile private var visualizerFailedSessionId: Int = -1
 
     @Volatile var activeAudioSessionId: Int = -1
         private set
@@ -180,6 +186,7 @@ class CarAudioEngine(private val context: Context) {
         private var instance: CarAudioEngine? = null
 
         private const val MIN_HARDWARE_COMMIT_INTERVAL_MS = 16L
+        private val VISUALIZER_TYPE_UUID: UUID = UUID.fromString("e46b26a0-dddd-11db-8afd-0002a5d5c51b")
 
         fun getInstance(context: Context): CarAudioEngine {
             return instance ?: synchronized(this) {
@@ -440,6 +447,9 @@ class CarAudioEngine(private val context: Context) {
 
     fun setVisualizerActive(active: Boolean) {
         isVisualizerUiActive = active
+        if (active && isPlaying && activeAudioSessionId > 0) {
+            ensureVisualizerAttached()
+        }
         try {
             visualizerFx?.enabled = active && isPlaying && activeAudioSessionId > 0
         } catch (_: Throwable) {}
@@ -475,6 +485,9 @@ class CarAudioEngine(private val context: Context) {
         currentTrack = track
         isPlaying = playing
         playbackPositionSeconds = positionSeconds.coerceAtLeast(0)
+        if (playing && isVisualizerUiActive && activeAudioSessionId > 0) {
+            ensureVisualizerAttached()
+        }
         try {
             visualizerFx?.enabled = isVisualizerUiActive && playing && activeAudioSessionId > 0
         } catch (_: Throwable) {}
@@ -783,30 +796,76 @@ class CarAudioEngine(private val context: Context) {
                 )
             }
 
-            if (sessionId > 0) {
-                try {
-                    visualizerFx = Visualizer(sessionId).apply {
-                        val range = Visualizer.getCaptureSizeRange()
-                        if (range != null && range.size > 1) {
-                            captureSize = range[1].coerceAtMost(1024)
-                            setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                                override fun onWaveFormDataCapture(vis: Visualizer?, waveform: ByteArray?, rate: Int) {
-                                    if (waveform != null && !isMicRtaActive && isVisualizerUiActive) {
-                                        processPlaybackWaveform(waveform)
-                                    }
-                                }
+            if (sessionId > 0 && isVisualizerUiActive && isPlaying) {
+                ensureVisualizerAttachedLocked(sessionId)
+            }
+        }
+    }
 
-                                override fun onFftDataCapture(vis: Visualizer?, fft: ByteArray?, rate: Int) {
-                                    if (fft != null && !isMicRtaActive && isVisualizerUiActive) {
-                                        processPlaybackFft(fft)
-                                    }
-                                }
-                            }, (Visualizer.getMaxCaptureRate() / 2).coerceAtMost(20000), true, true)
-                            enabled = isVisualizerUiActive && isPlaying
+    private fun hasRecordAudioPermission(): Boolean {
+        return try {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun isHardwareVisualizerAvailable(): Boolean {
+        return try {
+            val effects = AudioEffect.queryEffects()
+            effects != null && effects.any { it.type == VISUALIZER_TYPE_UUID }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun ensureVisualizerAttached() {
+        val sid = activeAudioSessionId
+        if (sid <= 0) return
+        synchronized(fxLock) {
+            ensureVisualizerAttachedLocked(sid)
+        }
+    }
+
+    private fun ensureVisualizerAttachedLocked(sessionId: Int) {
+        if (sessionId <= 0 || visualizerFx != null) return
+        if (visualizerFailedSessionId == sessionId) return
+        if (!isVisualizerUiActive || !isPlaying) return
+        if (!hasRecordAudioPermission() || !isHardwareVisualizerAvailable()) return
+
+        try {
+            val vis = Visualizer(sessionId)
+            val range = Visualizer.getCaptureSizeRange()
+            if (range != null && range.size > 1) {
+                vis.captureSize = range[1].coerceAtMost(1024)
+                vis.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, rate: Int) {
+                        if (waveform != null && !isMicRtaActive && isVisualizerUiActive) {
+                            processPlaybackWaveform(waveform)
                         }
                     }
-                } catch (_: Throwable) {}
+
+                    override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, rate: Int) {
+                        if (fft != null && !isMicRtaActive && isVisualizerUiActive) {
+                            processPlaybackFft(fft)
+                        }
+                    }
+                }, (Visualizer.getMaxCaptureRate() / 2).coerceAtMost(20000), true, true)
+                vis.enabled = isVisualizerUiActive && isPlaying
+                visualizerFx = vis
+            } else {
+                vis.release()
+                visualizerFailedSessionId = sessionId
             }
+        } catch (_: Throwable) {
+            visualizerFailedSessionId = sessionId
+            try {
+                visualizerFx?.release()
+            } catch (_: Throwable) {}
+            visualizerFx = null
         }
     }
 
@@ -992,6 +1051,7 @@ class CarAudioEngine(private val context: Context) {
             visualizerFx?.release()
         } catch (_: Throwable) {}
         visualizerFx = null
+        visualizerFailedSessionId = -1
 
         try {
             dynamicsProcessingFx?.enabled = false

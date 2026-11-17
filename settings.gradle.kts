@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Audio DSP Pro"
+rootProject.name = "Car Audio DSP Pro"
 
 include(":app")

@@ -37,6 +37,7 @@ class CarAudioPlaybackService : MediaSessionService() {
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
         player.volume = audioEngine.volumeFactor
@@ -50,6 +51,31 @@ class CarAudioPlaybackService : MediaSessionService() {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
                     audioEngine.attachToPlayerSession(audioSessionId)
+                }
+            }
+
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                val sid = player.audioSessionId
+                if (sid != C.AUDIO_SESSION_ID_UNSET && sid > 0 && audioEngine.activeAudioSessionId != sid) {
+                    audioEngine.attachToPlayerSession(sid)
+                }
+                val item = mediaItem ?: return
+                val current = audioEngine.currentTrack
+                if (current == null || (current.id != item.mediaId && current.stableKey != item.mediaId)) {
+                    val fallbackTrack = com.example.model.AudioTrackItem(
+                        id = item.mediaId.ifBlank { "media_${System.currentTimeMillis()}" },
+                        title = item.mediaMetadata.title?.toString() ?: "Pista de Audio",
+                        artist = item.mediaMetadata.artist?.toString() ?: "Biblioteca Local",
+                        album = item.mediaMetadata.albumTitle?.toString() ?: "Música",
+                        durationSeconds = (player.duration / 1000L).toInt().coerceAtLeast(0),
+                        customUri = item.localConfiguration?.uri,
+                        albumArtUri = item.mediaMetadata.artworkUri
+                    )
+                    audioEngine.syncPlaybackStateFromMedia3(
+                        track = fallbackTrack,
+                        playing = player.isPlaying,
+                        positionSeconds = (player.currentPosition / 1000L).toInt().coerceAtLeast(0)
+                    )
                 }
             }
 
