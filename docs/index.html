@@ -1,1015 +1,1713 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CAR AUDIO DSP PRO — Descargar APK, Funciones y Política de Privacidad</title>
-  <meta name="description" content="Página oficial de CAR AUDIO DSP PRO v6.0.0 para Android: Reproductor de música real, Sistema de Bajos, Ecualizador 31/15/Paramétrico, Procesador DSP, Alertas de Fallos, descarga de APK y Política de Privacidad." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #090203;
-      --surface: #140507;
-      --card: #20080c;
-      --primary: #ff172b;
-      --accent: #ff5252;
-      --text: #ffecee;
-      --muted: #c98d94;
-      --border: rgba(255, 23, 43, 0.28);
-      --glow: 0 0 36px rgba(255, 23, 43, 0.28);
-      --radius: 18px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      background:
-        radial-gradient(circle at 18% 0%, rgba(255, 23, 43, 0.16), transparent 44%),
-        radial-gradient(circle at 85% 22%, rgba(255, 82, 82, 0.10), transparent 38%),
-        var(--bg);
-      color: var(--text);
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    h1, h2, h3, .display {
-      font-family: 'Space Grotesk', system-ui, sans-serif;
-      letter-spacing: -0.02em;
-    }
-
-    .mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 1140px;
-      margin: 0 auto;
-      padding: 0 22px;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      backdrop-filter: blur(14px);
-      background: rgba(9, 2, 3, 0.85);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      min-height: 70px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: var(--text);
-    }
-
-    .brand-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), #8c0614);
-      border: 1.5px solid var(--accent);
-      display: grid;
-      place-items: center;
-      font-weight: 700;
-      font-size: 13px;
-      box-shadow: var(--glow);
-    }
-
-    .brand-text strong {
-      display: block;
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 16px;
-      letter-spacing: 0.04em;
-    }
-
-    .brand-text span {
-      display: block;
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .nav-links a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 13.5px;
-      font-weight: 600;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: var(--text);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 13px 22px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 14px;
-      text-decoration: none;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary), #cc0e20);
-      color: #fff;
-      box-shadow: 0 10px 28px rgba(255, 23, 43, 0.35);
-    }
-
-    .btn-primary:hover {
-      box-shadow: 0 14px 34px rgba(255, 23, 43, 0.52);
-    }
-
-    .btn-outline {
-      background: var(--surface);
-      color: var(--text);
-      border-color: var(--border);
-    }
-
-    .btn-outline:hover {
-      background: var(--card);
-      border-color: var(--primary);
-    }
-
-    .hero {
-      padding: 60px 0 44px;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1.12fr 0.88fr;
-      gap: 36px;
-      align-items: center;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(255, 23, 43, 0.14);
-      border: 1px solid var(--border);
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
-      margin-bottom: 18px;
-    }
-
-    .pill-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--primary);
-      box-shadow: 0 0 10px var(--primary);
-    }
-
-    .hero h1 {
-      font-size: clamp(2.1rem, 4.4vw, 3.4rem);
-      line-height: 1.08;
-      margin-bottom: 18px;
-    }
-
-    .hero h1 span {
-      color: var(--primary);
-    }
-
-    .hero p {
-      font-size: 16.5px;
-      color: var(--muted);
-      max-width: 560px;
-      margin-bottom: 26px;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 26px;
-    }
-
-    .specs-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .spec-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 12px 14px;
-    }
-
-    .spec-box strong {
-      display: block;
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 19px;
-      color: var(--text);
-    }
-
-    .spec-box span {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .dsp-preview {
-      background: linear-gradient(180deg, var(--surface), #0d0305);
-      border: 1.5px solid var(--border);
-      border-radius: 24px;
-      padding: 20px;
-      box-shadow: var(--glow);
-    }
-
-    .dsp-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .dsp-badge {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: rgba(255, 23, 43, 0.16);
-      color: var(--accent);
-      border: 1px solid var(--border);
-    }
-
-    canvas#curveCanvas {
-      width: 100%;
-      height: 180px;
-      display: block;
-      background: #070102;
-      border: 1px solid rgba(255, 23, 43, 0.22);
-      border-radius: 14px;
-      margin-bottom: 16px;
-    }
-
-    .mode-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .mode-btn {
-      padding: 9px 10px;
-      border-radius: 10px;
-      background: var(--card);
-      color: var(--muted);
-      border: 1px solid transparent;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.18s;
-    }
-
-    .mode-btn.active {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 6px 18px rgba(255, 23, 43, 0.35);
-    }
-
-    .sim-sliders {
-      display: grid;
-      gap: 10px;
-    }
-
-    .sim-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 12px;
-    }
-
-    .sim-slider-row label {
-      width: 115px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .sim-slider-row input[type="range"] {
-      flex: 1;
-      accent-color: var(--primary);
-    }
-
-    .sim-slider-row span {
-      width: 58px;
-      text-align: right;
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    section {
-      padding: 54px 0;
-    }
-
-    .section-head {
-      text-align: center;
-      max-width: 700px;
-      margin: 0 auto 36px;
-    }
-
-    .section-head h2 {
-      font-size: clamp(1.65rem, 3vw, 2.3rem);
-      margin-bottom: 10px;
-    }
-
-    .section-head p {
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    .panels-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 16px;
-    }
-
-    .panel-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-
-    .panel-card:hover {
-      transform: translateY(-4px);
-      border-color: var(--primary);
-    }
-
-    .panel-num {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--accent);
-      background: rgba(255, 23, 43, 0.14);
-      padding: 4px 10px;
-      border-radius: 999px;
-      margin-bottom: 12px;
-    }
-
-    .panel-card h3 {
-      font-size: 18px;
-      margin-bottom: 8px;
-    }
-
-    .panel-card p {
-      font-size: 13.5px;
-      color: var(--muted);
-    }
-
-    .highlights {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 20px;
-    }
-
-    .highlight-card {
-      background: linear-gradient(155deg, var(--surface), var(--card));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-    }
-
-    .highlight-card h3 {
-      font-size: 20px;
-      margin-bottom: 10px;
-    }
-
-    .highlight-list {
-      list-style: none;
-      display: grid;
-      gap: 9px;
-      margin-top: 12px;
-    }
-
-    .highlight-list li {
-      font-size: 14px;
-      color: var(--muted);
-      padding-left: 18px;
-      position: relative;
-    }
-
-    .highlight-list li::before {
-      content: "•";
-      position: absolute;
-      left: 0;
-      color: var(--primary);
-      font-weight: 900;
-    }
-
-    .shots-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 18px;
-    }
-
-    .shot-card {
-      background: linear-gradient(180deg, #160609, #090203);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .mock-screen {
-      background: #070102;
-      border: 1px solid rgba(255, 23, 43, 0.25);
-      border-radius: 14px;
-      padding: 12px;
-      min-height: 170px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .mock-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .mock-bars {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-      height: 68px;
-      padding-top: 6px;
-    }
-
-    .mock-bars span {
-      flex: 1;
-      border-radius: 3px 3px 0 0;
-      background: linear-gradient(180deg, var(--primary), rgba(255, 82, 82, 0.35));
-    }
-
-    .mock-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .mock-chip {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid rgba(255, 23, 43, 0.28);
-    }
-
-    .shot-card > strong {
-      font-size: 14px;
-      color: var(--text);
-    }
-
-    .shot-card > span {
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-
-    /* Download Box */
-    .cta-box {
-      background: linear-gradient(135deg, #24070c, #120406);
-      border: 1.5px solid var(--primary);
-      border-radius: 24px;
-      padding: 36px 28px;
-      text-align: center;
-      box-shadow: var(--glow);
-    }
-
-    .cta-box h2 {
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
-      margin-bottom: 10px;
-    }
-
-    .cta-box p {
-      color: var(--muted);
-      max-width: 660px;
-      margin: 0 auto 22px;
-      font-size: 15px;
-    }
-
-    .install-steps {
-      max-width: 680px;
-      margin: 22px auto 0;
-      text-align: left;
-      background: rgba(9, 2, 3, 0.65);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 20px;
-      font-size: 13.5px;
-      color: var(--muted);
-    }
-
-    .install-steps strong {
-      color: var(--text);
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    /* Privacy Section */
-    .privacy-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 28px;
-    }
-
-    .privacy-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 16px;
-      margin: 20px 0 24px;
-    }
-
-    .privacy-item {
-      background: var(--card);
-      border: 1px solid rgba(255, 23, 43, 0.2);
-      border-radius: 14px;
-      padding: 16px;
-    }
-
-    .privacy-item h3 {
-      font-size: 15px;
-      margin-bottom: 6px;
-      color: var(--text);
-    }
-
-    .privacy-item p {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 28px 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 900px) {
-      .hero-grid,
-      .highlights {
-        grid-template-columns: 1fr;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0b0d" />
+    <meta name="description" content="Descubre las aplicaciones creadas por luismiguel38338-cmd. Catálogo oficial sincronizado automáticamente con sus repositorios públicos de GitHub." />
+    <meta property="og:title" content="Mis aplicaciones — Luis Miguel" />
+    <meta property="og:description" content="Una tienda personal de aplicaciones, sincronizada directamente con GitHub." />
+    <meta property="og:type" content="website" />
+    <title>Mis aplicaciones — Luis Miguel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: #0b0b0d;
+        --surface: #121215;
+        --surface-raised: #18181c;
+        --border: #28282d;
+        --text: #f4f2f0;
+        --muted: #9b9ba3;
+        --accent: #fb554a;
+        --accent-soft: rgba(251, 85, 74, 0.13);
+        --green: #a6e5bd;
+        --radius: 20px;
+        --font-body: "DM Sans", system-ui, sans-serif;
+        --font-display: "Space Grotesk", system-ui, sans-serif;
       }
-      .nav-links {
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 88px;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background:
+          radial-gradient(ellipse at 14% -10%, rgba(251, 85, 74, 0.12), transparent 34rem),
+          var(--background);
+        color: var(--text);
+        font-family: var(--font-body);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 3px solid rgba(251, 85, 74, 0.8);
+        outline-offset: 3px;
+      }
+
+      .container {
+        width: min(1120px, calc(100% - 48px));
+        margin-inline: auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(11, 11, 13, 0.86);
+        backdrop-filter: blur(18px);
+      }
+
+      .topbar-inner {
+        display: flex;
+        min-height: 72px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .brand {
+        display: inline-flex;
+        min-width: 0;
+        align-items: center;
+        gap: 11px;
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid rgba(251, 85, 74, 0.56);
+        border-radius: 13px;
+        background: linear-gradient(145deg, rgba(251, 85, 74, 0.22), rgba(251, 85, 74, 0.04));
+        color: #ff796f;
+        font-family: var(--font-display);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -0.06em;
+      }
+
+      .brand-copy {
+        display: grid;
+        gap: 1px;
+      }
+
+      .brand-copy strong {
+        font-family: var(--font-display);
+        font-size: 14px;
+        line-height: 1.2;
+      }
+
+      .brand-copy span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .topbar-nav {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .topbar-nav > a:not(.profile-link) {
+        color: #c5c3c3;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 160ms ease;
+      }
+
+      .topbar-nav > a:not(.profile-link):hover {
+        color: #fff;
+      }
+
+      .profile-link,
+      .button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-raised);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+      }
+
+      .profile-link {
+        min-height: 38px;
+        padding: 0 13px;
+        font-size: 12px;
+      }
+
+      .profile-link:hover,
+      .button:hover {
+        border-color: rgba(251, 85, 74, 0.55);
+        background: #1b1b20;
+      }
+
+      .button:active,
+      .profile-link:active {
+        transform: translateY(1px);
+      }
+
+      .button-primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #190908;
+      }
+
+      .button-primary:hover {
+        border-color: transparent;
+        background: #ff7167;
+      }
+
+      .hero {
+        padding: 76px 0 70px;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(290px, 0.8fr);
+        align-items: center;
+        gap: clamp(38px, 7vw, 92px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: #e0dedd;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow-label {
+        color: #bcb8b8;
+      }
+
+      .live-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--green);
+        letter-spacing: 0.06em;
+      }
+
+      .live-indicator::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+        box-shadow: 0 0 12px rgba(166, 229, 189, 0.65);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      .hero h1 {
+        max-width: 680px;
+        margin: 20px 0 18px;
+        font-family: var(--font-display);
+        font-size: clamp(42px, 6vw, 72px);
+        font-weight: 600;
+        letter-spacing: -0.075em;
+        line-height: 0.99;
+      }
+
+      .hero h1 span {
+        color: var(--accent);
+      }
+
+      .hero-copy > p:not(.eyebrow) {
+        max-width: 530px;
+        margin-bottom: 26px;
+        color: #aaa7a8;
+        font-size: 16px;
+        line-height: 1.75;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 11px;
+      }
+
+      .hero-actions .button {
+        min-height: 48px;
+        padding: 0 17px;
+      }
+
+      .hero-note {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 18px 0 0;
+        color: #88878d;
+        font-size: 12px;
+      }
+
+      .hero-note svg {
+        flex: 0 0 auto;
+        color: #b4b2b5;
+      }
+
+      .sync-card {
+        position: relative;
+        overflow: hidden;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 23px;
+        background:
+          radial-gradient(circle at 88% 4%, rgba(251, 85, 74, 0.15), transparent 10rem),
+          linear-gradient(155deg, #19191d, #111113 72%);
+        box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28);
+      }
+
+      .sync-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 22px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .sync-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .sync-avatar {
+        display: grid;
+        width: 47px;
+        height: 47px;
+        place-items: center;
+        border-radius: 15px;
+        background: var(--accent);
+        color: #190908;
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .sync-profile small,
+      .sync-profile strong {
+        display: block;
+      }
+
+      .sync-profile small {
+        margin-bottom: 3px;
+        color: #97949a;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .sync-profile strong {
+        font-family: var(--font-display);
+        font-size: 14px;
+      }
+
+      .sync-symbol {
+        color: var(--green);
+      }
+
+      .sync-rows {
+        display: grid;
+        gap: 0;
+        padding-top: 9px;
+      }
+
+      .sync-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 12px;
+      }
+
+      .sync-row:last-child {
+        border-bottom: 0;
+      }
+
+      .sync-row span:first-child {
+        color: #9b999e;
+      }
+
+      .sync-row strong {
+        color: #e9e6e5;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: right;
+      }
+
+      .sync-row .own-only {
+        color: var(--green);
+      }
+
+      .catalog-section {
+        padding: 44px 0 96px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 26rem);
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 28px;
+        margin-bottom: 26px;
+      }
+
+      .section-overline {
+        margin-bottom: 9px;
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .section-heading h2 {
+        margin-bottom: 8px;
+        font-family: var(--font-display);
+        font-size: clamp(27px, 4vw, 38px);
+        font-weight: 600;
+        letter-spacing: -0.055em;
+        line-height: 1.12;
+      }
+
+      .section-heading p {
+        max-width: 530px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .sync-status {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+        color: #a6a4aa;
+        font-size: 11px;
+        text-align: right;
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: #77757d;
+      }
+
+      .sync-status[data-state="loading"] .status-dot {
+        background: #f2bc78;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+
+      .sync-status[data-state="success"] .status-dot {
+        background: var(--green);
+        box-shadow: 0 0 10px rgba(166, 229, 189, 0.42);
+      }
+
+      .sync-status[data-state="error"] .status-dot {
+        background: var(--accent);
+      }
+
+      @keyframes pulse {
+        50% { opacity: 0.35; }
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+
+      .toolbar-main {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .search-box {
+        display: flex;
+        width: min(280px, 28vw);
+        min-width: 190px;
+        height: 43px;
+        align-items: center;
+        gap: 9px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #111114;
+        color: #89878e;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .search-box:focus-within {
+        border-color: rgba(251, 85, 74, 0.7);
+        box-shadow: 0 0 0 3px rgba(251, 85, 74, 0.1);
+      }
+
+      .search-box svg {
+        flex: 0 0 auto;
+      }
+
+      .search-box input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        font-size: 12px;
+      }
+
+      .search-box input::placeholder {
+        color: #77757d;
+      }
+
+      .filter-list {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .filter-button {
+        min-height: 37px;
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: #aaa8ae;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+      }
+
+      .filter-button:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.045);
+      }
+
+      .filter-button[aria-pressed="true"] {
+        border-color: rgba(251, 85, 74, 0.24);
+        background: var(--accent-soft);
+        color: #ff8178;
+      }
+
+      .refresh-button {
+        min-height: 40px;
+        padding: 0 11px;
+        color: #c7c4c6;
+        font-size: 12px;
+      }
+
+      .refresh-button:disabled {
+        cursor: progress;
+        opacity: 0.65;
+      }
+
+      .app-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 15px;
+      }
+
+      .app-card {
+        display: flex;
+        min-width: 0;
+        min-height: 250px;
+        flex-direction: column;
+        padding: 19px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: linear-gradient(155deg, #151518, #111113 72%);
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      }
+
+      .app-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(251, 85, 74, 0.42);
+        background: linear-gradient(155deg, #19191d, #121214 72%);
+      }
+
+      .app-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .app-mark {
+        display: grid;
+        width: 48px;
+        height: 48px;
+        flex: 0 0 auto;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid rgba(251, 85, 74, 0.25);
+        border-radius: 15px;
+        background:
+          radial-gradient(circle at 72% 22%, rgba(251, 85, 74, 0.28), transparent 54%),
+          #20181a;
+        color: #ff8b82;
+        font-family: var(--font-display);
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.06em;
+      }
+
+      .app-type {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.035);
+        color: #bebbc0;
+        font-size: 10px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .app-type::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        content: "";
+      }
+
+      .app-card h3 {
+        overflow-wrap: anywhere;
+        margin: 0 0 7px;
+        font-family: var(--font-display);
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        line-height: 1.25;
+      }
+
+      .app-description {
+        display: -webkit-box;
+        overflow: hidden;
+        min-height: 57px;
+        margin: 0 0 15px;
+        color: #a6a3a8;
+        font-size: 12px;
+        line-height: 1.6;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0 0 17px;
+      }
+
+      .tag {
+        max-width: 100%;
+        overflow: hidden;
+        padding: 4px 8px;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.055);
+        color: #b4b1b6;
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .app-card-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 9px;
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+      }
+
+      .updated-date {
+        overflow: hidden;
+        color: #85838a;
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .card-actions {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .card-actions button,
+      .card-actions a {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #ff867e;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .card-actions a {
+        color: #a8a5aa;
+      }
+
+      .card-actions button:hover,
+      .card-actions a:hover {
+        color: #fff;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .empty-state,
+      .error-state {
+        grid-column: 1 / -1;
+        padding: 48px 24px;
+        border: 1px dashed #34343a;
+        border-radius: var(--radius);
+        color: #c8c5c7;
+        text-align: center;
+      }
+
+      .empty-state h3,
+      .error-state h3 {
+        margin: 0 0 7px;
+        font-family: var(--font-display);
+        font-size: 19px;
+      }
+
+      .empty-state p,
+      .error-state p {
+        max-width: 450px;
+        margin: 0 auto 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .skeleton {
+        min-height: 250px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: linear-gradient(105deg, #141417 25%, #1b1b20 38%, #141417 62%);
+        background-size: 300% 100%;
+        animation: shimmer 1.5s ease-in-out infinite;
+      }
+
+      @keyframes shimmer {
+        to { background-position: -150% 0; }
+      }
+
+      .catalog-footnote {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        margin: 18px 0 0;
+        color: #828087;
+        font-size: 11px;
+      }
+
+      .catalog-footnote svg {
+        flex: 0 0 auto;
+        margin-top: 2px;
+        color: #a5a1a5;
+      }
+
+      footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        background: #09090b;
+      }
+
+      .footer-inner {
+        display: flex;
+        min-height: 78px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        color: #8b8990;
+        font-size: 11px;
+      }
+
+      .footer-inner a {
+        color: #ccc9ca;
+        text-decoration: none;
+      }
+
+      .footer-inner a:hover {
+        color: #ff867e;
+      }
+
+      .detail-dialog {
+        width: min(620px, calc(100% - 28px));
+        max-width: 620px;
+        max-height: min(84vh, 780px);
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #38383e;
+        border-radius: 22px;
+        background: #121215;
+        color: var(--text);
+        box-shadow: 0 28px 100px rgba(0, 0, 0, 0.7);
+      }
+
+      .detail-dialog::backdrop {
+        background: rgba(3, 3, 4, 0.76);
+        backdrop-filter: blur(5px);
+      }
+
+      .dialog-content {
+        max-height: min(84vh, 780px);
+        overflow-y: auto;
+        padding: clamp(22px, 5vw, 34px);
+      }
+
+      .dialog-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .dialog-kicker {
+        margin: 2px 0 9px;
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .dialog-top h2 {
+        overflow-wrap: anywhere;
+        margin: 0 0 8px;
+        font-family: var(--font-display);
+        font-size: clamp(25px, 5vw, 34px);
+        letter-spacing: -0.055em;
+        line-height: 1.1;
+      }
+
+      .dialog-description {
+        margin: 0 0 18px;
+        color: #b5b2b7;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .icon-button {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        background: #1a1a1e;
+        color: #d4d0d2;
+        cursor: pointer;
+      }
+
+      .icon-button:hover {
+        border-color: #57565e;
+        color: #fff;
+      }
+
+      .dialog-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-bottom: 25px;
+      }
+
+      .dialog-meta span {
+        padding: 5px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        color: #bcb9be;
+        font-size: 10px;
+      }
+
+      .dialog-features {
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 15px;
+        background: #17171b;
+      }
+
+      .dialog-features h3 {
+        margin: 0 0 12px;
+        font-family: var(--font-display);
+        font-size: 14px;
+      }
+
+      .feature-list {
+        display: grid;
+        gap: 9px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .feature-list li {
+        position: relative;
+        padding-left: 17px;
+        color: #aaa7ad;
+        font-size: 12px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+
+      .feature-list li::before {
+        position: absolute;
+        top: 0.55em;
+        left: 0;
+        width: 6px;
+        height: 6px;
+        border-radius: 2px;
+        background: var(--accent);
+        content: "";
+      }
+
+      .feature-message {
+        margin: 0;
+        color: #9a979d;
+        font-size: 12px;
+      }
+
+      .dialog-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-top: 19px;
+      }
+
+      .dialog-actions .button {
+        min-height: 42px;
+        padding: 0 13px;
+        font-size: 12px;
+      }
+
+      .dialog-actions .button[hidden] {
         display: none;
       }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="container nav">
-      <a href="#inicio" class="brand">
-        <div class="brand-mark mono">DSP</div>
-        <div class="brand-text">
-          <strong>CAR AUDIO DSP PRO</strong>
-          <span class="mono">v6.0.0 • Android 7.0+ (SDK 24+)</span>
-        </div>
-      </a>
-      <nav class="nav-links">
-        <a href="#paneles">Paneles</a>
-        <a href="#funciones">Funciones</a>
-        <a href="#descarga">Descargar APK</a>
-        <a href="#privacidad">Privacidad</a>
-      </nav>
-      <a href="#descarga" class="btn btn-primary">Descargar APK</a>
-    </div>
-  </header>
 
-  <main>
-    <section id="inicio" class="hero">
-      <div class="container hero-grid">
-        <div>
-          <div class="pill">
-            <span class="pill-dot"></span>
-            CAR AUDIO DSP PRO v6.0.0 • REPRODUCTOR + BAJOS + DSP REAL
-          </div>
-          <h1>Sonido de <span>Estudio y Subwoofer</span> Directo en tu Android</h1>
-          <p>
-            Aplicación nativa hecha para car audio, audífonos y Bluetooth: reproduce tu música real desde el teléfono, ajusta un sistema dedicado de bajos y ecualización de precisión, recibe notificaciones si algo falla y desbloquea mejoras VIP de fidelidad HD.
-          </p>
-          <div class="hero-actions">
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">Descargar APK v6.0.0</a>
-            <a href="#privacidad" class="btn btn-outline">Política de Privacidad</a>
-          </div>
-          <div class="specs-row">
-            <div class="spec-box">
-              <strong>5 Paneles</strong>
-              <span>Música, Bajos, EQ, DSP, Ajustes</span>
-            </div>
-            <div class="spec-box">
-              <strong>31 / 15 / 5B</strong>
-              <span>ISO + Paramétrico en Vivo</span>
-            </div>
-            <div class="spec-box">
-              <strong>100% Local</strong>
-              <span>Sin anuncios ni rastreo</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="dsp-preview">
-          <div class="dsp-top">
-            <span class="mono" style="font-size:12px;font-weight:700;">RESPUESTA EN FRECUENCIA DSP</span>
-            <span class="dsp-badge mono" id="curveModeLabel">BAJOS + PUNCH</span>
-          </div>
-          <canvas id="curveCanvas" width="460" height="180" aria-label="Gráfica interactiva de respuesta en frecuencia"></canvas>
-          <div class="mode-tabs">
-            <button type="button" class="mode-btn active" data-preset="bass">Bajos Pro</button>
-            <button type="button" class="mode-btn" data-preset="vocal">Claridad HD</button>
-            <button type="button" class="mode-btn" data-preset="flat">Flat Studio</button>
-          </div>
-          <div class="sim-sliders">
-            <div class="sim-slider-row">
-              <label for="slSub">Sub-Bass (35Hz)</label>
-              <input id="slSub" type="range" min="0" max="18" step="0.5" value="10">
-              <span class="mono" id="valSub">+10.0 dB</span>
-            </div>
-            <div class="sim-slider-row">
-              <label for="slPunch">Punch (75Hz)</label>
-              <input id="slPunch" type="range" min="0" max="10" step="0.5" value="6">
-              <span class="mono" id="valPunch">+6.0 dB</span>
-            </div>
-            <div class="sim-slider-row">
-              <label for="slClarity">Claridad (12kHz)</label>
-              <input id="slClarity" type="range" min="-6" max="12" step="0.5" value="4.5">
-              <span class="mono" id="valClarity">+4.5 dB</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="paneles">
-      <div class="container">
-        <div class="section-head">
-          <h2>Todo lo que Incluye la Aplicación Real</h2>
-          <p>Comienza con una pantalla de bienvenida y un tutorial rápido de 4 pasos antes de entrar a los 5 paneles principales.</p>
-        </div>
-        <div class="panels-grid">
-          <article class="panel-card">
-            <span class="panel-num mono">01 • MÚSICA</span>
-            <h3>Reproductor Local Real</h3>
-            <p>Escanea automáticamente la música del teléfono (<span class="mono">MediaStore</span>) o carga pistas <span class="mono">FLAC, WAV, MP3, AAC, OGG</span> mostrando formato, bitrate en kbps, carátulas, búsqueda, favoritas, shuffle y repetir.</p>
-          </article>
-          <article class="panel-card">
-            <span class="panel-num mono">02 • BAJOS</span>
-            <h3>Sistema de Bajos</h3>
-            <p>Curva en vivo de <span class="mono">20–250 Hz</span>, Bass Boost, Sub-Bass profundo (<span class="mono">30–80 Hz</span>), Impacto/Punch (<span class="mono">63–85 Hz</span>), Loudness dinámico, filtro subsónico protector, LPF, fase <span class="mono">0°/180°</span> y delay en ms.</p>
-          </article>
-          <article class="panel-card">
-            <span class="panel-num mono">03 • EQ</span>
-            <h3>Ecualizador Profesional</h3>
-            <p>Cambia al instante entre <strong>31 bandas ISO</strong>, <strong>15 bandas rápidas</strong> y <strong>Paramétrico de 5 bandas</strong>, con guardado de presets propios y presets VIP.</p>
-          </article>
-          <article class="panel-card">
-            <span class="panel-num mono">04 • DSP</span>
-            <h3>Procesador Maestro &amp; HD</h3>
-            <p>Medidores <span class="mono">L/R</span>, analizador <span class="mono">RTA</span>, Preamp, Amplitud Estéreo, Balance, Compresor, Limitador anti-clipping, HPF/LPF y Motor VIP de Calidad HD.</p>
-          </article>
-          <article class="panel-card">
-            <span class="panel-num mono">05 • AJUSTES</span>
-            <h3>Diagnóstico, Temas y VIP</h3>
-            <p>Centro de diagnóstico en tiempo real, historial de fallos, permisos, modo ligero, burbuja flotante, estilos visuales y desbloqueo discreto VIP Studio.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="funciones">
-      <div class="container highlights">
-        <div class="highlight-card">
-          <h3>Notificaciones y Alertas Cuando Algo Falla</h3>
-          <p style="color:var(--muted);font-size:14px;">La app vigila la estabilidad de reproducción y te avisa de inmediato con notificaciones y un banner interno:</p>
-          <ul class="highlight-list">
-            <li>Error al leer, abrir o reproducir un archivo de audio dañado o sin permiso.</li>
-            <li>Aviso si falta permiso de música local o de notificaciones en Android 13+.</li>
-            <li>Alertas ante desconexión de audífonos/Bluetooth o fallo del motor <span class="mono">AudioFX</span>.</li>
-            <li>Detección de clipping/distorsión con botón directo para activar el limitador.</li>
-          </ul>
-        </div>
-        <div class="highlight-card">
-          <h3>Mejoras VIP de Calidad y Fidelidad Musical</h3>
-          <p style="color:var(--muted);font-size:14px;">Al ingresar tu clave privada VIP dentro de la app se desbloquean módulos avanzados de audio y estética:</p>
-          <ul class="highlight-list">
-            <li><strong>Modo Hi-Res Studio</strong> y <strong>Calidez Analógica (Tube Warmth)</strong>.</li>
-            <li><strong>Presencia Vocal</strong>, <strong>Claridad HD</strong> y <strong>Excitador Armónico</strong>.</li>
-            <li>Compresor con Umbral, Ratio, Attack y Release + pendientes de <span class="mono">36 / 48 dB/oct</span>.</li>
-            <li>Perfiles de subwoofer (<span class="mono">Hairtrick 32Hz</span>, <span class="mono">SPL Competencia</span>, <span class="mono">SQL Audiófilo</span>), presets Master VIP y temas exclusivos.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="capturas">
-      <div class="container">
-        <div class="section-head">
-          <h2>Resumen Visual de los Paneles</h2>
-          <p>Interfaz diseñada en alto contraste para leer rápido desde el tablero del auto o en modo portátil.</p>
-        </div>
-        <div class="shots-grid">
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>REPRODUCTOR REAL</span><span class="mono">FLAC • 960 kbps</span></div>
-              <div>
-                <div style="font-size:13px;font-weight:700;">Pista Local en Reproducción</div>
-                <div style="font-size:11px;color:var(--muted);">Bluetooth Car Audio • AudioFX Activo</div>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">Cargar Música</span>
-                <span class="mock-chip">Favoritas</span>
-                <span class="mock-chip">MediaSession</span>
-              </div>
-            </div>
-            <strong>Panel MÚSICA</strong>
-            <span>Reproducción en segundo plano, carátulas, formato real y mezcla rápida.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>SISTEMA DE BAJOS</span><span class="mono">35 Hz • 0°</span></div>
-              <div class="mock-bars">
-                <span style="height:42%"></span><span style="height:82%"></span><span style="height:95%"></span>
-                <span style="height:88%"></span><span style="height:70%"></span><span style="height:52%"></span>
-                <span style="height:35%"></span><span style="height:20%"></span>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">Sub-Bass</span>
-                <span class="mock-chip">Subsónico</span>
-                <span class="mock-chip">Punch 63-85Hz</span>
-              </div>
-            </div>
-            <strong>Panel BAJOS</strong>
-            <span>Curva subgrave 20–250 Hz, protección infrasónica, fase y delay en ms.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>EQ 31B &amp; DSP HD</span><span class="mono">LIMITER ON</span></div>
-              <div class="mock-bars">
-                <span style="height:76%"></span><span style="height:64%"></span><span style="height:48%"></span>
-                <span style="height:42%"></span><span style="height:55%"></span><span style="height:68%"></span>
-                <span style="height:82%"></span><span style="height:74%"></span>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">31 / 15 Bandas</span>
-                <span class="mock-chip">Paramétrico 5B</span>
-                <span class="mock-chip">Hi-Res Studio</span>
-              </div>
-            </div>
-            <strong>Paneles EQ y DSP</strong>
-            <span>Control multibanda completo, RTA en vivo, Tube Warmth y Claridad HD.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>DIAGNÓSTICO ACTIVO</span><span class="mono">24/7</span></div>
-              <div style="background:rgba(255,23,43,0.14);border:1px solid var(--primary);border-radius:8px;padding:8px;font-size:11px;">
-                <strong style="display:block;color:var(--accent);">Notificación de Fallos</strong>
-                Aviso automático ante archivos dañados, permisos o clipping.
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">AudioFX OK</span>
-                <span class="mock-chip">Acceso VIP</span>
-              </div>
-            </div>
-            <strong>Panel AJUSTES</strong>
-            <span>Historial de alertas, estilos visuales, burbuja flotante y bienvenida.</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="descarga">
-      <div class="container">
-        <div class="cta-box">
-          <h2>Descargar CAR AUDIO DSP PRO (APK)</h2>
-          <p>
-            Descarga el instalador oficial compilado para Android (versión 6.0.0, compatible con Android 7.0 o superior) directamente desde GitHub Releases o desde las compilaciones de GitHub Actions.
-          </p>
-          <div class="hero-actions" style="justify-content:center;margin-bottom:0;">
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">
-              Descargar APK Directo (v6.0.0)
-            </a>
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases" target="_blank" rel="noopener" class="btn btn-outline">
-              Ver Todos los Releases en GitHub
-            </a>
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/actions" target="_blank" rel="noopener" class="btn btn-outline">
-              Ver Builds en GitHub Actions
-            </a>
-          </div>
-          <div class="install-steps">
-            <strong>Cómo instalar el archivo APK en tu teléfono Android:</strong>
-            1. Pulsa <em>Descargar APK Directo</em> (si aún no has creado un Release con etiqueta <span class="mono">v6.0.0</span>, abre <em>Ver Builds en GitHub Actions</em> y descarga el artefacto <span class="mono">CarAudio-DSP-Pro-v6.0.0-APK</span>).<br />
-            2. Abre el archivo descargado desde tu carpeta de Descargas y permite la instalación desde tu navegador o gestor de archivos.<br />
-            3. Al abrir la app, sigue la Bienvenida y el Tutorial rápido para conceder permiso de música local y notificaciones.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="privacidad">
-      <div class="container">
-        <div class="privacy-box">
-          <div class="section-head" style="margin-bottom:24px;">
-            <h2>Política de Privacidad</h2>
-            <p>Transparencia total: CAR AUDIO DSP PRO procesa tu música de manera 100% local en tu teléfono sin recopilar ni vender datos.</p>
-          </div>
-          <div class="privacy-grid">
-            <div class="privacy-item">
-              <h3>Sin Cuentas ni Servidores</h3>
-              <p>No pedimos registro ni enviamos tu biblioteca musical, historial de escucha o datos personales a ningún servidor externo.</p>
-            </div>
-            <div class="privacy-item">
-              <h3>Permisos Reales de Audio</h3>
-              <p>Solo usamos permisos de música local, AudioFX, servicio multimedia, notificaciones de fallos, micrófono opcional para RTA y burbuja flotante opcional.</p>
-            </div>
-            <div class="privacy-item">
-              <h3>Ajustes en tu Dispositivo</h3>
-              <p>Tus curvas de EQ, bajos, temas y favoritas se guardan localmente en tu teléfono y se borran al restablecer o desinstalar la app.</p>
-            </div>
-            <div class="privacy-item">
-              <h3>Contacto Oficial</h3>
-              <p>Para soporte o consultas de privacidad escribe a <a href="mailto:luismiguel38338@gmail.com" style="color:var(--accent);font-weight:700;">luismiguel38338@gmail.com</a>.</p>
-            </div>
-          </div>
-          <div style="text-align:center;">
-            <a href="privacidad.html" class="btn btn-outline">Leer Política de Privacidad Completa</a>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      CAR AUDIO DSP PRO v6.0.0 •
-      <a href="privacidad.html">Política de Privacidad</a> •
-      <a href="https://github.com/luismiguel38338-cmd/Car-audio-" target="_blank" rel="noopener">GitHub</a> •
-      <a href="mailto:luismiguel38338@gmail.com">Contacto</a>
-    </div>
-  </footer>
-
-  <script>
-    const canvas = document.getElementById('curveCanvas');
-    const ctx = canvas.getContext('2d');
-    const slSub = document.getElementById('slSub');
-    const slPunch = document.getElementById('slPunch');
-    const slClarity = document.getElementById('slClarity');
-    const valSub = document.getElementById('valSub');
-    const valPunch = document.getElementById('valPunch');
-    const valClarity = document.getElementById('valClarity');
-    const modeLabel = document.getElementById('curveModeLabel');
-    const modeButtons = document.querySelectorAll('.mode-btn');
-
-    function drawCurve() {
-      const sub = parseFloat(slSub.value);
-      const punch = parseFloat(slPunch.value);
-      const clarity = parseFloat(slClarity.value);
-
-      valSub.textContent = (sub >= 0 ? '+' : '') + sub.toFixed(1) + ' dB';
-      valPunch.textContent = (punch >= 0 ? '+' : '') + punch.toFixed(1) + ' dB';
-      valClarity.textContent = (clarity >= 0 ? '+' : '') + clarity.toFixed(1) + ' dB';
-
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
-        const y = (h / 4) * i;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-
-      const midY = h * 0.56;
-      ctx.strokeStyle = 'rgba(255, 23, 43, 0.35)';
-      ctx.beginPath();
-      ctx.moveTo(0, midY);
-      ctx.lineTo(w, midY);
-      ctx.stroke();
-
-      const pts = [];
-      const steps = 60;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const freq = 20 * Math.pow(1000, t);
-        const subGain = sub * Math.exp(-Math.pow(Math.log2(freq / 38) / 0.85, 2));
-        const punchGain = punch * Math.exp(-Math.pow(Math.log2(freq / 78) / 0.65, 2));
-        const clarityGain = clarity * (1 / (1 + Math.exp(-(Math.log2(freq / 4500)) * 2.2)));
-        const subsonicCut = freq < 26 ? -10 * ((26 - freq) / 10) : 0;
-        const totalDb = Math.max(-14, Math.min(20, subGain + punchGain + clarityGain + subsonicCut));
-        const x = t * w;
-        const y = midY - (totalDb / 22) * (h * 0.72);
-        pts.push({ x, y });
-      }
-
-      const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-      fillGrad.addColorStop(0, 'rgba(255, 23, 43, 0.42)');
-      fillGrad.addColorStop(1, 'rgba(255, 23, 43, 0.0)');
-
-      ctx.beginPath();
-      ctx.moveTo(0, midY);
-      pts.forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.lineTo(w, midY);
-      ctx.closePath();
-      ctx.fillStyle = fillGrad;
-      ctx.fill();
-
-      ctx.beginPath();
-      pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = '#ff3648';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-
-    [slSub, slPunch, slClarity].forEach(el => el.addEventListener('input', drawCurve));
-
-    modeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        modeButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const p = btn.dataset.preset;
-        if (p === 'bass') {
-          slSub.value = 10; slPunch.value = 6; slClarity.value = 4.5;
-          modeLabel.textContent = 'BAJOS + PUNCH';
-        } else if (p === 'vocal') {
-          slSub.value = 3.5; slPunch.value = 2; slClarity.value = 9;
-          modeLabel.textContent = 'CLARIDAD HD';
-        } else {
-          slSub.value = 0; slPunch.value = 0; slClarity.value = 0;
-          modeLabel.textContent = 'FLAT STUDIO';
+      @media (max-width: 900px) {
+        .hero-grid {
+          grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+          gap: 36px;
         }
-        drawCurve();
-      });
-    });
 
-    drawCurve();
-  </script>
-</body>
+        .app-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .toolbar {
+          align-items: flex-start;
+        }
+
+        .toolbar-main {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .search-box {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 680px) {
+        .container {
+          width: min(100% - 36px, 540px);
+        }
+
+        .topbar-inner {
+          min-height: 64px;
+        }
+
+        .topbar-nav > a:not(.profile-link) {
+          display: none;
+        }
+
+        .profile-link {
+          width: 39px;
+          min-height: 39px;
+          padding: 0;
+          overflow: hidden;
+          color: transparent;
+          font-size: 0;
+        }
+
+        .profile-link svg {
+          flex: 0 0 auto;
+          color: var(--text);
+        }
+
+        .hero {
+          padding: 52px 0 48px;
+        }
+
+        .hero-grid {
+          grid-template-columns: 1fr;
+          gap: 32px;
+        }
+
+        .hero h1 {
+          max-width: 520px;
+          font-size: clamp(45px, 12vw, 62px);
+        }
+
+        .hero-copy > p:not(.eyebrow) {
+          font-size: 14px;
+        }
+
+        .sync-card {
+          padding: 19px;
+        }
+
+        .catalog-section {
+          padding: 38px 0 65px;
+        }
+
+        .section-heading {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 14px;
+          margin-bottom: 19px;
+        }
+
+        .sync-status {
+          text-align: left;
+        }
+
+        .toolbar {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .toolbar-main {
+          width: 100%;
+          gap: 10px;
+        }
+
+        .search-box {
+          min-width: 0;
+        }
+
+        .filter-list {
+          max-width: 100%;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .filter-list::-webkit-scrollbar {
+          display: none;
+        }
+
+        .refresh-button {
+          align-self: flex-end;
+          min-height: 34px;
+        }
+
+        .app-grid {
+          grid-template-columns: 1fr;
+          gap: 11px;
+        }
+
+        .app-card {
+          min-height: 0;
+          padding: 17px;
+        }
+
+        .app-description {
+          min-height: 0;
+        }
+
+        .footer-inner {
+          align-items: flex-start;
+          flex-direction: column;
+          justify-content: center;
+          padding: 18px 0;
+        }
+      }
+
+      @media (max-width: 380px) {
+        .container {
+          width: calc(100% - 28px);
+        }
+
+        .brand-copy strong {
+          font-size: 12px;
+        }
+
+        .brand-copy span {
+          font-size: 10px;
+        }
+
+        .hero .eyebrow {
+          flex-wrap: wrap;
+          font-size: 9px;
+        }
+
+        .hero-actions .button {
+          width: 100%;
+        }
+
+        .app-card-bottom {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .card-actions {
+          align-self: flex-end;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <a class="brand" href="#inicio" aria-label="Inicio, catálogo de aplicaciones">
+          <span class="brand-mark" aria-hidden="true">LM</span>
+          <span class="brand-copy">
+            <strong>APPS DE AUTOR</strong>
+            <span>por @luismiguel38338-cmd</span>
+          </span>
+        </a>
+        <nav class="topbar-nav" aria-label="Navegación principal">
+          <a href="#catalogo">Aplicaciones</a>
+          <a href="#como-funciona">Cómo funciona</a>
+          <a class="profile-link" href="https://github.com/luismiguel38338-cmd" target="_blank" rel="noopener noreferrer" aria-label="Abrir el perfil de GitHub">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.47 3.18 1.88.1-.73.39-1.23.7-1.52-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.98 0 0 .95-.3 3.08 1.15a10.72 10.72 0 0 1 5.6 0c2.14-1.45 3.09-1.15 3.09-1.15.61 1.55.23 2.7.11 2.98.72.79 1.16 1.79 1.16 3.02 0 4.32-2.63 5.28-5.14 5.56.4.35.75 1.04.75 2.09v3.1c0 .3.2.65.78.54A11.2 11.2 0 0 0 12 .8Z"/></svg>
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="inicio">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-label">CATÁLOGO OFICIAL</span><span class="live-indicator">EN SINCRONÍA</span></p>
+            <h1>Tus ideas,<br />en forma de <span>app.</span></h1>
+            <p>Explora las aplicaciones que desarrollo y mantengo. Cada ficha se alimenta de mis repositorios públicos: nuevas apps y cambios recientes aparecen aquí automáticamente.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#catalogo">
+                Explorar aplicaciones
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <a class="button" href="https://github.com/luismiguel38338-cmd" target="_blank" rel="noopener noreferrer">Ver mi GitHub</a>
+            </div>
+            <p class="hero-note">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5c0 4.55 2.98 8.8 7 10 4.02-1.2 7-5.45 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Solo proyectos propios. Sin apps ajenas ni forks.
+            </p>
+          </div>
+
+          <aside class="sync-card" aria-label="Información de sincronización">
+            <div class="sync-card-top">
+              <div class="sync-profile">
+                <div class="sync-avatar" aria-hidden="true">LM</div>
+                <div>
+                  <small>Desarrollador</small>
+                  <strong>Catálogo personal</strong>
+                </div>
+              </div>
+              <svg class="sync-symbol" width="23" height="23" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.7 9a7 7 0 0 1 11.7-2L20 9M4 15l2.3 2a7 7 0 0 0 11.7-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="sync-rows">
+              <div class="sync-row"><span>Origen</span><strong>GitHub · repos propios</strong></div>
+              <div class="sync-row"><span>Contenido</span><strong>Descripción y funciones</strong></div>
+              <div class="sync-row"><span>Actualización</span><strong>Automática cada 5 min</strong></div>
+              <div class="sync-row"><span>Propiedad</span><strong class="own-only">Solo @luismiguel38338-cmd</strong></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="catalog-section" id="catalogo" aria-labelledby="catalog-title">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-overline">La colección</p>
+              <h2 id="catalog-title">Mis aplicaciones</h2>
+              <p><span id="app-count">—</span> proyectos públicos de mi cuenta, con sus características y enlaces oficiales.</p>
+            </div>
+            <div class="sync-status" id="sync-status" data-state="loading" role="status" aria-live="polite">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="sync-message">Conectando con GitHub…</span>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-main">
+              <label class="search-box" for="search-input">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                <input id="search-input" type="search" autocomplete="off" placeholder="Buscar una aplicación…" aria-label="Buscar entre mis aplicaciones" />
+              </label>
+              <div class="filter-list" role="group" aria-label="Filtrar aplicaciones por plataforma">
+                <button class="filter-button" type="button" data-filter="all" aria-pressed="true">Todas</button>
+                <button class="filter-button" type="button" data-filter="Android" aria-pressed="false">Android</button>
+                <button class="filter-button" type="button" data-filter="Web" aria-pressed="false">Web</button>
+                <button class="filter-button" type="button" data-filter="Otros" aria-pressed="false">Otros</button>
+              </div>
+            </div>
+            <button class="button refresh-button" id="refresh-button" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.7 9a7 7 0 0 1 11.7-2L20 9M4 15l2.3 2a7 7 0 0 0 11.7-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Actualizar
+            </button>
+          </div>
+
+          <div class="app-grid" id="app-grid" aria-busy="true" aria-live="polite">
+            <div class="skeleton" aria-hidden="true"></div>
+            <div class="skeleton" aria-hidden="true"></div>
+            <div class="skeleton" aria-hidden="true"></div>
+          </div>
+          <p class="catalog-footnote">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            Solo se consultan repositorios públicos propiedad de esta cuenta. Los forks y los repositorios de otras personas quedan fuera del catálogo.
+          </p>
+        </div>
+      </section>
+
+      <section class="catalog-section" id="como-funciona" aria-labelledby="how-title" style="padding-top:0;border-top:0;background:none">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-overline">Siempre al día</p>
+              <h2 id="how-title">Una vitrina conectada a GitHub.</h2>
+              <p>El catálogo consulta directamente mi perfil público y vuelve a sincronizarse periódicamente mientras visitas la página.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container footer-inner">
+        <span>© <span id="current-year"></span> · Aplicaciones de @luismiguel38338-cmd</span>
+        <a href="https://github.com/luismiguel38338-cmd" target="_blank" rel="noopener noreferrer">Repositorio oficial en GitHub</a>
+      </div>
+    </footer>
+
+    <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title">
+      <div class="dialog-content">
+        <div class="dialog-top">
+          <div>
+            <p class="dialog-kicker" id="detail-kicker">Ficha de aplicación</p>
+            <h2 id="detail-title">Aplicación</h2>
+          </div>
+          <button class="icon-button" id="close-dialog" type="button" aria-label="Cerrar ficha">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="dialog-description" id="detail-description"></p>
+        <div class="dialog-meta" id="detail-meta"></div>
+        <section class="dialog-features" aria-labelledby="features-title">
+          <h3 id="features-title">Características del proyecto</h3>
+          <p class="feature-message" id="feature-message">Cargando información del repositorio…</p>
+          <ul class="feature-list" id="feature-list"></ul>
+        </section>
+        <div class="dialog-actions" id="detail-actions">
+          <a class="button button-primary" id="release-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Descargar APK</a>
+          <a class="button" id="homepage-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir aplicación</a>
+          <a class="button" id="repository-link" href="#" target="_blank" rel="noopener noreferrer">Ver código en GitHub</a>
+        </div>
+      </div>
+    </dialog>
+
+    <script>
+      (() => {
+        const OWNER = "luismiguel38338-cmd";
+        const API_ROOT = "https://api.github.com";
+        const REFRESH_INTERVAL = 5 * 60 * 1000;
+        const headers = {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        };
+        const elements = {
+          grid: document.getElementById("app-grid"),
+          count: document.getElementById("app-count"),
+          status: document.getElementById("sync-status"),
+          statusMessage: document.getElementById("sync-message"),
+          refresh: document.getElementById("refresh-button"),
+          search: document.getElementById("search-input"),
+          dialog: document.getElementById("detail-dialog"),
+          closeDialog: document.getElementById("close-dialog"),
+          detailTitle: document.getElementById("detail-title"),
+          detailKicker: document.getElementById("detail-kicker"),
+          detailDescription: document.getElementById("detail-description"),
+          detailMeta: document.getElementById("detail-meta"),
+          featureMessage: document.getElementById("feature-message"),
+          featureList: document.getElementById("feature-list"),
+          releaseLink: document.getElementById("release-link"),
+          homepageLink: document.getElementById("homepage-link"),
+          repositoryLink: document.getElementById("repository-link"),
+        };
+        let repositories = [];
+        let activeFilter = "all";
+        let isLoading = false;
+        let detailRequestId = 0;
+
+        document.getElementById("current-year").textContent = String(new Date().getFullYear());
+
+        function setStatus(message, state) {
+          elements.statusMessage.textContent = message;
+          elements.status.dataset.state = state;
+        }
+
+        function setBusy(busy) {
+          elements.grid.setAttribute("aria-busy", String(busy));
+          elements.refresh.disabled = busy;
+        }
+
+        async function fetchJson(url) {
+          const response = await fetch(url, { headers, cache: "no-store" });
+          if (!response.ok) {
+            const message = response.status === 403 || response.status === 429
+              ? "GitHub limitó temporalmente las consultas públicas."
+              : `GitHub respondió con el código ${response.status}.`;
+            throw new Error(message);
+          }
+          return response.json();
+        }
+
+        async function fetchOwnedRepositories() {
+          const result = [];
+          for (let page = 1; page <= 10; page += 1) {
+            const pageItems = await fetchJson(
+              `${API_ROOT}/users/${OWNER}/repos?type=owner&sort=updated&per_page=100&page=${page}`
+            );
+            result.push(...pageItems);
+            if (pageItems.length < 100) break;
+          }
+          return result
+            .filter((repo) => repo.owner?.login?.toLowerCase() === OWNER && !repo.fork && !repo.private)
+            .sort((a, b) => new Date(b.pushed_at || b.updated_at) - new Date(a.pushed_at || a.updated_at));
+        }
+
+        function categoryFor(repo) {
+          const words = `${repo.name} ${repo.description || ""} ${(repo.topics || []).join(" ")}`.toLowerCase();
+          if (["Kotlin", "Java", "Dart", "Swift"].includes(repo.language) || /android|apk|mobile|móvil/.test(words)) return "Android";
+          if (["JavaScript", "TypeScript", "HTML", "CSS", "PHP"].includes(repo.language) || /website|sitio web|web app|página web/.test(words)) return "Web";
+          return "Otros";
+        }
+
+        function readableName(name) {
+          return name
+            .replace(/[._-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+        }
+
+        function initials(name) {
+          const parts = name.replace(/[._-]+/g, " ").trim().split(/\s+/).filter(Boolean);
+          return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : (parts[0] || "AP").slice(0, 2)).toUpperCase();
+        }
+
+        function formatDate(value) {
+          if (!value) return "Fecha no disponible";
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+          return `Actualizada ${new Intl.DateTimeFormat("es-DO", { day: "numeric", month: "short", year: "numeric" }).format(date)}`;
+        }
+
+        function repoUrl(repo) {
+          return `https://github.com/${OWNER}/${encodeURIComponent(repo.name)}`;
+        }
+
+        function makeTag(text) {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = text;
+          return tag;
+        }
+
+        function createCard(repo) {
+          const category = categoryFor(repo);
+          const card = document.createElement("article");
+          card.className = "app-card";
+          card.dataset.category = category;
+
+          const top = document.createElement("div");
+          top.className = "app-card-top";
+          const mark = document.createElement("span");
+          mark.className = "app-mark";
+          mark.setAttribute("aria-hidden", "true");
+          mark.textContent = initials(repo.name);
+          const type = document.createElement("span");
+          type.className = "app-type";
+          type.textContent = category;
+          top.append(mark, type);
+
+          const title = document.createElement("h3");
+          title.textContent = readableName(repo.name);
+          const description = document.createElement("p");
+          description.className = "app-description";
+          description.textContent = repo.description || "Aplicación y proyecto oficial publicado por su autor en GitHub.";
+
+          const tags = document.createElement("div");
+          tags.className = "tag-list";
+          const topics = Array.isArray(repo.topics) ? repo.topics.slice(0, 2) : [];
+          if (repo.language) topics.unshift(repo.language);
+          (topics.length ? topics.slice(0, 3) : ["Proyecto propio"]).forEach((topic) => tags.append(makeTag(topic)));
+
+          const bottom = document.createElement("div");
+          bottom.className = "app-card-bottom";
+          const updated = document.createElement("span");
+          updated.className = "updated-date";
+          updated.textContent = formatDate(repo.pushed_at || repo.updated_at);
+          const actions = document.createElement("div");
+          actions.className = "card-actions";
+          const details = document.createElement("button");
+          details.type = "button";
+          details.textContent = "Ver ficha";
+          details.addEventListener("click", () => openDetails(repo));
+          const source = document.createElement("a");
+          source.href = repoUrl(repo);
+          source.target = "_blank";
+          source.rel = "noopener noreferrer";
+          source.textContent = "GitHub";
+          source.setAttribute("aria-label", `Abrir el repositorio ${readableName(repo.name)} en GitHub`);
+          actions.append(details, source);
+          bottom.append(updated, actions);
+          card.append(top, title, description, tags, bottom);
+          return card;
+        }
+
+        function normalizeSearch(value) {
+          return value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[._-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .toLocaleLowerCase("es")
+            .trim();
+        }
+
+        function renderRepositories() {
+          const searchTerm = normalizeSearch(elements.search.value);
+          const visible = repositories.filter((repo) => {
+            const categoryMatches = activeFilter === "all" || categoryFor(repo) === activeFilter;
+            const searchable = normalizeSearch(`${repo.name} ${repo.description || ""} ${repo.language || ""} ${(repo.topics || []).join(" ")}`);
+            return categoryMatches && searchable.includes(searchTerm);
+          });
+          elements.grid.replaceChildren();
+          elements.count.textContent = String(repositories.length);
+
+          if (!repositories.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-state";
+            const heading = document.createElement("h3");
+            heading.textContent = "Todavía no hay proyectos públicos para mostrar";
+            const message = document.createElement("p");
+            message.textContent = "Cuando publiques una aplicación en tu cuenta de GitHub, aparecerá aquí automáticamente.";
+            empty.append(heading, message);
+            elements.grid.append(empty);
+            return;
+          }
+
+          if (!visible.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-state";
+            const heading = document.createElement("h3");
+            heading.textContent = "No encontramos coincidencias";
+            const message = document.createElement("p");
+            message.textContent = "Prueba otra búsqueda o cambia el filtro de plataforma.";
+            empty.append(heading, message);
+            elements.grid.append(empty);
+            return;
+          }
+
+          const fragment = document.createDocumentFragment();
+          visible.forEach((repo) => fragment.append(createCard(repo)));
+          elements.grid.append(fragment);
+        }
+
+        function renderError(message) {
+          elements.grid.replaceChildren();
+          const panel = document.createElement("div");
+          panel.className = "error-state";
+          const heading = document.createElement("h3");
+          heading.textContent = "No se pudo sincronizar el catálogo";
+          const detail = document.createElement("p");
+          detail.textContent = message;
+          const retry = document.createElement("button");
+          retry.className = "button";
+          retry.type = "button";
+          retry.textContent = "Intentar de nuevo";
+          retry.addEventListener("click", () => loadRepositories(true));
+          panel.append(heading, detail, retry);
+          elements.grid.append(panel);
+        }
+
+        async function loadRepositories(manual = false) {
+          if (isLoading) return;
+          isLoading = true;
+          setBusy(true);
+          if (manual) setStatus("Sincronizando con GitHub…", "loading");
+
+          try {
+            const latest = await fetchOwnedRepositories();
+            repositories = latest;
+            renderRepositories();
+            const synced = new Intl.DateTimeFormat("es-DO", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+            setStatus(`Sincronizado a las ${synced} · se actualiza cada 5 min`, "success");
+          } catch (error) {
+            setStatus("No se pudo actualizar", "error");
+            if (!repositories.length) renderError(error instanceof Error ? error.message : "Intenta nuevamente en un momento.");
+          } finally {
+            isLoading = false;
+            setBusy(false);
+          }
+        }
+
+        function safeGithubAsset(value) {
+          try {
+            const url = new URL(value);
+            return url.protocol === "https:" && url.hostname === "github.com" ? url.href : null;
+          } catch {
+            return null;
+          }
+        }
+
+        function decodeReadme(encoded) {
+          const binary = atob(encoded.replace(/\s/g, ""));
+          const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+          return new TextDecoder().decode(bytes);
+        }
+
+        function cleanMarkdownLine(line) {
+          return line
+            .replace(/^\s{0,3}#{1,6}\s+/, "")
+            .replace(/^\s*(?:[-*+] |\d+[.)] )/, "")
+            .replace(/^\s*>\s?/, "")
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+            .replace(/<https?:\/\/[^>]+>/g, "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/`([^`]+)`/g, "$1")
+            .replace(/\*\*(.*?)\*\*/g, "$1")
+            .replace(/__(.*?)__/g, "$1")
+            .replace(/\*(.*?)\*/g, "$1")
+            .replace(/_(.*?)_/g, "$1")
+            .replace(/~~(.*?)~~/g, "$1")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function extractReadme(markdown) {
+          const withoutCode = markdown.replace(/```[\s\S]*?```/g, " ");
+          const lines = withoutCode.split(/\r?\n/).filter((line) => line.trim());
+          const paragraphs = [];
+          const features = [];
+          let insideTable = false;
+
+          for (const line of lines) {
+            if (/^\s*\|/.test(line)) {
+              insideTable = true;
+              continue;
+            }
+            if (insideTable && !/^\s*\|/.test(line)) insideTable = false;
+            if (/^\s*(?:[-*+] |\d+[.)] )/.test(line)) {
+              const feature = cleanMarkdownLine(line);
+              if (feature && !/^\[!?\[/.test(feature) && !/^[-:|\s]+$/.test(feature)) features.push(feature);
+              continue;
+            }
+            if (/^\s*#{1,6}\s/.test(line) || /^\s*<!--/.test(line) || /^\s*<img\b/i.test(line)) continue;
+            const paragraph = cleanMarkdownLine(line);
+            if (paragraph && !/^[-:|\s]+$/.test(paragraph)) paragraphs.push(paragraph);
+          }
+
+          return {
+            summary: paragraphs.slice(0, 2).join(" ").slice(0, 480),
+            features: [...new Set(features)].slice(0, 7),
+          };
+        }
+
+        function resetActionLink(link, href, label) {
+          link.hidden = !href;
+          if (href) {
+            link.href = href;
+            link.textContent = label;
+          }
+        }
+
+        async function openDetails(repo) {
+          const requestId = ++detailRequestId;
+          const category = categoryFor(repo);
+          elements.detailTitle.textContent = readableName(repo.name);
+          elements.detailKicker.textContent = `${category} · Proyecto propio`;
+          elements.detailDescription.textContent = repo.description || "Aplicación y proyecto oficial publicado por su autor en GitHub.";
+          elements.detailMeta.replaceChildren();
+          [repo.language, repo.archived ? "Archivado" : "Activo", formatDate(repo.pushed_at || repo.updated_at)].filter(Boolean).forEach((value) => {
+            const item = document.createElement("span");
+            item.textContent = value;
+            elements.detailMeta.append(item);
+          });
+          elements.featureList.replaceChildren();
+          elements.featureMessage.hidden = false;
+          elements.featureMessage.textContent = "Cargando información del repositorio…";
+          elements.repositoryLink.href = repoUrl(repo);
+          resetActionLink(elements.releaseLink, `${repoUrl(repo)}/releases`, "Ver versiones");
+          const homepage = safeHomepage(repo.homepage);
+          resetActionLink(elements.homepageLink, homepage, "Abrir aplicación");
+          elements.dialog.showModal();
+
+          const base = `${API_ROOT}/repos/${OWNER}/${encodeURIComponent(repo.name)}`;
+          const [readmeResult, releaseResult] = await Promise.allSettled([
+            fetchJson(`${base}/readme`),
+            fetchJson(`${base}/releases/latest`),
+          ]);
+          if (requestId !== detailRequestId || !elements.dialog.open) return;
+
+          let parsed = { summary: "", features: [] };
+          if (readmeResult.status === "fulfilled" && readmeResult.value.encoding === "base64") {
+            try {
+              parsed = extractReadme(decodeReadme(readmeResult.value.content));
+            } catch {
+              parsed = { summary: "", features: [] };
+            }
+          }
+
+          if (!repo.description && parsed.summary) elements.detailDescription.textContent = parsed.summary;
+          elements.featureList.replaceChildren();
+          if (parsed.features.length) {
+            parsed.features.forEach((feature) => {
+              const item = document.createElement("li");
+              item.textContent = feature;
+              elements.featureList.append(item);
+            });
+            elements.featureMessage.hidden = true;
+          } else {
+            elements.featureMessage.textContent = readmeResult.status === "rejected"
+              ? "No se pudo leer el README en este momento. Consulta el repositorio oficial para ver más detalles."
+              : "Este repositorio todavía no documenta una lista de características.";
+          }
+
+          if (releaseResult.status === "fulfilled") {
+            const assets = Array.isArray(releaseResult.value.assets) ? releaseResult.value.assets : [];
+            const apk = assets.find((asset) => asset.name?.toLowerCase().endsWith(".apk"));
+            const downloadUrl = apk ? safeGithubAsset(apk.browser_download_url) : null;
+            const releaseUrl = safeGithubAsset(releaseResult.value.html_url);
+            if (downloadUrl) {
+              resetActionLink(elements.releaseLink, downloadUrl, `Descargar APK${releaseResult.value.tag_name ? ` · ${releaseResult.value.tag_name}` : ""}`);
+            } else if (releaseUrl) {
+              resetActionLink(elements.releaseLink, releaseUrl, "Ver última versión");
+            }
+          }
+        }
+
+        function safeHomepage(value) {
+          if (!value) return null;
+          try {
+            const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+            return url.protocol === "https:" ? url.href : null;
+          } catch {
+            return null;
+          }
+        }
+
+        elements.search.addEventListener("input", renderRepositories);
+        document.querySelectorAll("[data-filter]").forEach((button) => {
+          button.addEventListener("click", () => {
+            activeFilter = button.dataset.filter;
+            document.querySelectorAll("[data-filter]").forEach((filter) => {
+              filter.setAttribute("aria-pressed", String(filter === button));
+            });
+            renderRepositories();
+          });
+        });
+        elements.refresh.addEventListener("click", () => loadRepositories(true));
+        elements.closeDialog.addEventListener("click", () => elements.dialog.close());
+        elements.dialog.addEventListener("click", (event) => {
+          if (event.target === elements.dialog) elements.dialog.close();
+        });
+        elements.dialog.addEventListener("close", () => {
+          detailRequestId += 1;
+        });
+
+        loadRepositories();
+        window.setInterval(() => loadRepositories(), REFRESH_INTERVAL);
+      })();
+    </script>
+  </body>
 </html>
