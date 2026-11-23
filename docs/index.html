@@ -720,6 +720,19 @@
         color: #a8a5aa;
       }
 
+      .card-actions .download-card-button {
+        padding: 5px 8px;
+        border: 1px solid rgba(251, 85, 74, 0.26);
+        border-radius: 7px;
+        background: var(--accent-soft);
+        color: #ff867e;
+      }
+
+      .card-actions .download-card-button:disabled {
+        cursor: progress;
+        opacity: 0.65;
+      }
+
       .card-actions button:hover,
       .card-actions a:hover {
         color: #fff;
@@ -1325,6 +1338,7 @@
         let activeFilter = "all";
         let isLoading = false;
         let detailRequestId = 0;
+        const releaseCache = new Map();
 
         document.getElementById("current-year").textContent = String(new Date().getFullYear());
 
@@ -1441,6 +1455,15 @@
           details.type = "button";
           details.textContent = "Ver ficha";
           details.addEventListener("click", () => openDetails(repo));
+          if (category === "Android") {
+            const download = document.createElement("button");
+            download.className = "download-card-button";
+            download.type = "button";
+            download.textContent = "Descargar APK";
+            download.setAttribute("aria-label", `Descargar ${readableName(repo.name)} para Android`);
+            download.addEventListener("click", () => downloadRepositoryApp(repo, download));
+            actions.append(download);
+          }
           const source = document.createElement("a");
           source.href = repoUrl(repo);
           source.target = "_blank";
@@ -1528,6 +1551,7 @@
           try {
             const latest = await fetchOwnedRepositories();
             repositories = latest;
+            releaseCache.clear();
             renderRepositories();
             const synced = new Intl.DateTimeFormat("es-DO", { hour: "2-digit", minute: "2-digit" }).format(new Date());
             setStatus(`Sincronizado a las ${synced} · se actualiza cada 5 min`, "success");
@@ -1546,6 +1570,47 @@
             return url.protocol === "https:" && url.hostname === "github.com" ? url.href : null;
           } catch {
             return null;
+          }
+        }
+
+        function getRepositoryReleases(repo) {
+          if (!releaseCache.has(repo.name)) {
+            const request = fetchJson(`${API_ROOT}/repos/${OWNER}/${encodeURIComponent(repo.name)}/releases?per_page=100`)
+              .then((releases) => (Array.isArray(releases) ? releases.filter((release) => !release.draft) : []));
+            releaseCache.set(repo.name, request);
+          }
+          return releaseCache.get(repo.name);
+        }
+
+        function findLatestApk(releases) {
+          return releases
+            .flatMap((release) => (Array.isArray(release.assets) ? release.assets : []).map((asset) => ({ asset, release })))
+            .filter(({ asset }) => asset.name?.toLowerCase().endsWith(".apk"))
+            .map((entry) => ({
+              ...entry,
+              url: safeGithubAsset(entry.asset.browser_download_url),
+              updatedAt: entry.asset.updated_at || entry.asset.created_at || entry.release.published_at,
+            }))
+            .filter((entry) => entry.url)
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || null;
+        }
+
+        async function downloadRepositoryApp(repo, button) {
+          const originalLabel = button.textContent;
+          button.disabled = true;
+          button.textContent = "Buscando APK…";
+          try {
+            const apk = findLatestApk(await getRepositoryReleases(repo));
+            if (apk) {
+              window.location.assign(apk.url);
+              return;
+            }
+            await openDetails(repo);
+          } catch {
+            await openDetails(repo);
+          } finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
           }
         }
 
@@ -1635,7 +1700,7 @@
           const base = `${API_ROOT}/repos/${OWNER}/${encodeURIComponent(repo.name)}`;
           const [readmeResult, releaseResult] = await Promise.allSettled([
             fetchJson(`${base}/readme`),
-            fetchJson(`${base}/releases/latest`),
+            getRepositoryReleases(repo),
           ]);
           if (requestId !== detailRequestId || !elements.dialog.open) return;
 
@@ -1664,14 +1729,15 @@
           }
 
           if (releaseResult.status === "fulfilled") {
-            const assets = Array.isArray(releaseResult.value.assets) ? releaseResult.value.assets : [];
-            const apk = assets.find((asset) => asset.name?.toLowerCase().endsWith(".apk"));
-            const downloadUrl = apk ? safeGithubAsset(apk.browser_download_url) : null;
-            const releaseUrl = safeGithubAsset(releaseResult.value.html_url);
-            if (downloadUrl) {
-              resetActionLink(elements.releaseLink, downloadUrl, `Descargar APK${releaseResult.value.tag_name ? ` · ${releaseResult.value.tag_name}` : ""}`);
-            } else if (releaseUrl) {
-              resetActionLink(elements.releaseLink, releaseUrl, "Ver última versión");
+            const releases = releaseResult.value;
+            const apk = findLatestApk(releases);
+            if (apk) {
+              const version = apk.asset.name.match(/v(\d+(?:\.\d+)+)/i)?.[1];
+              resetActionLink(elements.releaseLink, apk.url, version ? `Descargar APK · v${version}` : "Descargar APK");
+            } else {
+              const latestRelease = releases.find((release) => safeGithubAsset(release.html_url));
+              const releaseUrl = latestRelease ? safeGithubAsset(latestRelease.html_url) : `${repoUrl(repo)}/releases`;
+              resetActionLink(elements.releaseLink, releaseUrl, latestRelease ? "Ver última versión" : "Ver versiones");
             }
           }
         }
