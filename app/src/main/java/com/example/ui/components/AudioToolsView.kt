@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,8 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -30,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -96,7 +97,7 @@ fun AudioToolsView(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .testTag("audio_tools_view")
     ) {
         Column(
@@ -105,12 +106,7 @@ fun AudioToolsView(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            GlassStudioCard(theme = theme, highlightBorder = dspOn) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -125,14 +121,17 @@ fun AudioToolsView(
                     ) {
                         Icon(Icons.Default.Tune, contentDescription = null, tint = theme.accentColor)
                         Column {
-                            Text("Estudio DSP", color = theme.textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Estudio DSP", color = theme.textColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             Text(capabilityReport.engineSummary, color = theme.accentColor, fontSize = 11.sp)
                         }
                     }
                     Switch(
                         checked = dspOn,
                         onCheckedChange = onToggleDspMaster,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = theme.silverDetailColor,
+                            checkedTrackColor = theme.primaryColor
+                        )
                     )
                 }
             }
@@ -144,14 +143,19 @@ fun AudioToolsView(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("Tono y Mejoras Pro", "Dinámica y Filtros", "RTA y Medidores dB").forEachIndexed { idx, title ->
+                    val selected = selectedTab == idx
                     FilterChip(
-                        selected = selectedTab == idx,
+                        selected = selected,
                         onClick = { selectedTab = idx },
                         label = { Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                        border = BorderStroke(
+                            1.dp,
+                            if (selected) theme.silverDetailColor.copy(alpha = 0.4f) else theme.cardColor
+                        ),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = theme.accentColor,
+                            selectedContainerColor = theme.primaryColor,
                             selectedLabelColor = theme.onPrimaryColor,
-                            containerColor = theme.surfaceColor,
+                            containerColor = theme.surfaceColor.copy(alpha = 0.85f),
                             labelColor = theme.textColor
                         ),
                         modifier = Modifier.testTag("audio_tools_tab_$idx")
@@ -194,14 +198,14 @@ fun AudioToolsView(
                     .padding(horizontal = 14.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StudioSignalIndicatorBar(
-                    isAudioPlaying = isAnyAudioPlaying,
+                EpicTriBandPowerMeters(
+                    isPlaying = isAnyAudioPlaying,
                     bassEnergy = bassEnergy,
                     midEnergy = midEnergy,
                     trebleEnergy = trebleEnergy,
+                    dspMasterEnabled = dspOn,
                     theme = theme,
-                    liteVisuals = liteVisuals,
-                    title = "Respuesta de señal"
+                    liteVisuals = liteVisuals
                 )
 
                 if (selectedTab == 0) {
@@ -267,36 +271,106 @@ private fun ToneAndEnhancersContent(
     onExciterChanged: (Boolean, Float) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Preamp y tono", color = theme.accentColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                DspSliderRow("Preamplificador (Preamp)", dspSettings.preampDb, -12f..18f, "dB", dspOn, theme, onValueChange = onPreampChanged)
-                DspSliderRow("Ganancia Maestra", dspSettings.masterGainDb, -18f..18f, "dB", dspOn, theme, onValueChange = onMasterGainChanged)
-                DspSliderRow("Graves (Bass)", dspSettings.bassGainDb, -18f..18f, "dB", dspOn, theme, onValueChange = onBassGainChanged)
-                DspSliderRow("Medios (Mid)", dspSettings.midGainDb, -18f..18f, "dB", dspOn, theme, onValueChange = onMidGainChanged)
-                DspSliderRow("Agudos (Treble)", dspSettings.trebleGainDb, -18f..18f, "dB", dspOn, theme, onValueChange = onTrebleGainChanged)
+        // Consola de Perillas 3D para Preamp, Master y Tono de 3 Bandas
+        GlassStudioCard(theme = theme, highlightBorder = dspOn) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "PREAMP Y CONSOLA DE TONO 3D",
+                    color = theme.silverDetailColor,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.5.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    RotaryKnob3D(
+                        label = "Preamp",
+                        value = dspSettings.preampDb,
+                        range = -12f..18f,
+                        unit = "dB",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onPreampChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                    RotaryKnob3D(
+                        label = "Master",
+                        value = dspSettings.masterGainDb,
+                        range = -18f..18f,
+                        unit = "dB",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onMasterGainChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                    RotaryKnob3D(
+                        label = "Calidez Tube",
+                        value = dspSettings.tubeWarmthLevel,
+                        range = 0f..10f,
+                        unit = "x",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onTubeWarmthChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    RotaryKnob3D(
+                        label = "Graves",
+                        value = dspSettings.bassGainDb,
+                        range = -18f..18f,
+                        unit = "dB",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onBassGainChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                    RotaryKnob3D(
+                        label = "Medios",
+                        value = dspSettings.midGainDb,
+                        range = -18f..18f,
+                        unit = "dB",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onMidGainChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                    RotaryKnob3D(
+                        label = "Agudos",
+                        value = dspSettings.trebleGainDb,
+                        range = -18f..18f,
+                        unit = "dB",
+                        theme = theme,
+                        enabled = dspOn,
+                        size = 86.dp,
+                        onValueChange = onTrebleGainChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        GlassStudioCard(theme = theme, highlightBorder = dspOn && (dspSettings.bassBoostEnabled || dspSettings.subBassEnabled || dspSettings.loudnessEnabled)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Refuerzo de graves / Sub-Bass", color = theme.accentColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("REFUERZO DE GRAVES / SUB-BASS", color = theme.silverDetailColor, fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                     Switch(
                         checked = dspSettings.bassBoostEnabled,
                         onCheckedChange = { onBassBoostChanged(it, dspSettings.bassBoostDb, dspSettings.bassBoostFreqHz) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 DspSliderRow("Ganancia Bass Boost", dspSettings.bassBoostDb, 0f..24f, "dB", dspOn && dspSettings.bassBoostEnabled, theme, onValueChange = { onBassBoostChanged(true, it, dspSettings.bassBoostFreqHz) })
@@ -308,7 +382,7 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.subBassEnabled,
                         onCheckedChange = { onSubBassChanged(it, dspSettings.subBassBoostDb, dspSettings.subBassFreqHz) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.accentColor)
                     )
                 }
                 if (dspSettings.subBassEnabled) {
@@ -321,7 +395,7 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.loudnessEnabled,
                         onCheckedChange = { onLoudnessChanged(it, dspSettings.loudnessGainDb) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 if (dspSettings.loudnessEnabled) {
@@ -330,18 +404,50 @@ private fun ToneAndEnhancersContent(
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Campo estéreo y realce", color = theme.accentColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                DspSliderRow("Balance Izquierda / Derecha", dspSettings.balancePan * 100f, -100f..100f, "%", dspOn, theme, decimals = 0, onValueChange = { onBalanceChanged(it / 100f) })
-                DspSliderRow("Amplitud Virtualizer Estéreo", dspSettings.stereoWidthPercent, 100f..250f, "%", dspOn, theme, decimals = 0, onValueChange = onStereoWidthChanged)
+        GlassStudioCard(theme = theme, highlightBorder = dspOn && dspSettings.hiResQualityEnabled) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("CAMPO ESTÉREO Y REALCE HI-RES", color = theme.silverDetailColor, fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    RotaryKnob3D(
+                        label = "Balance L / R",
+                        value = dspSettings.balancePan * 100f,
+                        range = -100f..100f,
+                        unit = "%",
+                        theme = theme,
+                        enabled = dspOn,
+                        decimals = 0,
+                        size = 88.dp,
+                        onValueChange = { onBalanceChanged(it / 100f) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    RotaryKnob3D(
+                        label = "Estéreo 3D",
+                        value = dspSettings.stereoWidthPercent,
+                        range = 100f..250f,
+                        unit = "%",
+                        theme = theme,
+                        enabled = dspOn,
+                        decimals = 0,
+                        size = 88.dp,
+                        onValueChange = onStereoWidthChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(theme.backgroundColor.copy(alpha = 0.85f))
+                        .border(0.8.dp, theme.cardColor, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Modo Hi-Res Studio", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Depura medios turbio (280 Hz) y aporta aire limpio.", color = theme.textSecondaryColor, fontSize = 10.sp)
@@ -350,12 +456,10 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.hiResQualityEnabled,
                         onCheckedChange = onHiResChanged,
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f)),
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor),
                         modifier = Modifier.testTag("tools_hires_switch")
                     )
                 }
-
-                DspSliderRow("Calidez Analógica (Tube)", dspSettings.tubeWarmthLevel, 0f..10f, "x", dspOn, theme, onValueChange = onTubeWarmthChanged)
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Presencia Vocal (2 - 5 kHz)", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -363,7 +467,7 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.presenceEnabled,
                         onCheckedChange = { onPresenceChanged(it, dspSettings.presenceLevel) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.accentColor)
                     )
                 }
                 if (dspSettings.presenceEnabled) {
@@ -376,7 +480,7 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.clarityEnabled,
                         onCheckedChange = { onClarityChanged(it, dspSettings.clarityLevel) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.accentColor)
                     )
                 }
                 if (dspSettings.clarityEnabled) {
@@ -389,7 +493,7 @@ private fun ToneAndEnhancersContent(
                         checked = dspSettings.exciterEnabled,
                         onCheckedChange = { onExciterChanged(it, dspSettings.exciterLevel) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 if (dspSettings.exciterEnabled) {
@@ -415,19 +519,14 @@ private fun DynamicsAndCrossoverContent(
     onLpfChanged: (Boolean, Float, Int) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        GlassStudioCard(theme = theme, highlightBorder = dspOn && (dspSettings.compressorEnabled || dspSettings.limiterEnabled)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("COMPRESOR MULTIBANDA", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("COMPRESOR MULTIBANDA", color = theme.silverDetailColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text(
                             text = if (capabilityReport.dynamicsProcessingActive) "Etapa MBC en hardware activa" else "Requiere DynamicsProcessing API 28+",
-                            color = theme.textSecondaryColor,
+                            color = theme.accentColor,
                             fontSize = 10.sp
                         )
                     }
@@ -435,7 +534,7 @@ private fun DynamicsAndCrossoverContent(
                         checked = dspSettings.compressorEnabled,
                         onCheckedChange = onToggleCompressor,
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 if (dspSettings.compressorEnabled) {
@@ -454,21 +553,16 @@ private fun DynamicsAndCrossoverContent(
                         checked = dspSettings.limiterEnabled,
                         onCheckedChange = onToggleLimiter,
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 DspSliderRow("Techo del Limitador", dspSettings.limiterCeilingDb, -24f..-0.2f, "dB", dspOn && dspSettings.limiterEnabled, theme, onValueChange = onLimiterCeilingChanged)
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        GlassStudioCard(theme = theme, highlightBorder = dspOn && (dspSettings.subsonicFilterActive || dspSettings.hpfEnabled || dspSettings.lpfEnabled)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Crossover y filtros de corte", color = theme.accentColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("CROSSOVER Y FILTROS DE CORTE", color = theme.silverDetailColor, fontSize = 11.5.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Filtro Subsónico (Protección Sub)", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -476,7 +570,7 @@ private fun DynamicsAndCrossoverContent(
                         checked = dspSettings.subsonicFilterActive,
                         onCheckedChange = { onSubsonicChanged(it, dspSettings.subsonicFrequencyHz) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.accentColor)
                     )
                 }
                 if (dspSettings.subsonicFilterActive) {
@@ -489,7 +583,7 @@ private fun DynamicsAndCrossoverContent(
                         checked = dspSettings.hpfEnabled,
                         onCheckedChange = { onHpfChanged(it, dspSettings.hpfFrequencyHz, dspSettings.hpfSlopeDb) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 if (dspSettings.hpfEnabled) {
@@ -502,7 +596,7 @@ private fun DynamicsAndCrossoverContent(
                         checked = dspSettings.lpfEnabled,
                         onCheckedChange = { onLpfChanged(it, dspSettings.lpfFrequencyHz, dspSettings.lpfSlopeDb) },
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(checkedThumbColor = theme.silverDetailColor, checkedTrackColor = theme.primaryColor)
                     )
                 }
                 if (dspSettings.lpfEnabled) {

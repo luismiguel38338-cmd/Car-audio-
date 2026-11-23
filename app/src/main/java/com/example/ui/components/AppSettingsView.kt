@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -100,6 +101,10 @@ fun AppSettingsView(
     onRequestAudioPermission: () -> Unit,
     onRefreshDiagnostics: () -> Unit,
     onClearFaults: () -> Unit,
+    storageUsedBytes: Long = 0L,
+    onClearCache: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -192,20 +197,17 @@ fun AppSettingsView(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .verticalScroll(scrollState)
             .padding(14.dp)
             .testTag("app_settings_view"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // 1. 3D Automotive Themes & Performance Optimization
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("settings_appearance_card")
+        GlassStudioCard(
+            theme = theme,
+            highlightBorder = true,
+            modifier = Modifier.testTag("settings_appearance_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -317,13 +319,9 @@ fun AppSettingsView(
         }
 
         // 2. DSP Diagnostics & Permissions
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("settings_diagnostics_card")
+        GlassStudioCard(
+            theme = theme,
+            modifier = Modifier.testTag("settings_diagnostics_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -397,32 +395,23 @@ fun AppSettingsView(
         }
 
         // 3. Tutorials, Tools, Privacy & Reset
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        GlassStudioCard(theme = theme) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
+                GlowActionButton(
+                    text = "Centro de Tutoriales (10 Guías DSP)",
+                    theme = theme,
                     onClick = { showTutorialsDialog = true },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = theme.primaryColor,
-                        contentColor = theme.onPrimaryColor
-                    ),
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("settings_tutorials_button")
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Centro de Tutoriales (10 Guías DSP)", fontSize = 12.sp, fontWeight = FontWeight.Black)
-                }
+                )
 
                 SettingsToggleRow(
                     title = "Mostrar guía rápida al iniciar",
@@ -487,17 +476,46 @@ fun AppSettingsView(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Restablecer Laboratorio DSP a Plano (Flat)", color = theme.clipAlertColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                 }
+
+                HorizontalDivider(color = theme.cardColor)
+
+                DiagnosticStatusRow("Almacenamiento Descargas", formatStorageBytes(storageUsedBytes), theme)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onClearCache,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, theme.cardColor),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Limpiar Caché", color = theme.textColor, fontSize = 11.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onOpenProfile,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, theme.cardColor),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Mi Perfil", color = theme.primaryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onOpenAbout,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, theme.cardColor),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Acerca de", color = theme.accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
         // 4. Fault Alerts Log
         if (faultAlerts.isNotEmpty()) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            GlassStudioCard(theme = theme) {
                 Column(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)

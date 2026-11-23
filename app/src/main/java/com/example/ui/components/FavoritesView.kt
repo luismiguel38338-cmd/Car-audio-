@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -171,18 +172,16 @@ fun FavoritesView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 14.dp)
             .testTag("favorites_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item(key = "favorites_summary") {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = true
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -286,13 +285,9 @@ fun FavoritesView(
             }
         } else {
             items(playlists, key = { "fav_pl_${it.id}" }) { playlist ->
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                    border = BorderStroke(1.dp, theme.cardColor),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenPlaylistInMyMusic(playlist.id) }
+                GlassStudioCard(
+                    theme = theme,
+                    modifier = Modifier.clickable { onOpenPlaylistInMyMusic(playlist.id) }
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
@@ -349,13 +344,10 @@ fun FavoritesView(
             }
         } else {
             items(ytFavoriteItems, key = { "fav_yt_${it.id}" }) { ytItem ->
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                    border = BorderStroke(1.dp, theme.cardColor),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { openInYouTubeMusic(context, ytItem.resolvedUrl) }
+                GlassStudioCard(
+                    theme = theme,
+                    highlightBorder = true,
+                    modifier = Modifier.clickable { openInYouTubeMusic(context, ytItem.resolvedUrl) }
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),

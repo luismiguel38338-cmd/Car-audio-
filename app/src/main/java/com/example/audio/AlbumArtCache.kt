@@ -14,8 +14,8 @@ import kotlinx.coroutines.withContext
  * Runs safely off the main thread and guarantees MediaMetadataRetriever cleanup.
  */
 object AlbumArtCache {
-    private const val MAX_ENTRIES = 64
-    private const val TARGET_SIZE_PX = 360
+    private const val MAX_ENTRIES = 96
+    private const val TARGET_SIZE_PX = 256
 
     private val cache = object : LruCache<String, Bitmap>(MAX_ENTRIES) {}
     private val failedUris = HashSet<String>()

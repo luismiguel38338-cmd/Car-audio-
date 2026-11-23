@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -80,16 +77,10 @@ fun Automotive3DCockpitView(
         label = "cockpit_treble"
     )
 
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(
-            1.2.dp,
-            if (isPlaying && dspMasterEnabled) theme.accentColor.copy(alpha = 0.55f) else theme.cardColor
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("automotive_3d_cockpit_card")
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = isPlaying && dspMasterEnabled,
+        modifier = modifier.testTag("automotive_3d_cockpit_card")
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

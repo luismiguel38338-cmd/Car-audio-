@@ -46,7 +46,7 @@ class LocalPreferencesStore(context: Context) {
         set(value) = prefs.edit().putBoolean("vip_unlocked", value).apply()
 
     var keepScreenOn: Boolean
-        get() = prefs.getBoolean("keep_screen_on", true)
+        get() = prefs.getBoolean("keep_screen_on", false)
         set(value) = prefs.edit().putBoolean("keep_screen_on", value).apply()
 
     fun getLiteVisualsEnabled(defaultLowRam: Boolean): Boolean =
@@ -135,13 +135,34 @@ class LocalPreferencesStore(context: Context) {
     }
 
     fun loadTheme(vipUnlocked: Boolean = true): CarAudioThemeType {
-        val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.GRAPHITE_STUDIO.id)
+        val savedId = prefs.getString("selected_theme_id", CarAudioThemeType.NEON_DSP_PRO.id)
         return CarAudioThemeType.fromId(savedId)
     }
 
     fun saveThemeId(themeId: String) {
         prefs.edit().putString("selected_theme_id", themeId).apply()
     }
+
+    fun loadBassMode(): com.example.model.BassMode {
+        val raw = prefs.getString("bass_mode", com.example.model.BassMode.NORMAL.name)
+        return try {
+            com.example.model.BassMode.valueOf(raw ?: com.example.model.BassMode.NORMAL.name)
+        } catch (_: Throwable) {
+            com.example.model.BassMode.NORMAL
+        }
+    }
+
+    fun saveBassMode(mode: com.example.model.BassMode) {
+        prefs.edit().putString("bass_mode", mode.name).apply()
+    }
+
+    var localProfileName: String
+        get() = prefs.getString("local_profile_name", "Cabina de Luis Miguel") ?: "Cabina de Luis Miguel"
+        set(value) = prefs.edit().putString("local_profile_name", value.ifBlank { "Cabina de Luis Miguel" }).apply()
+
+    var totalListeningSeconds: Long
+        get() = prefs.getLong("total_listening_seconds", 0L).coerceAtLeast(0L)
+        set(value) = prefs.edit().putLong("total_listening_seconds", value.coerceAtLeast(0L)).apply()
 
     fun loadRepeatMode(): RepeatMode {
         val raw = prefs.getString("repeat_mode", RepeatMode.ALL.name)

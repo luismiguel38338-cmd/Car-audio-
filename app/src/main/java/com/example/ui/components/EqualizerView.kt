@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -33,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,42 +73,51 @@ fun EqualizerView(
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = 31 Bandas, 1 = 10 Bandas, 2 = Paramétrico 5B
     val scroll = rememberScrollState()
     val dspOn = dspSettings.dspMasterEnabled
+    val curveBands = remember(selectedTab, eqSettings) {
+        when (selectedTab) {
+            1 -> eqSettings.bands10
+            else -> eqSettings.bands31
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .verticalScroll(scroll)
             .padding(14.dp)
             .testTag("equalizer_view"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        GlassStudioCard(theme = theme, highlightBorder = dspOn && eqSettings.isEnabled) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Equalizer, contentDescription = null, tint = theme.accentColor)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Equalizer, contentDescription = null, tint = theme.primaryColor)
                         Column {
-                            Text("Ecualizador DSP", color = theme.textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                            Text(capabilityReport.engineSummary, color = theme.accentColor, fontSize = 11.sp)
+                            Text("Ecualizador DSP", color = theme.textColor, fontSize = 15.5.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (dspOn) "Preset: ${eqSettings.activePresetName}" else "DSP apagado (toca para activar)",
+                                color = if (dspOn) theme.accentColor else theme.textSecondaryColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                     Switch(
                         checked = dspOn,
                         onCheckedChange = onToggleDspMaster,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f)),
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = theme.silverDetailColor,
+                            checkedTrackColor = theme.primaryColor
+                        ),
                         modifier = Modifier.testTag("eq_dsp_master_switch")
                     )
                 }
@@ -117,42 +125,39 @@ fun EqualizerView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(theme.backgroundColor)
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(15.dp))
-                    Text(
-                        text = if (capabilityReport.antiDoubleProcessingSafe) {
-                            "Etapa única verificada: sin doble procesamiento EQ/BassBoost."
-                        } else {
-                            "Modo compatibilidad AudioFX activo"
-                        },
-                        color = theme.textSecondaryColor,
-                        fontSize = 10.5.sp
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(theme.backgroundColor.copy(alpha = 0.85f))
+                        .border(0.8.dp, theme.cardColor, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = theme.primaryColor, modifier = Modifier.size(17.dp))
-                        Text("Módulo Ecualizador (${eqSettings.activePresetName})", color = theme.textColor, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                        Text("Activar curvas de ecualización", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                     Switch(
                         checked = eqSettings.isEnabled,
                         onCheckedChange = onToggleEqPower,
                         enabled = dspOn,
-                        colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = theme.silverDetailColor,
+                            checkedTrackColor = theme.accentColor
+                        )
                     )
                 }
             }
         }
+
+        AnimatedFrequencyCurveCanvas(
+            bands = curveBands,
+            enabled = dspOn && eqSettings.isEnabled,
+            isPlaying = isAnyAudioPlaying,
+            bassEnergy = bassEnergy,
+            trebleEnergy = trebleEnergy,
+            theme = theme,
+            liteVisuals = liteVisuals
+        )
 
         AbQuickComparisonBar(
             theme = theme,
@@ -164,14 +169,14 @@ fun EqualizerView(
             onToggleAb = onToggleAbComparison
         )
 
-        StudioSignalIndicatorBar(
-            isAudioPlaying = isAnyAudioPlaying,
+        EpicTriBandPowerMeters(
+            isPlaying = isAnyAudioPlaying,
             bassEnergy = bassEnergy,
             midEnergy = midEnergy,
             trebleEnergy = trebleEnergy,
+            dspMasterEnabled = dspOn,
             theme = theme,
-            liteVisuals = liteVisuals,
-            title = "Respuesta de señal"
+            liteVisuals = liteVisuals
         )
 
         val tabs = listOf("31 Bandas ISO", "10 Bandas Rápido", "Paramétrico 5B")
@@ -182,14 +187,19 @@ fun EqualizerView(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             tabs.forEachIndexed { idx, title ->
+                val selected = selectedTab == idx
                 FilterChip(
-                    selected = selectedTab == idx,
+                    selected = selected,
                     onClick = { selectedTab = idx },
                     label = { Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    border = BorderStroke(
+                        1.dp,
+                        if (selected) theme.silverDetailColor.copy(alpha = 0.4f) else theme.cardColor
+                    ),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = theme.accentColor,
+                        selectedContainerColor = theme.primaryColor,
                         selectedLabelColor = theme.onPrimaryColor,
-                        containerColor = theme.surfaceColor,
+                        containerColor = theme.surfaceColor.copy(alpha = 0.85f),
                         labelColor = theme.textColor
                     ),
                     modifier = Modifier.testTag("equalizer_tab_$idx")

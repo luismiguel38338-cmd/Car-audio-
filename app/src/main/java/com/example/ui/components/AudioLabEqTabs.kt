@@ -6,10 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,8 +23,6 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -41,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,11 +72,9 @@ fun GraphicEqTab(
     onBandChanged: (Int, Float) -> Unit,
     onResetFlat: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.cardColor),
-        modifier = Modifier.fillMaxWidth()
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = enabled
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -93,7 +88,7 @@ fun GraphicEqTab(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (is31BandMode) "ECUALIZADOR 31 BANDAS ISO (1/3 OCT)" else "ECUALIZADOR 10 BANDAS ISO",
-                        color = theme.textColor,
+                        color = theme.silverDetailColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -113,8 +108,8 @@ fun GraphicEqTab(
                 }
                 OutlinedButton(
                     onClick = onResetFlat,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, theme.cardColor)
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.5f))
                 ) {
                     Text("Plano 0 dB", color = theme.textColor, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                 }
@@ -125,71 +120,74 @@ fun GraphicEqTab(
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
                     .clip(RoundedCornerShape(12.dp))
-                    .background(theme.backgroundColor)
+                    .background(theme.backgroundColor.copy(alpha = 0.90f))
+                    .border(0.8.dp, theme.primaryColor.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 10.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (is31BandMode) 6.dp else 10.dp)
             ) {
                 bands.forEachIndexed { idx, gain ->
-                    val label = labels.getOrElse(idx) { "${idx + 1}" }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .width(if (is31BandMode) 36.dp else 44.dp)
-                            .testTag(if (is31BandMode) "eq31_band_$idx" else "eq10_band_$idx")
-                    ) {
-                        Text(
-                            text = "%+.1f".format(gain),
-                            color = if (gain > 0.2f || gain < -0.2f) theme.accentColor else theme.textSecondaryColor,
-                            fontSize = 9.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Slider(
-                            value = gain.coerceIn(-15f, 15f),
-                            onValueChange = { onBandChanged(idx, it) },
-                            valueRange = -15f..15f,
-                            enabled = enabled,
-                            colors = SliderDefaults.colors(
-                                thumbColor = theme.primaryColor,
-                                activeTrackColor = theme.accentColor,
-                                inactiveTrackColor = theme.cardColor
-                            ),
+                    key(idx) {
+                        val label = labels.getOrElse(idx) { "${idx + 1}" }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
-                                .graphicsLayer {
-                                    rotationZ = 270f
-                                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                                }
-                                .layout { measurable, constraints ->
-                                    val placeable = measurable.measure(
-                                        Constraints(
-                                            minWidth = constraints.minHeight,
-                                            maxWidth = constraints.maxHeight,
-                                            minHeight = constraints.minWidth,
-                                            maxHeight = constraints.maxWidth
-                                        )
-                                    )
-                                    layout(placeable.height, placeable.width) {
-                                        placeable.place(
-                                            x = -(placeable.width - placeable.height) / 2,
-                                            y = -(placeable.height - placeable.width) / 2
-                                        )
-                                    }
-                                }
-                                .width(150.dp)
-                                .height(34.dp)
-                        )
+                                .width(if (is31BandMode) 36.dp else 44.dp)
+                                .testTag(if (is31BandMode) "eq31_band_$idx" else "eq10_band_$idx")
+                        ) {
+                            Text(
+                                text = "%+.1f".format(gain),
+                                color = if (gain > 0.2f || gain < -0.2f) theme.accentColor else theme.textSecondaryColor,
+                                fontSize = 9.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
 
-                        Text(
-                            text = label,
-                            color = theme.textColor,
-                            fontSize = 9.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
+                            Slider(
+                                value = gain.coerceIn(-15f, 15f),
+                                onValueChange = { onBandChanged(idx, it) },
+                                valueRange = -15f..15f,
+                                enabled = enabled,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = theme.silverDetailColor,
+                                    activeTrackColor = theme.primaryColor,
+                                    inactiveTrackColor = theme.cardColor
+                                ),
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        rotationZ = 270f
+                                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                                    }
+                                    .layout { measurable, constraints ->
+                                        val placeable = measurable.measure(
+                                            Constraints(
+                                                minWidth = constraints.minHeight,
+                                                maxWidth = constraints.maxHeight,
+                                                minHeight = constraints.minWidth,
+                                                maxHeight = constraints.maxWidth
+                                            )
+                                        )
+                                        layout(placeable.height, placeable.width) {
+                                            placeable.place(
+                                                x = -(placeable.width - placeable.height) / 2,
+                                                y = -(placeable.height - placeable.width) / 2
+                                            )
+                                        }
+                                    }
+                                    .width(150.dp)
+                                    .height(34.dp)
+                            )
+
+                            Text(
+                                text = label,
+                                color = theme.textColor,
+                                fontSize = 9.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -207,11 +205,9 @@ fun ParametricEqTab(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         eqSettings.parametricBands.forEach { pb ->
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, if (pb.enabled) theme.accentColor.copy(alpha = 0.45f) else theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = pb.enabled && dspMasterEnabled
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
@@ -224,7 +220,7 @@ fun ParametricEqTab(
                     ) {
                         Text(
                             text = "BANDA ${pb.id} • ${pb.filterType.label}",
-                            color = theme.textColor,
+                            color = theme.silverDetailColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -232,7 +228,10 @@ fun ParametricEqTab(
                             checked = pb.enabled,
                             onCheckedChange = { onToggleBand(pb.id, it) },
                             enabled = dspMasterEnabled && eqSettings.isEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = theme.primaryColor, checkedTrackColor = theme.accentColor.copy(alpha = 0.45f))
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = theme.silverDetailColor,
+                                checkedTrackColor = theme.primaryColor
+                            )
                         )
                     }
 
@@ -248,9 +247,9 @@ fun ParametricEqTab(
                                 onClick = { onUpdateBand(pb.id, pb.freqHz, pb.gainDb, pb.q, fType, pb.enabled) },
                                 label = { Text(fType.label, fontSize = 10.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = theme.accentColor,
+                                    selectedContainerColor = theme.primaryColor,
                                     selectedLabelColor = theme.onPrimaryColor,
-                                    containerColor = theme.backgroundColor,
+                                    containerColor = theme.backgroundColor.copy(alpha = 0.85f),
                                     labelColor = theme.textColor
                                 )
                             )
@@ -363,26 +362,21 @@ fun PresetsAndCloudTab(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(
+        GlowActionButton(
+            text = "Guardar Configuración Actual (Local y Nube)",
+            theme = theme,
             onClick = { showSaveDialog = true },
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
+            isPrimary = true,
+            leadingIcon = {
+                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("audiolab_save_cloud_profile_button")
-        ) {
-            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Guardar Configuración Actual (Local y Nube)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        }
+        )
 
         if (customProfiles.isNotEmpty()) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            GlassStudioCard(theme = theme, highlightBorder = true) {
                 Column(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -392,7 +386,7 @@ fun PresetsAndCloudTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("PERFILES GUARDADOS", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Text("PERFILES GUARDADOS", color = theme.silverDetailColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
                         if (cloudSyncActive) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Icon(Icons.Default.CloudDone, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(14.dp))
@@ -407,7 +401,7 @@ fun PresetsAndCloudTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (active) theme.accentColor.copy(alpha = 0.14f) else theme.backgroundColor)
+                                .background(if (active) theme.primaryColor.copy(alpha = 0.22f) else theme.backgroundColor.copy(alpha = 0.85f))
                                 .border(1.dp, if (active) theme.accentColor else theme.cardColor, RoundedCornerShape(10.dp))
                                 .clickable { onApplySoundProfile(prof) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -427,17 +421,12 @@ fun PresetsAndCloudTab(
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        GlassStudioCard(theme = theme) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("PRESETS DE ESTUDIO", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text("PRESETS DE ESTUDIO", color = theme.silverDetailColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
                 presets.forEach { preset ->
                     val selected = activePresetName == preset.name
                     val locked = preset.isVip && !isVipUnlocked
@@ -445,7 +434,7 @@ fun PresetsAndCloudTab(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (selected) theme.accentColor.copy(alpha = 0.14f) else theme.backgroundColor)
+                            .background(if (selected) theme.primaryColor.copy(alpha = 0.22f) else theme.backgroundColor.copy(alpha = 0.85f))
                             .border(1.dp, if (selected) theme.accentColor else theme.cardColor, RoundedCornerShape(10.dp))
                             .clickable {
                                 if (locked) onOpenVipZone() else onSelectPreset(preset)

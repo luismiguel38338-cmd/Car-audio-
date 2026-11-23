@@ -1,6 +1,11 @@
 package com.example.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -57,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -82,17 +88,11 @@ fun CarAudioSplashScreen(
     var currentStep by remember { mutableIntStateOf(0) }
     var dontShowAgain by remember { mutableStateOf(initialDontShowAgain) }
 
-    Box(
+    EpicAmbientBackdrop(
+        theme = theme,
         modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(theme.backgroundColor, theme.surfaceColor, theme.backgroundColor)
-                )
-            )
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .testTag("audio_dsp_welcome_screen"),
-        contentAlignment = Alignment.Center
+            .testTag("audio_dsp_welcome_screen")
     ) {
         Column(
             modifier = Modifier
@@ -230,6 +230,15 @@ fun CarAudioSplashScreen(
                             .height(52.dp)
                             .testTag(if (currentStep == 0) "btn_welcome_next" else "btn_enter_studio"),
                         shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            Brush.linearGradient(
+                                listOf(
+                                    theme.silverDetailColor.copy(alpha = 0.48f),
+                                    theme.accentColor.copy(alpha = 0.85f)
+                                )
+                            )
+                        ),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = theme.primaryColor,
                             contentColor = theme.onPrimaryColor
@@ -255,6 +264,17 @@ fun CarAudioSplashScreen(
 
 @Composable
 private fun WelcomeStudioStep(theme: CarAudioThemeType) {
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "splash_logo_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.05f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(1600),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -266,9 +286,13 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp)
+                .height(225.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .border(1.dp, theme.cardColor, RoundedCornerShape(22.dp))
+                .border(
+                    1.dp,
+                    Brush.linearGradient(listOf(theme.primaryColor.copy(alpha = 0.7f), theme.accentColor.copy(alpha = 0.7f))),
+                    RoundedCornerShape(22.dp)
+                )
         ) {
             Image(
                 painter = painterResource(id = R.drawable.img_car_audio_cockpit_1794912323387),
@@ -283,8 +307,8 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
                         Brush.verticalGradient(
                             listOf(
                                 Color.Transparent,
-                                theme.backgroundColor.copy(alpha = 0.45f),
-                                theme.backgroundColor.copy(alpha = 0.94f)
+                                theme.backgroundColor.copy(alpha = 0.50f),
+                                theme.backgroundColor.copy(alpha = 0.96f)
                             )
                         )
                     )
@@ -297,21 +321,25 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
+                    painter = painterResource(id = R.drawable.img_car_audio_logo_1795273778926),
                     contentDescription = "Logo Car Audio DSP Pro",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(58.dp)
+                        .graphicsLayer {
+                            scaleX = pulseScale
+                            scaleY = pulseScale
+                        }
                         .clip(CircleShape)
-                        .border(1.5.dp, theme.accentColor, CircleShape)
+                        .border(1.8.dp, Brush.sweepGradient(listOf(theme.primaryColor, theme.accentColor, theme.primaryColor)), CircleShape)
                 )
                 Column {
                     Text(
-                        text = "BIENVENIDO A",
-                        color = theme.accentColor,
+                        text = "POTENCIA TU MÚSICA",
+                        color = theme.primaryColor,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 1.2.sp
+                        letterSpacing = 1.4.sp
                     )
                     Text(
                         text = "CAR AUDIO DSP PRO",
@@ -319,14 +347,20 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black
                     )
+                    Text(
+                        text = "LM Produce — Producción de Luis Miguel",
+                        color = theme.accentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "Cabina Automotriz 3D y Procesamiento DSP Real",
+            text = "Estudio Automotriz 3D y Procesamiento DSP Real",
             color = theme.textColor,
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
@@ -337,7 +371,7 @@ private fun WelcomeStudioStep(theme: CarAudioThemeType) {
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Escucha tu biblioteca local con Media3 y ExoPlayer, moldea tu sonido en el ecualizador de 31 y 10 bandas, compara ajustes A/B y lanza búsquedas directas a YouTube Music.",
+            text = "Reproduce tu música local u online con Media3, calibra 31 y 10 bandas, activa Bass Boost Extremo, controla tu subwoofer y descarga pistas con licencia libre.",
             color = theme.textSecondaryColor,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -383,11 +417,10 @@ private fun WelcomePill(
     theme: CarAudioThemeType,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.cardColor),
-        border = BorderStroke(1.dp, theme.surfaceColor)
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = true,
+        modifier = modifier
     ) {
         Column(
             modifier = Modifier
@@ -464,11 +497,9 @@ private fun QuickGuideRow(
     desc: String,
     theme: CarAudioThemeType
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.cardColor)
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = true
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
