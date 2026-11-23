@@ -19,7 +19,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
         assertEquals("Car Audio DSP Pro", appName)
-        assertEquals(9, AppSection.entries.size)
+        assertEquals(17, AppSection.entries.size)
         assertFalse(AppSection.entries.any { it.route.contains("radio", ignoreCase = true) })
     }
 }

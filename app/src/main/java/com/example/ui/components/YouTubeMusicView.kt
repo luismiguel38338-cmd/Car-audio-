@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -143,7 +144,7 @@ fun YouTubeMusicView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 14.dp)
             .testTag("youtube_music_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
@@ -151,11 +152,9 @@ fun YouTubeMusicView(
     ) {
         // 1. Official Launch & Policy Compliance Banner
         item(key = "yt_header_card") {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.45f)),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = true
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -237,26 +236,21 @@ fun YouTubeMusicView(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        GlowActionButton(
+                            text = if (searchQuery.isBlank()) "Abrir YouTube Music" else "Buscar en YouTube Music",
+                            theme = theme,
                             onClick = {
                                 val clean = searchQuery.trim()
                                 if (clean.isNotEmpty()) onRecordSearch(clean)
                                 openInYouTubeMusic(context, buildSearchUrl(clean))
                             },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
+                            leadingIcon = {
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(17.dp))
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("yt_open_search_button")
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(17.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (searchQuery.isBlank()) "Abrir YouTube Music" else "Buscar en YouTube Music",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
+                        )
 
                         OutlinedButton(
                             onClick = {
@@ -371,14 +365,12 @@ private fun YouTubeShortcutCard(
     onToggleFavorite: () -> Unit,
     onDelete: (() -> Unit)?
 ) {
-    Card(
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = item.isFavorite,
         modifier = Modifier
-            .fillMaxWidth()
             .clickable { onOpen() }
-            .testTag("yt_item_${item.id}"),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, if (item.isFavorite) theme.accentColor.copy(alpha = 0.5f) else theme.cardColor)
+            .testTag("yt_item_${item.id}")
     ) {
         Row(
             modifier = Modifier

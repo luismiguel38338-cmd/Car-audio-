@@ -133,64 +133,92 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "Graves Limpios",
-            description = "Realce controlado de bajos 40Hz-100Hz con medios transparentes.",
-            bands10 = listOf(4.5f, 4.0f, 2.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 3.0f, 2.0f),
-            bands = listOf(4f, 5f, 4f, 2f, 0f, 0f, 0f, 1f, 1.5f, 2f, 2f, 2f, 2.5f, 3f, 2.5f),
+            name = "Dembow dominicano",
+            description = "Golpe seco en 45-85Hz, presencia vocal nítida y agudos brillantes estilo chipeo.",
+            bands10 = listOf(6.8f, 7.2f, 3.0f, -1.0f, 1.2f, 3.2f, 4.0f, 4.8f, 5.5f, 4.0f),
+            bands = listOf(5.5f, 7.0f, 7.5f, 4.5f, 1.5f, -1.0f, 0.0f, 1.5f, 3.0f, 3.8f, 4.2f, 4.8f, 5.2f, 5.5f, 4.2f),
             bands31 = listOf(
-                2f, 3f, 4.5f, 5.5f, 5.0f, 4.0f, 3.0f, 2.0f, 1f, 0f,
-                0f, 0f, 0f, 0f, 0.5f, 1f, 1.2f, 1.5f, 1.8f, 2f,
-                2f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 2.5f, 2f, 1.5f
+                4.0f, 5.5f, 6.8f, 7.5f, 7.8f, 7.2f, 5.5f, 3.5f, 2.0f, 0.0f,
+                -1.0f, -1.0f, -0.5f, 0.5f, 1.2f, 2.0f, 2.8f, 3.2f, 3.8f, 4.0f,
+                4.0f, 4.2f, 4.5f, 4.8f, 5.2f, 5.5f, 5.5f, 5.0f, 4.5f, 4.0f, 3.2f
             ),
-            paramFreq = 50f,
-            paramGain = 4.0f,
-            paramQ = 1.4f
-        ),
-        EqPresetItem(
-            name = "Sub-Grave Profundo",
-            description = "Extensión profunda en sub-frecuencias 31.5Hz-63Hz ideal para auriculares y monitores.",
-            bands10 = listOf(7.0f, 6.5f, 1.5f, -1.5f, 0.0f, 1.0f, 1.8f, 2.5f, 3.0f, 2.5f),
-            bands = listOf(6f, 8f, 6.5f, 3f, 0f, -2f, -1f, 0f, 1f, 1f, 1.5f, 2f, 2.5f, 3f, 3f),
-            bands31 = listOf(
-                4f, 5.5f, 7f, 8.5f, 8f, 6.5f, 4.5f, 3f, 1f, 0f,
-                -1f, -2f, -1.5f, -1f, 0f, 0.5f, 1f, 1f, 1.2f, 1.5f,
-                1.8f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 3f, 2.5f, 2f
-            ),
-            paramFreq = 38f,
+            paramFreq = 55f,
             paramGain = 6.5f,
-            paramQ = 1.6f
+            paramQ = 1.5f
         ),
         EqPresetItem(
-            name = "Vocal / Acústico",
-            description = "Máxima claridad y definición en voces e instrumentos acústicos (800Hz - 3.1kHz).",
-            bands10 = listOf(-4.0f, 0.0f, 1.5f, 3.0f, 5.0f, 6.5f, 5.0f, 3.5f, 3.0f, 2.0f),
-            bands = listOf(-4f, -2f, 0f, 1f, 2f, 3f, 4.5f, 5.5f, 6f, 5.5f, 4.5f, 3.5f, 3f, 3f, 2f),
+            name = "Reggaetón",
+            description = "Sub-graves cálidos 35-65Hz, pegada de bombo y voces limpias al frente.",
+            bands10 = listOf(6.2f, 6.0f, 2.0f, -0.5f, 1.5f, 3.5f, 3.2f, 3.8f, 5.0f, 3.6f),
+            bands = listOf(5.0f, 6.8f, 6.2f, 3.5f, 1.0f, -0.5f, 0.5f, 1.8f, 3.2f, 3.8f, 3.4f, 3.6f, 4.4f, 5.0f, 3.8f),
             bands31 = listOf(
-                -6f, -5f, -4f, -3f, -1.5f, 0f, 0.5f, 1f, 1.5f, 2f,
-                2.5f, 3f, 3.8f, 4.5f, 5.2f, 5.8f, 6.2f, 6.5f, 6.0f, 5.5f,
-                5.0f, 4.5f, 4.0f, 3.5f, 3.5f, 3.2f, 3.0f, 2.8f, 2.5f, 2.0f, 1.5f
-            ),
-            paramFreq = 1200f,
-            paramGain = 5.0f,
-            paramQ = 1.2f
-        ),
-        EqPresetItem(
-            name = "Urbano / Ritmo",
-            description = "Pegada firme en 45Hz-80Hz con voces al frente y agudos definidos.",
-            bands10 = listOf(6.5f, 6.0f, 1.0f, 0.5f, 2.5f, 4.0f, 3.5f, 3.8f, 5.2f, 3.8f),
-            bands = listOf(5f, 7f, 6.5f, 3f, 0.5f, 0f, 1f, 2.5f, 3.5f, 4f, 3.5f, 3f, 4f, 5f, 4f),
-            bands31 = listOf(
-                3f, 4.5f, 6.5f, 8f, 7.5f, 6f, 4f, 2f, 1f, 0.5f,
-                0f, 0.5f, 1f, 1.5f, 2.5f, 3.2f, 3.8f, 4.2f, 4.2f, 4f,
-                3.5f, 3.2f, 3.5f, 3.8f, 4.2f, 4.8f, 5.2f, 5f, 4.5f, 3.8f, 3f
+                3.5f, 4.8f, 6.2f, 7.2f, 6.8f, 6.0f, 4.2f, 2.5f, 1.2f, 0.0f,
+                -0.5f, -0.5f, 0.0f, 0.8f, 1.5f, 2.2f, 3.0f, 3.5f, 3.6f, 3.4f,
+                3.2f, 3.4f, 3.6f, 3.8f, 4.4f, 4.8f, 5.0f, 4.6f, 4.2f, 3.6f, 2.8f
             ),
             paramFreq = 48f,
             paramGain = 6.0f,
-            paramQ = 1.7f
+            paramQ = 1.5f
         ),
         EqPresetItem(
-            name = "Electrónica / Club",
-            description = "Curva dinámica en V con pegada rítmica y brillo extendido.",
+            name = "Bachata",
+            description = "Calidez en güira y requinto, bajo suave y melodía vocal protagonista.",
+            bands10 = listOf(3.0f, 3.8f, 2.5f, 1.0f, 1.5f, 3.0f, 4.2f, 4.8f, 4.5f, 3.0f),
+            bands = listOf(2.0f, 3.2f, 3.8f, 2.8f, 1.8f, 1.0f, 1.2f, 2.0f, 3.0f, 3.8f, 4.2f, 4.8f, 4.6f, 4.2f, 3.2f),
+            bands31 = listOf(
+                1.5f, 2.2f, 3.0f, 3.6f, 4.0f, 3.8f, 3.0f, 2.5f, 1.8f, 1.2f,
+                1.0f, 1.0f, 1.2f, 1.4f, 1.5f, 2.0f, 2.5f, 3.0f, 3.6f, 4.0f,
+                4.2f, 4.5f, 4.8f, 4.8f, 4.6f, 4.5f, 4.5f, 4.0f, 3.5f, 3.0f, 2.2f
+            ),
+            paramFreq = 2500f,
+            paramGain = 3.5f,
+            paramQ = 1.2f
+        ),
+        EqPresetItem(
+            name = "Merengue",
+            description = "Tambora firme, brillo metálico en trompetas y saxofones con ritmo ágil.",
+            bands10 = listOf(3.5f, 4.2f, 2.8f, 0.5f, 1.0f, 2.5f, 3.8f, 4.5f, 5.2f, 3.8f),
+            bands = listOf(2.5f, 3.8f, 4.2f, 3.0f, 1.5f, 0.5f, 0.8f, 1.5f, 2.5f, 3.2f, 3.8f, 4.5f, 5.0f, 5.2f, 4.0f),
+            bands31 = listOf(
+                2.0f, 2.8f, 3.5f, 4.0f, 4.4f, 4.2f, 3.4f, 2.8f, 1.8f, 1.0f,
+                0.5f, 0.5f, 0.8f, 1.0f, 1.2f, 1.8f, 2.2f, 2.5f, 3.2f, 3.6f,
+                3.8f, 4.0f, 4.2f, 4.5f, 4.8f, 5.0f, 5.2f, 4.8f, 4.2f, 3.8f, 3.0f
+            ),
+            paramFreq = 4000f,
+            paramGain = 4.0f,
+            paramQ = 1.3f
+        ),
+        EqPresetItem(
+            name = "Trap",
+            description = "Sub-graves 808 extendidos (30-50Hz), hi-hats crujientes y voz definida.",
+            bands10 = listOf(8.0f, 6.2f, 1.0f, -1.5f, 0.5f, 2.5f, 3.2f, 4.2f, 5.8f, 4.8f),
+            bands = listOf(7.0f, 8.5f, 6.5f, 3.0f, 0.0f, -1.5f, -0.5f, 1.0f, 2.5f, 3.0f, 3.5f, 4.2f, 5.0f, 5.8f, 4.8f),
+            bands31 = listOf(
+                5.5f, 7.0f, 8.0f, 8.8f, 7.8f, 6.2f, 3.8f, 2.0f, 0.5f, -0.8f,
+                -1.5f, -1.2f, -0.5f, 0.0f, 0.5f, 1.2f, 2.0f, 2.5f, 3.0f, 3.2f,
+                3.2f, 3.6f, 4.0f, 4.2f, 4.8f, 5.4f, 5.8f, 5.6f, 5.2f, 4.8f, 4.0f
+            ),
+            paramFreq = 36f,
+            paramGain = 7.5f,
+            paramQ = 1.6f
+        ),
+        EqPresetItem(
+            name = "Hip-Hop",
+            description = "Bombo profundo, bajo redondo y articulación limpia en rimas y coros.",
+            bands10 = listOf(6.5f, 5.8f, 1.5f, -0.5f, 1.0f, 3.0f, 2.8f, 3.2f, 4.5f, 3.5f),
+            bands = listOf(5.0f, 6.8f, 5.8f, 3.0f, 0.8f, -0.5f, 0.2f, 1.5f, 2.8f, 3.2f, 2.8f, 3.2f, 4.0f, 4.5f, 3.5f),
+            bands31 = listOf(
+                3.8f, 5.0f, 6.5f, 7.2f, 6.5f, 5.8f, 3.8f, 2.2f, 1.0f, 0.0f,
+                -0.5f, -0.5f, 0.0f, 0.5f, 1.0f, 1.8f, 2.4f, 3.0f, 3.0f, 2.8f,
+                2.8f, 3.0f, 3.2f, 3.2f, 3.8f, 4.2f, 4.5f, 4.2f, 3.8f, 3.5f, 2.8f
+            ),
+            paramFreq = 48f,
+            paramGain = 6.0f,
+            paramQ = 1.5f
+        ),
+        EqPresetItem(
+            name = "Electrónica",
+            description = "Curva dinámica en V con pegada rítmica, kicks profundos y brillo extendido.",
             bands10 = listOf(6.2f, 5.0f, 0.0f, -0.8f, 1.2f, 3.0f, 3.8f, 5.0f, 6.8f, 4.5f),
             bands = listOf(4.5f, 6.5f, 5f, 2f, -0.5f, -1f, 0f, 1f, 2f, 3f, 3.5f, 4f, 5.5f, 6.5f, 5f),
             bands31 = listOf(
@@ -203,7 +231,7 @@ object EqPresetCatalog {
             paramQ = 1.3f
         ),
         EqPresetItem(
-            name = "Rock / Guitarras",
+            name = "Rock",
             description = "Cuerpo en 80-250Hz, garra de bajo y presencia en guitarras eléctricas.",
             bands10 = listOf(2.8f, 4.8f, 2.5f, 1.5f, 0.8f, 2.2f, 3.2f, 3.0f, 3.8f, 3.5f),
             bands = listOf(2f, 3.5f, 4.5f, 3f, 2f, 1.5f, 0.5f, 1f, 2f, 2.5f, 3.5f, 3f, 3.5f, 4f, 3.5f),
@@ -217,19 +245,32 @@ object EqPresetCatalog {
             paramQ = 1.4f
         ),
         EqPresetItem(
-            name = "Estudio Master Pro",
-            description = "Curva de masterización Hi-Res con separación estéreo limpia y aire de estudio.",
-            bands10 = listOf(4.0f, 3.4f, 0.5f, -0.5f, 0.8f, 2.4f, 2.6f, 3.0f, 5.0f, 4.2f),
-            bands = listOf(3.5f, 4.5f, 3.5f, 1.5f, 0.5f, -0.5f, 0f, 1.0f, 2.2f, 3.0f, 2.5f, 2.8f, 4.0f, 5.0f, 4.5f),
+            name = "Música vocal",
+            description = "Máxima claridad y definición en voces principales e instrumentos acústicos (800Hz - 3.1kHz).",
+            bands10 = listOf(-4.0f, 0.0f, 1.5f, 3.0f, 5.0f, 6.5f, 5.0f, 3.5f, 3.0f, 2.0f),
+            bands = listOf(-4f, -2f, 0f, 1f, 2f, 3f, 4.5f, 5.5f, 6f, 5.5f, 4.5f, 3.5f, 3f, 3f, 2f),
             bands31 = listOf(
-                2.5f, 3.2f, 4.0f, 4.6f, 4.2f, 3.4f, 2.4f, 1.4f, 0.5f, 0f,
-                -0.5f, -0.5f, 0f, 0.4f, 0.8f, 1.2f, 1.8f, 2.4f, 2.8f, 3.0f,
-                2.6f, 2.4f, 2.6f, 3.0f, 3.8f, 4.5f, 5.0f, 5.2f, 4.8f, 4.2f, 3.5f
+                -6f, -5f, -4f, -3f, -1.5f, 0f, 0.5f, 1f, 1.5f, 2f,
+                2.5f, 3f, 3.8f, 4.5f, 5.2f, 5.8f, 6.2f, 6.5f, 6.0f, 5.5f,
+                5.0f, 4.5f, 4.0f, 3.5f, 3.5f, 3.2f, 3.0f, 2.8f, 2.5f, 2.0f, 1.5f
             ),
-            paramFreq = 42f,
-            paramGain = 4.5f,
-            paramQ = 1.3f,
-            isVip = false
+            paramFreq = 1200f,
+            paramGain = 5.0f,
+            paramQ = 1.2f
+        ),
+        EqPresetItem(
+            name = "Graves Limpios",
+            description = "Realce controlado de bajos 40Hz-100Hz con medios transparentes.",
+            bands10 = listOf(4.5f, 4.0f, 2.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 3.0f, 2.0f),
+            bands = listOf(4f, 5f, 4f, 2f, 0f, 0f, 0f, 1f, 1.5f, 2f, 2f, 2f, 2.5f, 3f, 2.5f),
+            bands31 = listOf(
+                2f, 3f, 4.5f, 5.5f, 5.0f, 4.0f, 3.0f, 2.0f, 1f, 0f,
+                0f, 0f, 0f, 0f, 0.5f, 1f, 1.2f, 1.5f, 1.8f, 2f,
+                2f, 2f, 2.2f, 2.5f, 2.8f, 3f, 3f, 3f, 2.5f, 2f, 1.5f
+            ),
+            paramFreq = 50f,
+            paramGain = 4.0f,
+            paramQ = 1.4f
         ),
         EqPresetItem(
             name = "Sub-Bass Competición",
@@ -262,8 +303,8 @@ object EqPresetCatalog {
             isVip = false
         ),
         EqPresetItem(
-            name = "Custom",
-            description = "Perfil personalizado libre guardado por el usuario.",
+            name = "Personalizado",
+            description = "Perfil personalizado libre ajustado a tu cabina automotriz.",
             bands10 = List(10) { 0.0f },
             bands = List(15) { 0.0f },
             bands31 = List(31) { 0.0f },
@@ -274,3 +315,4 @@ object EqPresetCatalog {
         )
     )
 }
+

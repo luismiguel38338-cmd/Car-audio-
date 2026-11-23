@@ -15,10 +15,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -48,7 +51,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
@@ -58,10 +64,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PictureInPicture
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -99,6 +107,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -125,16 +134,25 @@ import com.example.model.AppSection
 import com.example.model.FaultActionType
 import com.example.model.FaultSeverity
 import com.example.service.FloatingEqualizerService
+import com.example.ui.components.AboutView
 import com.example.ui.components.AppSettingsView
 import com.example.ui.components.AudioToolsView
+import com.example.ui.components.BassBoostView
 import com.example.ui.components.CarAudioSplashScreen
+import com.example.ui.components.DownloadsView
+import com.example.ui.components.EpicAmbientBackdrop
 import com.example.ui.components.EqualizerView
 import com.example.ui.components.FavoritesView
 import com.example.ui.components.HomeDashboardView
 import com.example.ui.components.MiniPlayerBar
 import com.example.ui.components.MyMusicView
+import com.example.ui.components.OnlineMusicView
 import com.example.ui.components.PlayerView
+import com.example.ui.components.PlaylistsView
 import com.example.ui.components.PresetsView
+import com.example.ui.components.ProfileView
+import com.example.ui.components.SubwooferView
+import com.example.ui.components.VisualizerView
 import com.example.ui.components.YouTubeMusicView
 import com.example.ui.theme.CarAudioAppTheme
 import com.example.viewmodel.CarAudioViewModel
@@ -168,12 +186,20 @@ private fun sectionIcon(section: AppSection): ImageVector = when (section) {
     AppSection.HOME -> Icons.Default.Home
     AppSection.MY_MUSIC -> Icons.Default.LibraryMusic
     AppSection.PLAYER -> Icons.Default.PlayCircle
+    AppSection.ONLINE_MUSIC -> Icons.Default.CloudQueue
+    AppSection.DOWNLOADS -> Icons.Default.DownloadDone
     AppSection.EQUALIZER -> Icons.Default.Equalizer
-    AppSection.YOUTUBE_MUSIC -> Icons.Default.MusicNote
+    AppSection.BASS_BOOST -> Icons.Default.Speaker
+    AppSection.SUBWOOFER -> Icons.Default.GraphicEq
     AppSection.AUDIO_TOOLS -> Icons.Default.Tune
-    AppSection.PRESETS -> Icons.Default.GraphicEq
+    AppSection.VISUALIZER -> Icons.Default.GraphicEq
+    AppSection.PRESETS -> Icons.Default.MusicNote
     AppSection.FAVORITES -> Icons.Default.Favorite
+    AppSection.PLAYLISTS -> Icons.AutoMirrored.Filled.QueueMusic
     AppSection.SETTINGS -> Icons.Default.Settings
+    AppSection.PROFILE -> Icons.Default.Person
+    AppSection.ABOUT -> Icons.Default.Info
+    AppSection.YOUTUBE_MUSIC -> Icons.Default.MusicNote
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -188,78 +214,13 @@ fun CarAudioAppRoot(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
+    // Only low-frequency shell states are collected at root to eliminate UI jank during playback/meters
     val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
     val selectedSection by viewModel.selectedSection.collectAsStateWithLifecycle()
-
     val dspSettings by viewModel.dspSettings.collectAsStateWithLifecycle()
-    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
-    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
-    val customSoundProfiles by viewModel.customSoundProfiles.collectAsStateWithLifecycle()
-    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
-
-    // Live A/B Comparison
-    val abSlotA by viewModel.abSlotA.collectAsStateWithLifecycle()
-    val abSlotB by viewModel.abSlotB.collectAsStateWithLifecycle()
-    val activeAbSlot by viewModel.activeAbSlot.collectAsStateWithLifecycle()
-
-    // YouTube Music Integration
-    val ytSearchQuery by viewModel.ytSearchQuery.collectAsStateWithLifecycle()
-    val ytSavedItems by viewModel.ytSavedItems.collectAsStateWithLifecycle()
-    val ytSearchHistory by viewModel.ytSearchHistory.collectAsStateWithLifecycle()
-
-    // Music Player & Library
-    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
-    val filteredTracks by viewModel.filteredTracks.collectAsStateWithLifecycle()
-    val recentTracks by viewModel.recentTracks.collectAsStateWithLifecycle()
-    val mostPlayedTracks by viewModel.mostPlayedTracks.collectAsStateWithLifecycle()
-    val artists by viewModel.artists.collectAsStateWithLifecycle()
-    val albums by viewModel.albums.collectAsStateWithLifecycle()
-    val folders by viewModel.folders.collectAsStateWithLifecycle()
-    val queueTracks by viewModel.queueTracks.collectAsStateWithLifecycle()
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
-    val selectedPlaylistId by viewModel.selectedPlaylistId.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val libraryFilter by viewModel.libraryFilter.collectAsStateWithLifecycle()
-    val librarySortOrder by viewModel.librarySortOrder.collectAsStateWithLifecycle()
-    val trackPlayCounts by viewModel.trackPlayCounts.collectAsStateWithLifecycle()
-    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
-    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    val playbackSeconds by viewModel.playbackSeconds.collectAsStateWithLifecycle()
-    val volumeLevel by viewModel.volumeLevel.collectAsStateWithLifecycle()
-    val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
-    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
-    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
-    val playbackPitch by viewModel.playbackPitch.collectAsStateWithLifecycle()
-    val sleepTimerRemainingSec by viewModel.sleepTimerRemainingSec.collectAsStateWithLifecycle()
-    val sleepTimerStopAfterTrack by viewModel.sleepTimerStopAfterTrack.collectAsStateWithLifecycle()
-    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
-    val hasNotificationPermission by viewModel.hasNotificationPermission.collectAsStateWithLifecycle()
-    val isScanningLibrary by viewModel.isScanningLibrary.collectAsStateWithLifecycle()
-
-    // Meters & Live Telemetry
-    val leftVu by viewModel.leftVu.collectAsStateWithLifecycle()
-    val rightVu by viewModel.rightVu.collectAsStateWithLifecycle()
-    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
-    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
-    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
-    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
-    val rtaBands by viewModel.rtaBands.collectAsStateWithLifecycle()
-    val oscilloscopeWave by viewModel.oscilloscopeWave.collectAsStateWithLifecycle()
-    val rmsDb by viewModel.rmsDb.collectAsStateWithLifecycle()
-    val splDb by viewModel.splDb.collectAsStateWithLifecycle()
-    val isClippingDetected by viewModel.isClippingDetected.collectAsStateWithLifecycle()
-    val clipEventsCount by viewModel.clipEventsCount.collectAsStateWithLifecycle()
-    val isMicRta by viewModel.isMicRta.collectAsStateWithLifecycle()
-    val devicePowerTelemetry by viewModel.devicePowerTelemetry.collectAsStateWithLifecycle()
-
-    // App State & Diagnostics
     val showSplashScreen by viewModel.showSplashScreen.collectAsStateWithLifecycle()
-    val autoPlayIntro by viewModel.autoPlayIntro.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
-    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
     val outputDeviceStatus by viewModel.outputDeviceStatus.collectAsStateWithLifecycle()
-    val sessionTarget by viewModel.sessionTarget.collectAsStateWithLifecycle()
-    val faultAlerts by viewModel.faultAlerts.collectAsStateWithLifecycle()
     val latestBannerAlert by viewModel.latestBannerAlert.collectAsStateWithLifecycle()
 
     val navigateToSection: (AppSection) -> Unit = { target ->
@@ -347,44 +308,6 @@ fun CarAudioAppRoot(
         coroutineScope.launch { drawerState.close() }
     }
 
-    var showOverlayPermissionDialog by remember { mutableStateOf(false) }
-
-    if (showOverlayPermissionDialog) {
-        AlertDialog(
-            onDismissRequest = { showOverlayPermissionDialog = false },
-            title = {
-                Text("Ecualizador Flotante", fontWeight = FontWeight.Bold, color = currentTheme.textColor)
-            },
-            text = {
-                Text(
-                    "Para mostrar el acceso flotante al ecualizador sobre otras aplicaciones, habilita el permiso correspondiente en Android.",
-                    color = currentTheme.textSecondaryColor,
-                    fontSize = 13.5.sp
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showOverlayPermissionDialog = false
-                        try {
-                            context.startActivity(
-                                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
-                            )
-                        } catch (_: Exception) {}
-                    }
-                ) {
-                    Text("ACTIVAR", color = currentTheme.accentColor, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showOverlayPermissionDialog = false }) {
-                    Text("CANCELAR", color = currentTheme.textSecondaryColor)
-                }
-            },
-            containerColor = currentTheme.cardColor
-        )
-    }
-
     if (showSplashScreen) {
         CarAudioSplashScreen(
             theme = currentTheme,
@@ -399,17 +322,48 @@ fun CarAudioAppRoot(
         AppSection.HOME,
         AppSection.MY_MUSIC,
         AppSection.PLAYER,
-        AppSection.EQUALIZER
+        AppSection.EQUALIZER,
+        AppSection.SETTINGS
     )
+
+    val drawerGroups = remember {
+        listOf(
+            "MI REPRODUCTOR" to listOf(
+                AppSection.HOME,
+                AppSection.MY_MUSIC,
+                AppSection.PLAYER,
+                AppSection.FAVORITES,
+                AppSection.PLAYLISTS
+            ),
+            "ONLINE Y DESCARGAS" to listOf(
+                AppSection.ONLINE_MUSIC,
+                AppSection.YOUTUBE_MUSIC,
+                AppSection.DOWNLOADS
+            ),
+            "ECUALIZADOR Y DSP" to listOf(
+                AppSection.EQUALIZER,
+                AppSection.BASS_BOOST,
+                AppSection.SUBWOOFER,
+                AppSection.AUDIO_TOOLS,
+                AppSection.VISUALIZER,
+                AppSection.PRESETS
+            ),
+            "SISTEMA" to listOf(
+                AppSection.PROFILE,
+                AppSection.SETTINGS,
+                AppSection.ABOUT
+            )
+        )
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = currentTheme.surfaceColor,
+                drawerContainerColor = currentTheme.surfaceColor.copy(alpha = 0.96f),
                 drawerContentColor = currentTheme.textColor,
                 modifier = Modifier
-                    .width(296.dp)
+                    .width(292.dp)
                     .fillMaxHeight()
                     .windowInsetsPadding(WindowInsets.safeDrawing)
                     .testTag("main_navigation_drawer")
@@ -428,26 +382,27 @@ fun CarAudioAppRoot(
                             .padding(horizontal = 6.dp, vertical = 6.dp)
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
+                            painter = painterResource(id = R.drawable.img_car_audio_logo_1795273778926),
                             contentDescription = "Logo Car Audio DSP Pro",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .border(1.5.dp, currentTheme.accentColor, CircleShape)
+                                .border(1.5.dp, currentTheme.primaryColor, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Car Audio DSP",
+                                text = "CAR AUDIO DSP PRO",
                                 color = currentTheme.textColor,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Black
                             )
                             Text(
-                                text = "Reproductor y estudio de audio",
-                                color = currentTheme.textSecondaryColor,
-                                fontSize = 11.5.sp,
+                                text = "POTENCIA TU MÚSICA • LM Produce",
+                                color = currentTheme.primaryColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -459,23 +414,35 @@ fun CarAudioAppRoot(
                         modifier = Modifier.padding(vertical = 6.dp)
                     )
 
-                    AppSection.entries.forEach { section ->
-                        val selected = selectedSection == section
-                        NavigationDrawerItem(
-                            selected = selected,
-                            onClick = {
-                                navigateToSection(section)
-                                coroutineScope.launch { drawerState.close() }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = sectionIcon(section),
-                                    contentDescription = section.title,
-                                    tint = if (selected) currentTheme.onPrimaryColor else currentTheme.accentColor
-                                )
-                            },
-                            label = {
-                                Column {
+                    drawerGroups.forEachIndexed { groupIdx, (groupTitle, items) ->
+                        Text(
+                            text = groupTitle,
+                            color = currentTheme.primaryColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(
+                                start = 12.dp,
+                                top = if (groupIdx == 0) 2.dp else 10.dp,
+                                bottom = 2.dp
+                            )
+                        )
+                        items.forEach { section ->
+                            val selected = selectedSection == section
+                            NavigationDrawerItem(
+                                selected = selected,
+                                onClick = {
+                                    navigateToSection(section)
+                                    coroutineScope.launch { drawerState.close() }
+                                },
+                                icon = {
+                                    Icon(
+                                        imageVector = sectionIcon(section),
+                                        contentDescription = section.title,
+                                        tint = if (selected) currentTheme.onPrimaryColor else currentTheme.accentColor
+                                    )
+                                },
+                                label = {
                                     Text(
                                         text = section.title,
                                         fontSize = 13.sp,
@@ -483,227 +450,259 @@ fun CarAudioAppRoot(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Text(
-                                        text = section.subtitle,
-                                        fontSize = 10.sp,
-                                        color = if (selected) currentTheme.onPrimaryColor.copy(alpha = 0.8f) else currentTheme.textSecondaryColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = currentTheme.primaryColor,
-                                selectedTextColor = currentTheme.onPrimaryColor,
-                                unselectedContainerColor = Color.Transparent,
-                                unselectedTextColor = currentTheme.textColor
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("drawer_section_${section.name.lowercase()}")
-                        )
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = currentTheme.primaryColor,
+                                    selectedTextColor = currentTheme.onPrimaryColor,
+                                    unselectedContainerColor = Color.Transparent,
+                                    unselectedTextColor = currentTheme.textColor
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .testTag("drawer_section_${section.name.lowercase()}")
+                            )
+                        }
                     }
                 }
             }
         }
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val useNavigationRail = maxWidth >= 600.dp
+        EpicAmbientBackdrop(theme = currentTheme) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val useNavigationRail = maxWidth >= 600.dp
 
-            Scaffold(
-                containerColor = currentTheme.backgroundColor,
-                topBar = {
-                    TopAppBar(
-                        navigationIcon = {
-                            IconButton(
-                                onClick = { coroutineScope.launch { drawerState.open() } },
-                                modifier = Modifier.testTag("top_menu_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Abrir menú de navegación",
-                                    tint = currentTheme.textColor
-                                )
-                            }
-                        },
-                        title = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.app_icon_dsp_studio_1794828267413),
-                                    contentDescription = "Car Audio DSP Pro",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .border(1.dp, currentTheme.accentColor, CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = selectedSection.title,
-                                        color = currentTheme.textColor,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = if (dspSettings.dspMasterEnabled) {
-                                            outputDeviceStatus.label
-                                        } else {
-                                            "DSP en bypass • ${outputDeviceStatus.label}"
-                                        },
-                                        color = currentTheme.textSecondaryColor,
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .padding(6.dp)
-                                            .clip(CircleShape)
-                                            .background(currentTheme.cardColor)
-                                            .clickable {
-                                                if (Settings.canDrawOverlays(context)) {
-                                                    FloatingEqualizerService.start(context)
+                Scaffold(
+                    containerColor = Color.Transparent,
+                    topBar = {
+                        Column {
+                            TopAppBar(
+                                navigationIcon = {
+                                    IconButton(
+                                        onClick = { coroutineScope.launch { drawerState.open() } },
+                                        modifier = Modifier.testTag("top_menu_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Menu,
+                                            contentDescription = "Abrir menú de navegación",
+                                            tint = currentTheme.textColor
+                                        )
+                                    }
+                                },
+                                title = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.img_car_audio_logo_1795273778926),
+                                            contentDescription = "Car Audio DSP Pro",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .border(
+                                                    1.2.dp,
+                                                    Brush.linearGradient(
+                                                        listOf(currentTheme.silverDetailColor, currentTheme.primaryColor)
+                                                    ),
+                                                    CircleShape
+                                                )
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = selectedSection.title,
+                                                color = currentTheme.textColor,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = if (dspSettings.dspMasterEnabled) {
+                                                    outputDeviceStatus.label
                                                 } else {
-                                                    showOverlayPermissionDialog = true
-                                                }
-                                            }
-                                            .testTag("top_floating_overlay_button"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PictureInPicture,
-                                            contentDescription = "Ecualizador Flotante",
-                                            tint = currentTheme.textSecondaryColor,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
+                                                    "EQ apagado • ${outputDeviceStatus.label}"
+                                                },
+                                                color = currentTheme.accentColor,
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .padding(6.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (dspSettings.dspMasterEnabled) currentTheme.accentColor.copy(alpha = 0.16f) else currentTheme.cardColor
-                                            )
-                                            .border(
-                                                1.dp,
-                                                if (dspSettings.dspMasterEnabled) currentTheme.accentColor.copy(alpha = 0.7f) else currentTheme.cardColor,
-                                                CircleShape
-                                            )
-                                            .clickable { viewModel.toggleDspPower(!dspSettings.dspMasterEnabled) }
-                                            .testTag("top_master_power_button"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PowerSettingsNew,
-                                            contentDescription = "Encendido Maestro DSP",
-                                            tint = if (dspSettings.dspMasterEnabled) currentTheme.accentColor else currentTheme.textSecondaryColor,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .padding(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(currentTheme.cardColor.copy(alpha = 0.85f))
+                                                    .border(
+                                                        0.8.dp,
+                                                        currentTheme.silverDetailColor.copy(alpha = 0.25f),
+                                                        CircleShape
+                                                    )
+                                                    .clickable { navigateToSection(AppSection.MY_MUSIC) }
+                                                    .testTag("top_search_button"),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Search,
+                                                    contentDescription = "Buscar música",
+                                                    tint = currentTheme.silverDetailColor,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .padding(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (dspSettings.dspMasterEnabled) {
+                                                            Brush.radialGradient(
+                                                                listOf(
+                                                                    currentTheme.primaryColor.copy(alpha = 0.35f),
+                                                                    currentTheme.accentColor.copy(alpha = 0.16f)
+                                                                )
+                                                            )
+                                                        } else {
+                                                            Brush.linearGradient(
+                                                                listOf(currentTheme.cardColor, currentTheme.surfaceColor)
+                                                            )
+                                                        }
+                                                    )
+                                                    .border(
+                                                        1.dp,
+                                                        if (dspSettings.dspMasterEnabled) currentTheme.accentColor.copy(alpha = 0.80f) else currentTheme.cardColor,
+                                                        CircleShape
+                                                    )
+                                                    .clickable { viewModel.toggleDspPower(!dspSettings.dspMasterEnabled) }
+                                                    .testTag("top_master_power_button"),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PowerSettingsNew,
+                                                    contentDescription = "Encendido Maestro DSP",
+                                                    tint = if (dspSettings.dspMasterEnabled) currentTheme.accentColor else currentTheme.textSecondaryColor,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = currentTheme.surfaceColor),
-                        windowInsets = WindowInsets.statusBars
-                    )
-                },
-                bottomBar = {
-                    if (!useNavigationRail) {
-                        val isExtraSection = selectedSection !in primaryBottomSections
-                        NavigationBar(
-                            containerColor = currentTheme.surfaceColor,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .testTag("main_bottom_nav"),
-                            tonalElevation = 6.dp
-                        ) {
-                            primaryBottomSections.forEach { section ->
-                                val selected = selectedSection == section
-                                NavigationBarItem(
-                                    selected = selected,
-                                    onClick = { navigateToSection(section) },
-                                    icon = { Icon(sectionIcon(section), contentDescription = section.shortTitle) },
-                                    label = {
-                                        Text(
-                                            text = section.shortTitle,
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = currentTheme.onPrimaryColor,
-                                        indicatorColor = currentTheme.primaryColor,
-                                        selectedTextColor = currentTheme.accentColor,
-                                        unselectedIconColor = currentTheme.textSecondaryColor,
-                                        unselectedTextColor = currentTheme.textSecondaryColor
-                                    ),
-                                    modifier = Modifier.testTag("nav_tab_${section.route}")
-                                )
-                            }
-                            NavigationBarItem(
-                                selected = isExtraSection,
-                                onClick = { coroutineScope.launch { drawerState.open() } },
-                                icon = { Icon(Icons.Default.Menu, contentDescription = "Más opciones") },
-                                label = { Text("Menú", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = currentTheme.onPrimaryColor,
-                                    indicatorColor = currentTheme.accentColor,
-                                    selectedTextColor = currentTheme.accentColor,
-                                    unselectedIconColor = currentTheme.textSecondaryColor,
-                                    unselectedTextColor = currentTheme.textSecondaryColor
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = currentTheme.surfaceColor.copy(alpha = 0.86f)
                                 ),
-                                modifier = Modifier.testTag("nav_tab_menu")
+                                windowInsets = WindowInsets.statusBars
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                currentTheme.primaryColor.copy(alpha = 0.55f),
+                                                currentTheme.silverDetailColor.copy(alpha = 0.30f),
+                                                currentTheme.accentColor.copy(alpha = 0.55f)
+                                            )
+                                        )
+                                    )
                             )
                         }
-                    }
-                }
-            ) { innerPadding ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    if (useNavigationRail) {
-                        NavigationRail(
-                            containerColor = currentTheme.surfaceColor,
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .testTag("tablet_navigation_rail")
-                        ) {
-                            AppSection.entries.forEach { section ->
-                                NavigationRailItem(
-                                    selected = selectedSection == section,
-                                    onClick = { navigateToSection(section) },
-                                    icon = { Icon(sectionIcon(section), contentDescription = section.title) },
-                                    label = { Text(section.shortTitle, fontSize = 10.sp, maxLines = 1) },
-                                    colors = NavigationRailItemDefaults.colors(
-                                        selectedIconColor = currentTheme.onPrimaryColor,
-                                        indicatorColor = currentTheme.primaryColor,
-                                        selectedTextColor = currentTheme.accentColor,
-                                        unselectedIconColor = currentTheme.textSecondaryColor,
-                                        unselectedTextColor = currentTheme.textSecondaryColor
-                                    )
+                    },
+                    bottomBar = {
+                        if (!useNavigationRail) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                listOf(
+                                                    currentTheme.primaryColor.copy(alpha = 0.55f),
+                                                    currentTheme.silverDetailColor.copy(alpha = 0.30f),
+                                                    currentTheme.accentColor.copy(alpha = 0.55f)
+                                                )
+                                            )
+                                        )
                                 )
+                                NavigationBar(
+                                    containerColor = currentTheme.surfaceColor.copy(alpha = 0.92f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .windowInsetsPadding(WindowInsets.navigationBars)
+                                        .testTag("main_bottom_nav"),
+                                    tonalElevation = 8.dp
+                                ) {
+                                    primaryBottomSections.forEach { section ->
+                                        val selected = selectedSection == section
+                                        NavigationBarItem(
+                                            selected = selected,
+                                            onClick = { navigateToSection(section) },
+                                            icon = { Icon(sectionIcon(section), contentDescription = section.shortTitle) },
+                                            label = {
+                                                Text(
+                                                    text = section.shortTitle,
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = currentTheme.onPrimaryColor,
+                                                indicatorColor = currentTheme.primaryColor,
+                                                selectedTextColor = currentTheme.accentColor,
+                                                unselectedIconColor = currentTheme.textSecondaryColor,
+                                                unselectedTextColor = currentTheme.textSecondaryColor
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_${section.route}")
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
+                ) { innerPadding ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        if (useNavigationRail) {
+                            NavigationRail(
+                                containerColor = currentTheme.surfaceColor.copy(alpha = 0.90f),
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .verticalScroll(rememberScrollState())
+                                    .testTag("tablet_navigation_rail")
+                            ) {
+                                AppSection.entries.forEach { section ->
+                                    NavigationRailItem(
+                                        selected = selectedSection == section,
+                                        onClick = { navigateToSection(section) },
+                                        icon = { Icon(sectionIcon(section), contentDescription = section.title) },
+                                        label = { Text(section.shortTitle, fontSize = 10.sp, maxLines = 1) },
+                                        colors = NavigationRailItemDefaults.colors(
+                                            selectedIconColor = currentTheme.onPrimaryColor,
+                                            indicatorColor = currentTheme.primaryColor,
+                                            selectedTextColor = currentTheme.accentColor,
+                                            unselectedIconColor = currentTheme.textSecondaryColor,
+                                            unselectedTextColor = currentTheme.textSecondaryColor
+                                        )
+                                    )
+                                }
+                            }
+                        }
 
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -783,9 +782,28 @@ fun CarAudioAppRoot(
                             NavHost(
                                 navController = navController,
                                 startDestination = AppSection.HOME.route,
+                                enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 18 } },
+                                exitTransition = { fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 24 } },
+                                popEnterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(220)) { -it / 18 } },
+                                popExitTransition = { fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { it / 24 } },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 composable(AppSection.HOME.route) {
+                                    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                                    val playbackSeconds by viewModel.playbackSeconds.collectAsStateWithLifecycle()
+                                    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
+                                    val recentTracks by viewModel.recentTracks.collectAsStateWithLifecycle()
+                                    val mostPlayedTracks by viewModel.mostPlayedTracks.collectAsStateWithLifecycle()
+                                    val favoriteTracks by viewModel.favoriteTracks.collectAsStateWithLifecycle()
+                                    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+                                    val bassMode by viewModel.bassMode.collectAsStateWithLifecycle()
+                                    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+                                    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
+
                                     HomeDashboardView(
                                         theme = currentTheme,
                                         dspSettings = dspSettings,
@@ -797,9 +815,11 @@ fun CarAudioAppRoot(
                                         tracksCount = tracks.size,
                                         recentTracks = recentTracks,
                                         mostPlayedTracks = mostPlayedTracks,
-                                        favoriteTracks = tracks.filter { it.isFavorite },
+                                        favoriteTracks = favoriteTracks,
                                         playlists = playlists,
                                         outputDeviceStatus = outputDeviceStatus,
+                                        bassMode = bassMode,
+                                        presets = eqPresets,
                                         onNavigateSection = navigateToSection,
                                         onTogglePlayPause = { viewModel.togglePlayPause() },
                                         onNextTrack = { viewModel.nextTrack() },
@@ -815,11 +835,32 @@ fun CarAudioAppRoot(
                                         onSelectPlaylist = { plId ->
                                             viewModel.selectPlaylistFilter(plId)
                                             navigateToSection(AppSection.MY_MUSIC)
-                                        }
+                                        },
+                                        onSelectBassMode = { viewModel.setBassMode(it) },
+                                        onSelectPreset = { viewModel.selectPreset(it) },
+                                        liteVisuals = liteVisuals,
+                                        libraryTracks = tracks,
+                                        hasAudioLibraryPermission = hasAudioLibraryPermission,
+                                        onRequestAudioPermission = requestAudioLibraryPermission,
+                                        onToggleFavorite = { viewModel.toggleFavorite(it) }
                                     )
                                 }
 
                                 composable(AppSection.MY_MUSIC.route) {
+                                    val filteredTracks by viewModel.filteredTracks.collectAsStateWithLifecycle()
+                                    val artists by viewModel.artists.collectAsStateWithLifecycle()
+                                    val albums by viewModel.albums.collectAsStateWithLifecycle()
+                                    val folders by viewModel.folders.collectAsStateWithLifecycle()
+                                    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+                                    val selectedPlaylistId by viewModel.selectedPlaylistId.collectAsStateWithLifecycle()
+                                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                                    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+                                    val libraryFilter by viewModel.libraryFilter.collectAsStateWithLifecycle()
+                                    val librarySortOrder by viewModel.librarySortOrder.collectAsStateWithLifecycle()
+                                    val trackPlayCounts by viewModel.trackPlayCounts.collectAsStateWithLifecycle()
+                                    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
+                                    val isScanningLibrary by viewModel.isScanningLibrary.collectAsStateWithLifecycle()
+
                                     MyMusicView(
                                         theme = currentTheme,
                                         tracks = filteredTracks,
@@ -877,6 +918,25 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.PLAYER.route) {
+                                    val queueTracks by viewModel.queueTracks.collectAsStateWithLifecycle()
+                                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                                    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+                                    val playbackSeconds by viewModel.playbackSeconds.collectAsStateWithLifecycle()
+                                    val volumeLevel by viewModel.volumeLevel.collectAsStateWithLifecycle()
+                                    val shuffleEnabled by viewModel.shuffleEnabled.collectAsStateWithLifecycle()
+                                    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
+                                    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
+                                    val playbackPitch by viewModel.playbackPitch.collectAsStateWithLifecycle()
+                                    val sleepTimerRemainingSec by viewModel.sleepTimerRemainingSec.collectAsStateWithLifecycle()
+                                    val sleepTimerStopAfterTrack by viewModel.sleepTimerStopAfterTrack.collectAsStateWithLifecycle()
+                                    val trackPlayCounts by viewModel.trackPlayCounts.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+                                    val activeAbSlot by viewModel.activeAbSlot.collectAsStateWithLifecycle()
+
                                     PlayerView(
                                         theme = currentTheme,
                                         queueTracks = queueTracks,
@@ -924,6 +984,17 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.EQUALIZER.route) {
+                                    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    val abSlotA by viewModel.abSlotA.collectAsStateWithLifecycle()
+                                    val abSlotB by viewModel.abSlotB.collectAsStateWithLifecycle()
+                                    val activeAbSlot by viewModel.activeAbSlot.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+
                                     EqualizerView(
                                         theme = currentTheme,
                                         dspSettings = dspSettings,
@@ -951,6 +1022,10 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.YOUTUBE_MUSIC.route) {
+                                    val ytSearchQuery by viewModel.ytSearchQuery.collectAsStateWithLifecycle()
+                                    val ytSavedItems by viewModel.ytSavedItems.collectAsStateWithLifecycle()
+                                    val ytSearchHistory by viewModel.ytSearchHistory.collectAsStateWithLifecycle()
+
                                     YouTubeMusicView(
                                         theme = currentTheme,
                                         searchQuery = ytSearchQuery,
@@ -967,6 +1042,23 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.AUDIO_TOOLS.route) {
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    val rtaBands by viewModel.rtaBands.collectAsStateWithLifecycle()
+                                    val oscilloscopeWave by viewModel.oscilloscopeWave.collectAsStateWithLifecycle()
+                                    val leftVu by viewModel.leftVu.collectAsStateWithLifecycle()
+                                    val rightVu by viewModel.rightVu.collectAsStateWithLifecycle()
+                                    val rmsDb by viewModel.rmsDb.collectAsStateWithLifecycle()
+                                    val splDb by viewModel.splDb.collectAsStateWithLifecycle()
+                                    val isClippingDetected by viewModel.isClippingDetected.collectAsStateWithLifecycle()
+                                    val clipEventsCount by viewModel.clipEventsCount.collectAsStateWithLifecycle()
+                                    val isMicRta by viewModel.isMicRta.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+                                    val devicePowerTelemetry by viewModel.devicePowerTelemetry.collectAsStateWithLifecycle()
+
                                     AudioToolsView(
                                         theme = currentTheme,
                                         dspSettings = dspSettings,
@@ -1016,6 +1108,13 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.PRESETS.route) {
+                                    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+                                    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
+                                    val customSoundProfiles by viewModel.customSoundProfiles.collectAsStateWithLifecycle()
+                                    val abSlotA by viewModel.abSlotA.collectAsStateWithLifecycle()
+                                    val abSlotB by viewModel.abSlotB.collectAsStateWithLifecycle()
+                                    val activeAbSlot by viewModel.activeAbSlot.collectAsStateWithLifecycle()
+
                                     PresetsView(
                                         theme = currentTheme,
                                         presets = eqPresets,
@@ -1037,9 +1136,14 @@ fun CarAudioAppRoot(
                                 }
 
                                 composable(AppSection.FAVORITES.route) {
+                                    val favoriteTracks by viewModel.favoriteTracks.collectAsStateWithLifecycle()
+                                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                                    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+                                    val ytSavedItems by viewModel.ytSavedItems.collectAsStateWithLifecycle()
+
                                     FavoritesView(
                                         theme = currentTheme,
-                                        favoriteTracks = tracks.filter { it.isFavorite },
+                                        favoriteTracks = favoriteTracks,
                                         currentTrack = currentTrack,
                                         playlists = playlists,
                                         ytFavoriteItems = ytSavedItems.filter { it.isFavorite },
@@ -1062,7 +1166,180 @@ fun CarAudioAppRoot(
                                     )
                                 }
 
+                                composable(AppSection.ONLINE_MUSIC.route) {
+                                    val onlineSearchState by viewModel.onlineSearchState.collectAsStateWithLifecycle()
+                                    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+                                    val ytSearchQuery by viewModel.ytSearchQuery.collectAsStateWithLifecycle()
+                                    val ytSavedItems by viewModel.ytSavedItems.collectAsStateWithLifecycle()
+                                    val ytSearchHistory by viewModel.ytSearchHistory.collectAsStateWithLifecycle()
+
+                                    OnlineMusicView(
+                                        theme = currentTheme,
+                                        onlineState = onlineSearchState,
+                                        downloads = downloads,
+                                        onOnlineQueryChange = { viewModel.setOnlineSearchQuery(it) },
+                                        onSearchOnline = { viewModel.searchOnlineMusic(it) },
+                                        onLoadFeatured = { viewModel.loadFeaturedOnlineMusic() },
+                                        onPlayOnlineTrack = {
+                                            viewModel.playOnlineTrack(it)
+                                            navigateToSection(AppSection.PLAYER)
+                                        },
+                                        onDownloadTrack = { viewModel.startTrackDownload(it) },
+                                        onOpenDownloads = { navigateToSection(AppSection.DOWNLOADS) },
+                                        ytSearchQuery = ytSearchQuery,
+                                        ytSavedItems = ytSavedItems,
+                                        ytSearchHistory = ytSearchHistory,
+                                        onYtSearchQueryChange = { viewModel.setYtSearchQuery(it) },
+                                        onYtRecordSearch = { viewModel.recordYtSearch(it) },
+                                        onYtSaveShortcut = { t, a, u, fav -> viewModel.saveYtShortcut(t, a, u, fav) },
+                                        onYtToggleFavorite = { viewModel.toggleYtFavorite(it) },
+                                        onYtRemoveItem = { viewModel.removeYtItem(it) },
+                                        onYtClearHistory = { viewModel.clearYtHistory() },
+                                        buildYtSearchUrl = { q -> viewModel.buildYouTubeMusicSearchUri(q).toString() }
+                                    )
+                                }
+
+                                composable(AppSection.DOWNLOADS.route) {
+                                    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+                                    val storageUsedBytes by viewModel.storageUsedBytes.collectAsStateWithLifecycle()
+
+                                    DownloadsView(
+                                        theme = currentTheme,
+                                        downloads = downloads,
+                                        storageUsedBytes = storageUsedBytes,
+                                        onPauseDownload = { viewModel.pauseDownload(it) },
+                                        onResumeDownload = { viewModel.resumeDownload(it) },
+                                        onCancelDownload = { viewModel.cancelDownload(it) },
+                                        onDeleteDownload = { viewModel.deleteDownload(it) },
+                                        onPlayDownloaded = {
+                                            viewModel.playDownloadedTrack(it)
+                                            navigateToSection(AppSection.PLAYER)
+                                        },
+                                        onClearAll = { viewModel.clearAllDownloads() },
+                                        onOpenOnlineMusic = { navigateToSection(AppSection.ONLINE_MUSIC) }
+                                    )
+                                }
+
+                                composable(AppSection.BASS_BOOST.route) {
+                                    val bassMode by viewModel.bassMode.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val isClippingDetected by viewModel.isClippingDetected.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+
+                                    BassBoostView(
+                                        theme = currentTheme,
+                                        dspSettings = dspSettings,
+                                        bassMode = bassMode,
+                                        isPlaying = isAnyAudioPlaying,
+                                        bassEnergy = bassEnergy,
+                                        midEnergy = midEnergy,
+                                        trebleEnergy = trebleEnergy,
+                                        isClippingDetected = isClippingDetected,
+                                        liteVisuals = liteVisuals,
+                                        onSelectBassMode = { viewModel.setBassMode(it) },
+                                        onSetBassBoost = { en, db, hz -> viewModel.setBassBoost(en, db, hz) },
+                                        onSetBassGain = { viewModel.setDspBassGain(it) },
+                                        onSetDeepBass = { en, db, hz -> viewModel.setSubBass(en, db, hz) },
+                                        onToggleLimiter = { viewModel.toggleLimiter(it) }
+                                    )
+                                }
+
+                                composable(AppSection.SUBWOOFER.route) {
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+
+                                    SubwooferView(
+                                        theme = currentTheme,
+                                        dspSettings = dspSettings,
+                                        isPlaying = isAnyAudioPlaying,
+                                        bassEnergy = bassEnergy,
+                                        midEnergy = midEnergy,
+                                        trebleEnergy = trebleEnergy,
+                                        liteVisuals = liteVisuals,
+                                        onSetSubBass = { en, db, hz -> viewModel.setSubBass(en, db, hz) },
+                                        onSetBassPunch = { viewModel.setBassPunch(it) },
+                                        onSetSubsonicFilter = { en, hz -> viewModel.setSubsonicFilter(en, hz) },
+                                        onSetFilterLpf = { en, hz, slope -> viewModel.setFilterLpf(en, hz, slope) }
+                                    )
+                                }
+
+                                composable(AppSection.VISUALIZER.route) {
+                                    val rtaBands by viewModel.rtaBands.collectAsStateWithLifecycle()
+                                    val oscilloscopeWave by viewModel.oscilloscopeWave.collectAsStateWithLifecycle()
+                                    val leftVu by viewModel.leftVu.collectAsStateWithLifecycle()
+                                    val rightVu by viewModel.rightVu.collectAsStateWithLifecycle()
+                                    val rmsDb by viewModel.rmsDb.collectAsStateWithLifecycle()
+                                    val splDb by viewModel.splDb.collectAsStateWithLifecycle()
+                                    val isClippingDetected by viewModel.isClippingDetected.collectAsStateWithLifecycle()
+                                    val clipEventsCount by viewModel.clipEventsCount.collectAsStateWithLifecycle()
+                                    val isMicRta by viewModel.isMicRta.collectAsStateWithLifecycle()
+                                    val isAnyAudioPlaying by viewModel.isAnyAudioPlaying.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+                                    val devicePowerTelemetry by viewModel.devicePowerTelemetry.collectAsStateWithLifecycle()
+
+                                    VisualizerView(
+                                        theme = currentTheme,
+                                        rtaBands = rtaBands,
+                                        oscilloscopeWave = oscilloscopeWave,
+                                        leftVu = leftVu,
+                                        rightVu = rightVu,
+                                        rmsDb = rmsDb,
+                                        splDb = splDb,
+                                        isClippingDetected = isClippingDetected,
+                                        clipEventsCount = clipEventsCount,
+                                        isMicRtaActive = isMicRta,
+                                        isAnyAudioPlaying = isAnyAudioPlaying,
+                                        bassEnergy = bassEnergy,
+                                        midEnergy = midEnergy,
+                                        trebleEnergy = trebleEnergy,
+                                        dspMasterEnabled = dspSettings.dspMasterEnabled,
+                                        liteVisuals = liteVisuals,
+                                        outputDeviceStatus = outputDeviceStatus,
+                                        powerTelemetry = devicePowerTelemetry,
+                                        onToggleLiteVisuals = { viewModel.setLiteVisualsEnabled(it) },
+                                        onToggleMicRta = handleToggleMicRta,
+                                        onRefreshTelemetry = { viewModel.refreshDevicePowerTelemetry() }
+                                    )
+                                }
+
+                                composable(AppSection.PLAYLISTS.route) {
+                                    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+                                    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
+
+                                    PlaylistsView(
+                                        theme = currentTheme,
+                                        playlists = playlists,
+                                        allTracks = tracks,
+                                        onCreatePlaylist = { viewModel.createPlaylist(it) },
+                                        onDeletePlaylist = { viewModel.deletePlaylist(it) },
+                                        onPlayPlaylist = { plId ->
+                                            viewModel.playPlaylist(plId)
+                                            navigateToSection(AppSection.PLAYER)
+                                        },
+                                        onAddTrackToPlaylist = { plId, tr -> viewModel.addTrackToPlaylist(plId, tr.id) },
+                                        onOpenLibrary = { navigateToSection(AppSection.MY_MUSIC) }
+                                    )
+                                }
+
                                 composable(AppSection.SETTINGS.route) {
+                                    val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
+                                    val autoPlayIntro by viewModel.autoPlayIntro.collectAsStateWithLifecycle()
+                                    val sessionTarget by viewModel.sessionTarget.collectAsStateWithLifecycle()
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
+                                    val hasNotificationPermission by viewModel.hasNotificationPermission.collectAsStateWithLifecycle()
+                                    val faultAlerts by viewModel.faultAlerts.collectAsStateWithLifecycle()
+                                    val storageUsedBytes by viewModel.storageUsedBytes.collectAsStateWithLifecycle()
+
                                     AppSettingsView(
                                         theme = currentTheme,
                                         onSelectTheme = { viewModel.setTheme(it) },
@@ -1083,32 +1360,102 @@ fun CarAudioAppRoot(
                                         onRequestNotificationPermission = requestNotificationPermission,
                                         onRequestAudioPermission = requestAudioLibraryPermission,
                                         onRefreshDiagnostics = { viewModel.refreshSystemHealth() },
-                                        onClearFaults = { viewModel.clearFaultHistory() }
+                                        onClearFaults = { viewModel.clearFaultHistory() },
+                                        storageUsedBytes = storageUsedBytes,
+                                        onClearCache = { viewModel.clearCachedData() },
+                                        onOpenProfile = { navigateToSection(AppSection.PROFILE) },
+                                        onOpenAbout = { navigateToSection(AppSection.ABOUT) }
+                                    )
+                                }
+
+                                composable(AppSection.PROFILE.route) {
+                                    val localProfileName by viewModel.localProfileName.collectAsStateWithLifecycle()
+                                    val totalListeningSeconds by viewModel.totalListeningSeconds.collectAsStateWithLifecycle()
+                                    val trackPlayCounts by viewModel.trackPlayCounts.collectAsStateWithLifecycle()
+                                    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+                                    val customSoundProfiles by viewModel.customSoundProfiles.collectAsStateWithLifecycle()
+                                    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+                                    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
+                                    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+                                    val mostPlayedTracks by viewModel.mostPlayedTracks.collectAsStateWithLifecycle()
+                                    val favoriteTracks by viewModel.favoriteTracks.collectAsStateWithLifecycle()
+
+                                    val stats = remember(
+                                        localProfileName,
+                                        totalListeningSeconds,
+                                        trackPlayCounts,
+                                        eqPresets,
+                                        customSoundProfiles,
+                                        playlists,
+                                        tracks,
+                                        downloads
+                                    ) {
+                                        viewModel.getLocalProfileStats()
+                                    }
+                                    ProfileView(
+                                        theme = currentTheme,
+                                        stats = stats,
+                                        topTracks = mostPlayedTracks,
+                                        favoriteTracks = favoriteTracks,
+                                        playCounts = trackPlayCounts,
+                                        onUpdateProfileName = { viewModel.updateLocalProfileName(it) },
+                                        onPlayTrack = {
+                                            viewModel.playTrack(it)
+                                            navigateToSection(AppSection.PLAYER)
+                                        }
+                                    )
+                                }
+
+                                composable(AppSection.ABOUT.route) {
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    AboutView(
+                                        theme = currentTheme,
+                                        capabilityReport = capabilityReport
                                     )
                                 }
                             }
 
-                            AnimatedVisibility(
-                                visible = currentTrack != null && selectedSection != AppSection.PLAYER,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut()
-                            ) {
-                                currentTrack?.let { activeTrack ->
-                                    MiniPlayerBar(
-                                        track = activeTrack,
-                                        isPlaying = isPlaying,
-                                        playbackSeconds = playbackSeconds,
-                                        theme = currentTheme,
-                                        onOpenPlayer = { navigateToSection(AppSection.PLAYER) },
-                                        onTogglePlayPause = { viewModel.togglePlayPause() },
-                                        onNextTrack = { viewModel.nextTrack() }
-                                    )
-                                }
-                            }
+                            RootMiniPlayerSlot(
+                                viewModel = viewModel,
+                                theme = currentTheme,
+                                isPlayerScreen = selectedSection == AppSection.PLAYER,
+                                onOpenPlayer = { navigateToSection(AppSection.PLAYER) }
+                            )
                         }
                     }
                 }
             }
+        }
+    }
+    }
+}
+
+@Composable
+private fun RootMiniPlayerSlot(
+    viewModel: CarAudioViewModel,
+    theme: com.example.model.CarAudioThemeType,
+    isPlayerScreen: Boolean,
+    onOpenPlayer: () -> Unit
+) {
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val playbackSeconds by viewModel.playbackSeconds.collectAsStateWithLifecycle()
+
+    AnimatedVisibility(
+        visible = currentTrack != null && !isPlayerScreen,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        currentTrack?.let { activeTrack ->
+            MiniPlayerBar(
+                track = activeTrack,
+                isPlaying = isPlaying,
+                playbackSeconds = playbackSeconds,
+                theme = theme,
+                onOpenPlayer = onOpenPlayer,
+                onTogglePlayPause = { viewModel.togglePlayPause() },
+                onNextTrack = { viewModel.nextTrack() }
+            )
         }
     }
 }

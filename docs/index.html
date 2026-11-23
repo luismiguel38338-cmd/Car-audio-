@@ -3,39 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CAR AUDIO DSP PRO — Descargar APK, Funciones y Política de Privacidad</title>
-  <meta name="description" content="Página oficial de CAR AUDIO DSP PRO v6.0.0 para Android: Reproductor de música real, Sistema de Bajos, Ecualizador 31/15/Paramétrico, Procesador DSP, Alertas de Fallos, descarga de APK y Política de Privacidad." />
+  <title>CAR AUDIO DSP PRO — Potencia tu Música • LM Produce</title>
+  <meta name="description" content="Página oficial de CAR AUDIO DSP PRO v6.5.0 por LM Produce (Producción de Luis Miguel): Reproductor profesional, Ecualizador 10/31B + Paramétrico, Bass Boost Extremo, Subwoofer 3D, Música Online legal (Jamendo + YouTube Music), Descargas Offline y Política de Privacidad." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #090203;
-      --surface: #140507;
-      --card: #20080c;
-      --primary: #ff172b;
-      --accent: #ff5252;
-      --text: #ffecee;
-      --muted: #c98d94;
-      --border: rgba(255, 23, 43, 0.28);
-      --glow: 0 0 36px rgba(255, 23, 43, 0.28);
+      --bg: #06070B;
+      --surface: #0D1018;
+      --card: #141926;
+      --primary: #00D4FF;
+      --accent: #A855F7;
+      --text: #F2F6FF;
+      --muted: #98A6C2;
+      --border: rgba(0, 212, 255, 0.25);
+      --border-violet: rgba(168, 85, 247, 0.30);
+      --glow: 0 0 38px rgba(0, 212, 255, 0.22);
       --radius: 18px;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
       background:
-        radial-gradient(circle at 18% 0%, rgba(255, 23, 43, 0.16), transparent 44%),
-        radial-gradient(circle at 85% 22%, rgba(255, 82, 82, 0.10), transparent 38%),
+        radial-gradient(circle at 15% 0%, rgba(0, 212, 255, 0.14), transparent 44%),
+        radial-gradient(circle at 86% 18%, rgba(168, 85, 247, 0.14), transparent 40%),
         var(--bg);
       color: var(--text);
       font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -48,9 +42,7 @@
       letter-spacing: -0.02em;
     }
 
-    .mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
 
     .container {
       width: 100%;
@@ -64,7 +56,7 @@
       top: 0;
       z-index: 50;
       backdrop-filter: blur(14px);
-      background: rgba(9, 2, 3, 0.85);
+      background: rgba(6, 7, 11, 0.86);
       border-bottom: 1px solid var(--border);
     }
 
@@ -85,15 +77,16 @@
     }
 
     .brand-mark {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), #8c0614);
-      border: 1.5px solid var(--accent);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border: 1.5px solid rgba(255, 255, 255, 0.25);
       display: grid;
       place-items: center;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12px;
+      color: #04070E;
       box-shadow: var(--glow);
     }
 
@@ -124,9 +117,7 @@
       transition: color 0.2s;
     }
 
-    .nav-links a:hover {
-      color: var(--text);
-    }
+    .nav-links a:hover { color: var(--primary); }
 
     .btn {
       display: inline-flex;
@@ -143,18 +134,16 @@
       transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
-    .btn:active {
-      transform: scale(0.98);
-    }
+    .btn:active { transform: scale(0.98); }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--primary), #cc0e20);
-      color: #fff;
-      box-shadow: 0 10px 28px rgba(255, 23, 43, 0.35);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #04070E;
+      box-shadow: 0 10px 28px rgba(0, 212, 255, 0.28);
     }
 
     .btn-primary:hover {
-      box-shadow: 0 14px 34px rgba(255, 23, 43, 0.52);
+      box-shadow: 0 14px 34px rgba(168, 85, 247, 0.42);
     }
 
     .btn-outline {
@@ -168,9 +157,7 @@
       border-color: var(--primary);
     }
 
-    .hero {
-      padding: 60px 0 44px;
-    }
+    .hero { padding: 60px 0 44px; }
 
     .hero-grid {
       display: grid;
@@ -185,9 +172,9 @@
       gap: 8px;
       padding: 6px 12px;
       border-radius: 999px;
-      background: rgba(255, 23, 43, 0.14);
+      background: rgba(0, 212, 255, 0.12);
       border: 1px solid var(--border);
-      color: var(--accent);
+      color: var(--primary);
       font-size: 12px;
       font-weight: 700;
       margin-bottom: 18px;
@@ -197,8 +184,8 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--primary);
-      box-shadow: 0 0 10px var(--primary);
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
     }
 
     .hero h1 {
@@ -208,7 +195,9 @@
     }
 
     .hero h1 span {
-      color: var(--primary);
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .hero p {
@@ -232,7 +221,7 @@
     }
 
     .spec-box {
-      background: var(--surface);
+      background: rgba(13, 16, 24, 0.9);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 12px 14px;
@@ -251,7 +240,7 @@
     }
 
     .dsp-preview {
-      background: linear-gradient(180deg, var(--surface), #0d0305);
+      background: linear-gradient(180deg, var(--surface), #080A11);
       border: 1.5px solid var(--border);
       border-radius: 24px;
       padding: 20px;
@@ -270,17 +259,17 @@
       font-weight: 700;
       padding: 4px 10px;
       border-radius: 999px;
-      background: rgba(255, 23, 43, 0.16);
-      color: var(--accent);
-      border: 1px solid var(--border);
+      background: rgba(168, 85, 247, 0.18);
+      color: #D8B4FE;
+      border: 1px solid var(--border-violet);
     }
 
     canvas#curveCanvas {
       width: 100%;
       height: 180px;
       display: block;
-      background: #070102;
-      border: 1px solid rgba(255, 23, 43, 0.22);
+      background: #040509;
+      border: 1px solid rgba(0, 212, 255, 0.22);
       border-radius: 14px;
       margin-bottom: 16px;
     }
@@ -305,15 +294,12 @@
     }
 
     .mode-btn.active {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 6px 18px rgba(255, 23, 43, 0.35);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #04070E;
+      box-shadow: 0 6px 18px rgba(0, 212, 255, 0.30);
     }
 
-    .sim-sliders {
-      display: grid;
-      gap: 10px;
-    }
+    .sim-sliders { display: grid; gap: 10px; }
 
     .sim-slider-row {
       display: flex;
@@ -340,13 +326,11 @@
       font-weight: 700;
     }
 
-    section {
-      padding: 54px 0;
-    }
+    section { padding: 54px 0; }
 
     .section-head {
       text-align: center;
-      max-width: 700px;
+      max-width: 720px;
       margin: 0 auto 36px;
     }
 
@@ -355,14 +339,11 @@
       margin-bottom: 10px;
     }
 
-    .section-head p {
-      color: var(--muted);
-      font-size: 15px;
-    }
+    .section-head p { color: var(--muted); font-size: 15px; }
 
     .panels-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
     }
 
@@ -376,29 +357,22 @@
 
     .panel-card:hover {
       transform: translateY(-4px);
-      border-color: var(--primary);
+      border-color: var(--accent);
     }
 
     .panel-num {
       display: inline-block;
       font-size: 11px;
       font-weight: 700;
-      color: var(--accent);
-      background: rgba(255, 23, 43, 0.14);
+      color: var(--primary);
+      background: rgba(0, 212, 255, 0.14);
       padding: 4px 10px;
       border-radius: 999px;
       margin-bottom: 12px;
     }
 
-    .panel-card h3 {
-      font-size: 18px;
-      margin-bottom: 8px;
-    }
-
-    .panel-card p {
-      font-size: 13.5px;
-      color: var(--muted);
-    }
+    .panel-card h3 { font-size: 18px; margin-bottom: 8px; }
+    .panel-card p { font-size: 13.5px; color: var(--muted); }
 
     .highlights {
       display: grid;
@@ -413,10 +387,7 @@
       padding: 24px;
     }
 
-    .highlight-card h3 {
-      font-size: 20px;
-      margin-bottom: 10px;
-    }
+    .highlight-card h3 { font-size: 20px; margin-bottom: 10px; }
 
     .highlight-list {
       list-style: none;
@@ -440,85 +411,8 @@
       font-weight: 900;
     }
 
-    .shots-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 18px;
-    }
-
-    .shot-card {
-      background: linear-gradient(180deg, #160609, #090203);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .mock-screen {
-      background: #070102;
-      border: 1px solid rgba(255, 23, 43, 0.25);
-      border-radius: 14px;
-      padding: 12px;
-      min-height: 170px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .mock-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .mock-bars {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-      height: 68px;
-      padding-top: 6px;
-    }
-
-    .mock-bars span {
-      flex: 1;
-      border-radius: 3px 3px 0 0;
-      background: linear-gradient(180deg, var(--primary), rgba(255, 82, 82, 0.35));
-    }
-
-    .mock-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .mock-chip {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid rgba(255, 23, 43, 0.28);
-    }
-
-    .shot-card > strong {
-      font-size: 14px;
-      color: var(--text);
-    }
-
-    .shot-card > span {
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-
-    /* Download Box */
     .cta-box {
-      background: linear-gradient(135deg, #24070c, #120406);
+      background: linear-gradient(135deg, #0E1525, #120E24);
       border: 1.5px solid var(--primary);
       border-radius: 24px;
       padding: 36px 28px;
@@ -526,10 +420,7 @@
       box-shadow: var(--glow);
     }
 
-    .cta-box h2 {
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
-      margin-bottom: 10px;
-    }
+    .cta-box h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-bottom: 10px; }
 
     .cta-box p {
       color: var(--muted);
@@ -539,10 +430,10 @@
     }
 
     .install-steps {
-      max-width: 680px;
+      max-width: 700px;
       margin: 22px auto 0;
       text-align: left;
-      background: rgba(9, 2, 3, 0.65);
+      background: rgba(6, 7, 11, 0.72);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 16px 20px;
@@ -550,13 +441,8 @@
       color: var(--muted);
     }
 
-    .install-steps strong {
-      color: var(--text);
-      display: block;
-      margin-bottom: 6px;
-    }
+    .install-steps strong { color: var(--text); display: block; margin-bottom: 6px; }
 
-    /* Privacy Section */
     .privacy-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -573,21 +459,13 @@
 
     .privacy-item {
       background: var(--card);
-      border: 1px solid rgba(255, 23, 43, 0.2);
+      border: 1px solid var(--border-violet);
       border-radius: 14px;
       padding: 16px;
     }
 
-    .privacy-item h3 {
-      font-size: 15px;
-      margin-bottom: 6px;
-      color: var(--text);
-    }
-
-    .privacy-item p {
-      font-size: 13px;
-      color: var(--muted);
-    }
+    .privacy-item h3 { font-size: 15px; margin-bottom: 6px; color: var(--text); }
+    .privacy-item p { font-size: 13px; color: var(--muted); }
 
     footer {
       border-top: 1px solid var(--border);
@@ -597,24 +475,12 @@
       font-size: 13px;
     }
 
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
+    footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+    footer a:hover { text-decoration: underline; }
 
     @media (max-width: 900px) {
-      .hero-grid,
-      .highlights {
-        grid-template-columns: 1fr;
-      }
-      .nav-links {
-        display: none;
-      }
+      .hero-grid, .highlights { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
     }
   </style>
 </head>
@@ -625,12 +491,12 @@
         <div class="brand-mark mono">DSP</div>
         <div class="brand-text">
           <strong>CAR AUDIO DSP PRO</strong>
-          <span class="mono">v6.0.0 • Android 7.0+ (SDK 24+)</span>
+          <span class="mono">v6.5.0 • LM Produce — Producción de Luis Miguel</span>
         </div>
       </a>
       <nav class="nav-links">
-        <a href="#paneles">Paneles</a>
-        <a href="#funciones">Funciones</a>
+        <a href="#paneles">Módulos</a>
+        <a href="#funciones">DSP y Presets</a>
         <a href="#descarga">Descargar APK</a>
         <a href="#privacidad">Privacidad</a>
       </nav>
@@ -644,28 +510,28 @@
         <div>
           <div class="pill">
             <span class="pill-dot"></span>
-            CAR AUDIO DSP PRO v6.0.0 • REPRODUCTOR + BAJOS + DSP REAL
+            CAR AUDIO DSP PRO v6.5.0 • POTENCIA TU MÚSICA
           </div>
-          <h1>Sonido de <span>Estudio y Subwoofer</span> Directo en tu Android</h1>
+          <h1>Cabina <span>DSP Automotriz</span> y Reproductor Profesional</h1>
           <p>
-            Aplicación nativa hecha para car audio, audífonos y Bluetooth: reproduce tu música real desde el teléfono, ajusta un sistema dedicado de bajos y ecualización de precisión, recibe notificaciones si algo falla y desbloquea mejoras VIP de fidelidad HD.
+            Desarrollada por <strong>LM Produce — Producción de Luis Miguel</strong>. Reproductor local real sin inicio de sesión obligatorio, ecualizador de 10 y 31 bandas + paramétrico, Bass Boost Normal/Potente/Extremo, Subwoofer 3D reactivo, música online legal con Jamendo API v3, enlaces a YouTube Music y descargas offline optimizadas para TECNO BG6 y Android 13+.
           </p>
           <div class="hero-actions">
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">Descargar APK v6.0.0</a>
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.5.0.apk" class="btn btn-primary">Descargar APK v6.5.0</a>
             <a href="#privacidad" class="btn btn-outline">Política de Privacidad</a>
           </div>
           <div class="specs-row">
             <div class="spec-box">
-              <strong>5 Paneles</strong>
-              <span>Música, Bajos, EQ, DSP, Ajustes</span>
+              <strong>17 Pantallas</strong>
+              <span>Inicio, Música, DSP, Descargas, Ajustes</span>
             </div>
             <div class="spec-box">
-              <strong>31 / 15 / 5B</strong>
-              <span>ISO + Paramétrico en Vivo</span>
+              <strong>10 / 31 Bandas</strong>
+              <span>+ Paramétrico 5B y Limitador</span>
             </div>
             <div class="spec-box">
-              <strong>100% Local</strong>
-              <span>Sin anuncios ni rastreo</span>
+              <strong>Cero Rastreo</strong>
+              <span>Sin anuncios activos ni login</span>
             </div>
           </div>
         </div>
@@ -673,24 +539,24 @@
         <div class="dsp-preview">
           <div class="dsp-top">
             <span class="mono" style="font-size:12px;font-weight:700;">RESPUESTA EN FRECUENCIA DSP</span>
-            <span class="dsp-badge mono" id="curveModeLabel">BAJOS + PUNCH</span>
+            <span class="dsp-badge mono" id="curveModeLabel">DEMBOW DOMINICANO</span>
           </div>
           <canvas id="curveCanvas" width="460" height="180" aria-label="Gráfica interactiva de respuesta en frecuencia"></canvas>
           <div class="mode-tabs">
-            <button type="button" class="mode-btn active" data-preset="bass">Bajos Pro</button>
-            <button type="button" class="mode-btn" data-preset="vocal">Claridad HD</button>
+            <button type="button" class="mode-btn active" data-preset="bass">Dembow / Trap</button>
+            <button type="button" class="mode-btn" data-preset="vocal">Música Vocal</button>
             <button type="button" class="mode-btn" data-preset="flat">Flat Studio</button>
           </div>
           <div class="sim-sliders">
             <div class="sim-slider-row">
-              <label for="slSub">Sub-Bass (35Hz)</label>
+              <label for="slSub">Sub-Bass (42Hz)</label>
               <input id="slSub" type="range" min="0" max="18" step="0.5" value="10">
               <span class="mono" id="valSub">+10.0 dB</span>
             </div>
             <div class="sim-slider-row">
               <label for="slPunch">Punch (75Hz)</label>
-              <input id="slPunch" type="range" min="0" max="10" step="0.5" value="6">
-              <span class="mono" id="valPunch">+6.0 dB</span>
+              <input id="slPunch" type="range" min="0" max="10" step="0.5" value="6.5">
+              <span class="mono" id="valPunch">+6.5 dB</span>
             </div>
             <div class="sim-slider-row">
               <label for="slClarity">Claridad (12kHz)</label>
@@ -705,34 +571,39 @@
     <section id="paneles">
       <div class="container">
         <div class="section-head">
-          <h2>Todo lo que Incluye la Aplicación Real</h2>
-          <p>Comienza con una pantalla de bienvenida y un tutorial rápido de 4 pasos antes de entrar a los 5 paneles principales.</p>
+          <h2>Ecosistema Completo de 17 Módulos Reales</h2>
+          <p>Estética Neón DSP Pro (Negro OLED + Azul Eléctrico + Violeta Neón) y rendimiento optimizado para dispositivos Android de gama baja y media como TECNO BG6.</p>
         </div>
         <div class="panels-grid">
           <article class="panel-card">
-            <span class="panel-num mono">01 • MÚSICA</span>
-            <h3>Reproductor Local Real</h3>
-            <p>Escanea automáticamente la música del teléfono (<span class="mono">MediaStore</span>) o carga pistas <span class="mono">FLAC, WAV, MP3, AAC, OGG</span> mostrando formato, bitrate en kbps, carátulas, búsqueda, favoritas, shuffle y repetir.</p>
+            <span class="panel-num mono">01 • REPRODUCTOR</span>
+            <h3>Música Local y Cola Real</h3>
+            <p>Escaneo automático <span class="mono">MediaStore</span>, selector de archivos MP3/FLAC/WAV, servicio Media3 en segundo plano, controles en pantalla bloqueada, shuffle, repetir y última pista recordada.</p>
           </article>
           <article class="panel-card">
-            <span class="panel-num mono">02 • BAJOS</span>
-            <h3>Sistema de Bajos</h3>
-            <p>Curva en vivo de <span class="mono">20–250 Hz</span>, Bass Boost, Sub-Bass profundo (<span class="mono">30–80 Hz</span>), Impacto/Punch (<span class="mono">63–85 Hz</span>), Loudness dinámico, filtro subsónico protector, LPF, fase <span class="mono">0°/180°</span> y delay en ms.</p>
+            <span class="panel-num mono">02 • ECUALIZADOR</span>
+            <h3>10 y 31 Bandas + Paramétrico</h3>
+            <p>Motor real <span class="mono">DynamicsProcessing</span> con respaldo <span class="mono">Equalizer</span>, comparación instantánea A/B y presets calibrados.</p>
           </article>
           <article class="panel-card">
-            <span class="panel-num mono">03 • EQ</span>
-            <h3>Ecualizador Profesional</h3>
-            <p>Cambia al instante entre <strong>31 bandas ISO</strong>, <strong>15 bandas rápidas</strong> y <strong>Paramétrico de 5 bandas</strong>, con guardado de presets propios y presets VIP.</p>
+            <span class="panel-num mono">03 • BAJOS Y SUB</span>
+            <h3>Bass Boost + Subwoofer 3D</h3>
+            <p>Modos <strong>Normal</strong>, <strong>Potente</strong> y <strong>Extremo</strong> (con limitador anti-clipping obligatorio), control subgrave 30–80 Hz, filtro subsónico y woofer reactivo en vivo.</p>
           </article>
           <article class="panel-card">
-            <span class="panel-num mono">04 • DSP</span>
-            <h3>Procesador Maestro &amp; HD</h3>
-            <p>Medidores <span class="mono">L/R</span>, analizador <span class="mono">RTA</span>, Preamp, Amplitud Estéreo, Balance, Compresor, Limitador anti-clipping, HPF/LPF y Motor VIP de Calidad HD.</p>
+            <span class="panel-num mono">04 • ONLINE LEGAL</span>
+            <h3>Jamendo API v3 + YT Music</h3>
+            <p>Catálogo real libre de derechos vía <strong>Jamendo API v3</strong> y accesos directos oficiales a <strong>YouTube Music</strong> para búsquedas y favoritos.</p>
           </article>
           <article class="panel-card">
-            <span class="panel-num mono">05 • AJUSTES</span>
-            <h3>Diagnóstico, Temas y VIP</h3>
-            <p>Centro de diagnóstico en tiempo real, historial de fallos, permisos, modo ligero, burbuja flotante, estilos visuales y desbloqueo discreto VIP Studio.</p>
+            <span class="panel-num mono">05 • DESCARGAS</span>
+            <h3>Gestor Offline Real</h3>
+            <p>Descargas reales con progreso en porcentaje, pausa/reanudar vía HTTP <span class="mono">Range</span>, cancelación y verificación estricta de licencia antes de guardar.</p>
+          </article>
+          <article class="panel-card">
+            <span class="panel-num mono">06 • CABINA Y DATOS</span>
+            <h3>Visualizador RTA, Perfil y Acerca</h3>
+            <p>Espectro 31B en pantalla completa, osciloscopio, modo ligero de batería, estadísticas locales de escucha y centro de diagnóstico de audio.</p>
           </article>
         </div>
       </div>
@@ -741,103 +612,24 @@
     <section id="funciones">
       <div class="container highlights">
         <div class="highlight-card">
-          <h3>Notificaciones y Alertas Cuando Algo Falla</h3>
-          <p style="color:var(--muted);font-size:14px;">La app vigila la estabilidad de reproducción y te avisa de inmediato con notificaciones y un banner interno:</p>
+          <h3>Presets Calibrados por Género</h3>
+          <p style="color:var(--muted);font-size:14px;">Curvas diseñadas para cabina automotriz y audífonos en 10 y 31 bandas:</p>
           <ul class="highlight-list">
-            <li>Error al leer, abrir o reproducir un archivo de audio dañado o sin permiso.</li>
-            <li>Aviso si falta permiso de música local o de notificaciones en Android 13+.</li>
-            <li>Alertas ante desconexión de audífonos/Bluetooth o fallo del motor <span class="mono">AudioFX</span>.</li>
-            <li>Detección de clipping/distorsión con botón directo para activar el limitador.</li>
+            <li><strong>Dembow dominicano</strong>, <strong>Reggaetón</strong>, <strong>Bachata</strong> y <strong>Merengue</strong>.</li>
+            <li><strong>Trap</strong>, <strong>Hip-Hop</strong>, <strong>Electrónica</strong>, <strong>Rock</strong> y <strong>Música vocal</strong>.</li>
+            <li>Modo <strong>Personalizado</strong>, <strong>Flat</strong>, <strong>Graves Limpios</strong> y guardado de perfiles propios.</li>
+            <li>Balance estéreo L/R, Loudness, ganancia master y limitador anti-distorsión.</li>
           </ul>
         </div>
         <div class="highlight-card">
-          <h3>Mejoras VIP de Calidad y Fidelidad Musical</h3>
-          <p style="color:var(--muted);font-size:14px;">Al ingresar tu clave privada VIP dentro de la app se desbloquean módulos avanzados de audio y estética:</p>
+          <h3>Rendimiento, Seguridad y Cumplimiento</h3>
+          <p style="color:var(--muted);font-size:14px;">Diseñada para estabilidad continua en Android 7.0 a Android 15 (incluyendo TECNO BG6):</p>
           <ul class="highlight-list">
-            <li><strong>Modo Hi-Res Studio</strong> y <strong>Calidez Analógica (Tube Warmth)</strong>.</li>
-            <li><strong>Presencia Vocal</strong>, <strong>Claridad HD</strong> y <strong>Excitador Armónico</strong>.</li>
-            <li>Compresor con Umbral, Ratio, Attack y Release + pendientes de <span class="mono">36 / 48 dB/oct</span>.</li>
-            <li>Perfiles de subwoofer (<span class="mono">Hairtrick 32Hz</span>, <span class="mono">SPL Competencia</span>, <span class="mono">SQL Audiófilo</span>), presets Master VIP y temas exclusivos.</li>
+            <li>Cero inicio de sesión obligatorio: entra directo al tablero automotriz.</li>
+            <li>Sin sonido automático al arrancar ni pistas ficticias.</li>
+            <li>Modo visual ligero para ahorrar RAM/GPU y controlar la temperatura.</li>
+            <li>Arquitectura lista para Google Play Creator Program (sin SDKs publicitarios activos).</li>
           </ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="capturas">
-      <div class="container">
-        <div class="section-head">
-          <h2>Resumen Visual de los Paneles</h2>
-          <p>Interfaz diseñada en alto contraste para leer rápido desde el tablero del auto o en modo portátil.</p>
-        </div>
-        <div class="shots-grid">
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>REPRODUCTOR REAL</span><span class="mono">FLAC • 960 kbps</span></div>
-              <div>
-                <div style="font-size:13px;font-weight:700;">Pista Local en Reproducción</div>
-                <div style="font-size:11px;color:var(--muted);">Bluetooth Car Audio • AudioFX Activo</div>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">Cargar Música</span>
-                <span class="mock-chip">Favoritas</span>
-                <span class="mock-chip">MediaSession</span>
-              </div>
-            </div>
-            <strong>Panel MÚSICA</strong>
-            <span>Reproducción en segundo plano, carátulas, formato real y mezcla rápida.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>SISTEMA DE BAJOS</span><span class="mono">35 Hz • 0°</span></div>
-              <div class="mock-bars">
-                <span style="height:42%"></span><span style="height:82%"></span><span style="height:95%"></span>
-                <span style="height:88%"></span><span style="height:70%"></span><span style="height:52%"></span>
-                <span style="height:35%"></span><span style="height:20%"></span>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">Sub-Bass</span>
-                <span class="mock-chip">Subsónico</span>
-                <span class="mock-chip">Punch 63-85Hz</span>
-              </div>
-            </div>
-            <strong>Panel BAJOS</strong>
-            <span>Curva subgrave 20–250 Hz, protección infrasónica, fase y delay en ms.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>EQ 31B &amp; DSP HD</span><span class="mono">LIMITER ON</span></div>
-              <div class="mock-bars">
-                <span style="height:76%"></span><span style="height:64%"></span><span style="height:48%"></span>
-                <span style="height:42%"></span><span style="height:55%"></span><span style="height:68%"></span>
-                <span style="height:82%"></span><span style="height:74%"></span>
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">31 / 15 Bandas</span>
-                <span class="mock-chip">Paramétrico 5B</span>
-                <span class="mock-chip">Hi-Res Studio</span>
-              </div>
-            </div>
-            <strong>Paneles EQ y DSP</strong>
-            <span>Control multibanda completo, RTA en vivo, Tube Warmth y Claridad HD.</span>
-          </div>
-
-          <div class="shot-card">
-            <div class="mock-screen">
-              <div class="mock-header"><span>DIAGNÓSTICO ACTIVO</span><span class="mono">24/7</span></div>
-              <div style="background:rgba(255,23,43,0.14);border:1px solid var(--primary);border-radius:8px;padding:8px;font-size:11px;">
-                <strong style="display:block;color:var(--accent);">Notificación de Fallos</strong>
-                Aviso automático ante archivos dañados, permisos o clipping.
-              </div>
-              <div class="mock-chips">
-                <span class="mock-chip">AudioFX OK</span>
-                <span class="mock-chip">Acceso VIP</span>
-              </div>
-            </div>
-            <strong>Panel AJUSTES</strong>
-            <span>Historial de alertas, estilos visuales, burbuja flotante y bienvenida.</span>
-          </div>
         </div>
       </div>
     </section>
@@ -847,14 +639,14 @@
         <div class="cta-box">
           <h2>Descargar CAR AUDIO DSP PRO (APK)</h2>
           <p>
-            Descarga el instalador oficial compilado para Android (versión 6.0.0, compatible con Android 7.0 o superior) directamente desde GitHub Releases o desde las compilaciones de GitHub Actions.
+            Descarga el instalador compilado para Android (versión 6.5.0, compatible con Android 7.0+ / SDK 24+) desde GitHub Releases o GitHub Actions.
           </p>
           <div class="hero-actions" style="justify-content:center;margin-bottom:0;">
-            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.0.0.apk" class="btn btn-primary">
-              Descargar APK Directo (v6.0.0)
+            <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases/latest/download/CarAudio-DSP-Pro-v6.5.0.apk" class="btn btn-primary">
+              Descargar APK Directo (v6.5.0)
             </a>
             <a href="https://github.com/luismiguel38338-cmd/Car-audio-/releases" target="_blank" rel="noopener" class="btn btn-outline">
-              Ver Todos los Releases en GitHub
+              Ver Releases en GitHub
             </a>
             <a href="https://github.com/luismiguel38338-cmd/Car-audio-/actions" target="_blank" rel="noopener" class="btn btn-outline">
               Ver Builds en GitHub Actions
@@ -862,9 +654,9 @@
           </div>
           <div class="install-steps">
             <strong>Cómo instalar el archivo APK en tu teléfono Android:</strong>
-            1. Pulsa <em>Descargar APK Directo</em> (si aún no has creado un Release con etiqueta <span class="mono">v6.0.0</span>, abre <em>Ver Builds en GitHub Actions</em> y descarga el artefacto <span class="mono">CarAudio-DSP-Pro-v6.0.0-APK</span>).<br />
-            2. Abre el archivo descargado desde tu carpeta de Descargas y permite la instalación desde tu navegador o gestor de archivos.<br />
-            3. Al abrir la app, sigue la Bienvenida y el Tutorial rápido para conceder permiso de música local y notificaciones.
+            1. Descarga el archivo <span class="mono">.apk</span> desde Releases o desde los artefactos de compilación de GitHub Actions.<br />
+            2. Ábrelo desde tu carpeta de Descargas y autoriza la instalación desde tu navegador o gestor de archivos.<br />
+            3. Al abrir <strong>CAR AUDIO DSP PRO</strong> entrarás directo a la app sin crear cuentas ni registros.
           </div>
         </div>
       </div>
@@ -875,24 +667,24 @@
         <div class="privacy-box">
           <div class="section-head" style="margin-bottom:24px;">
             <h2>Política de Privacidad</h2>
-            <p>Transparencia total: CAR AUDIO DSP PRO procesa tu música de manera 100% local en tu teléfono sin recopilar ni vender datos.</p>
+            <p>Tu biblioteca local, ecualización, listas y perfil permanecen en tu dispositivo. Las búsquedas en Música Online se comunican únicamente con la API pública oficial de Jamendo cuando tú lo solicitas.</p>
           </div>
           <div class="privacy-grid">
             <div class="privacy-item">
-              <h3>Sin Cuentas ni Servidores</h3>
-              <p>No pedimos registro ni enviamos tu biblioteca musical, historial de escucha o datos personales a ningún servidor externo.</p>
+              <h3>Sin Cuentas Obligatorias</h3>
+              <p>No exigimos registro ni enviamos tu música local ni historial personal a servidores propios.</p>
             </div>
             <div class="privacy-item">
-              <h3>Permisos Reales de Audio</h3>
-              <p>Solo usamos permisos de música local, AudioFX, servicio multimedia, notificaciones de fallos, micrófono opcional para RTA y burbuja flotante opcional.</p>
+              <h3>Música Online Transparente</h3>
+              <p>Las consultas al catálogo de Jamendo API v3 y las descargas offline respetan estrictamente licencias abiertas autorizadas.</p>
             </div>
             <div class="privacy-item">
-              <h3>Ajustes en tu Dispositivo</h3>
-              <p>Tus curvas de EQ, bajos, temas y favoritas se guardan localmente en tu teléfono y se borran al restablecer o desinstalar la app.</p>
+              <h3>Sin Publicidad ni Rastreo</h3>
+              <p>No incluye SDKs de anuncios activos ni recopilación de identificadores publicitarios (<span class="mono">AD_ID</span>).</p>
             </div>
             <div class="privacy-item">
               <h3>Contacto Oficial</h3>
-              <p>Para soporte o consultas de privacidad escribe a <a href="mailto:luismiguel38338@gmail.com" style="color:var(--accent);font-weight:700;">luismiguel38338@gmail.com</a>.</p>
+              <p>Para soporte o privacidad escribe a <a href="mailto:luismiguel38338@gmail.com" style="color:var(--primary);font-weight:700;">luismiguel38338@gmail.com</a>.</p>
             </div>
           </div>
           <div style="text-align:center;">
@@ -905,7 +697,7 @@
 
   <footer>
     <div class="container">
-      CAR AUDIO DSP PRO v6.0.0 •
+      CAR AUDIO DSP PRO v6.5.0 • <strong>LM Produce — Producción de Luis Miguel</strong> •
       <a href="privacidad.html">Política de Privacidad</a> •
       <a href="https://github.com/luismiguel38338-cmd/Car-audio-" target="_blank" rel="noopener">GitHub</a> •
       <a href="mailto:luismiguel38338@gmail.com">Contacto</a>
@@ -948,7 +740,7 @@
       }
 
       const midY = h * 0.56;
-      ctx.strokeStyle = 'rgba(255, 23, 43, 0.35)';
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
       ctx.beginPath();
       ctx.moveTo(0, midY);
       ctx.lineTo(w, midY);
@@ -959,7 +751,7 @@
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const freq = 20 * Math.pow(1000, t);
-        const subGain = sub * Math.exp(-Math.pow(Math.log2(freq / 38) / 0.85, 2));
+        const subGain = sub * Math.exp(-Math.pow(Math.log2(freq / 42) / 0.85, 2));
         const punchGain = punch * Math.exp(-Math.pow(Math.log2(freq / 78) / 0.65, 2));
         const clarityGain = clarity * (1 / (1 + Math.exp(-(Math.log2(freq / 4500)) * 2.2)));
         const subsonicCut = freq < 26 ? -10 * ((26 - freq) / 10) : 0;
@@ -970,8 +762,8 @@
       }
 
       const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
-      fillGrad.addColorStop(0, 'rgba(255, 23, 43, 0.42)');
-      fillGrad.addColorStop(1, 'rgba(255, 23, 43, 0.0)');
+      fillGrad.addColorStop(0, 'rgba(0, 212, 255, 0.40)');
+      fillGrad.addColorStop(1, 'rgba(168, 85, 247, 0.02)');
 
       ctx.beginPath();
       ctx.moveTo(0, midY);
@@ -981,9 +773,13 @@
       ctx.fillStyle = fillGrad;
       ctx.fill();
 
+      const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+      lineGrad.addColorStop(0, '#00D4FF');
+      lineGrad.addColorStop(1, '#A855F7');
+
       ctx.beginPath();
       pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = '#ff3648';
+      ctx.strokeStyle = lineGrad;
       ctx.lineWidth = 3;
       ctx.stroke();
     }
@@ -996,11 +792,11 @@
         btn.classList.add('active');
         const p = btn.dataset.preset;
         if (p === 'bass') {
-          slSub.value = 10; slPunch.value = 6; slClarity.value = 4.5;
-          modeLabel.textContent = 'BAJOS + PUNCH';
+          slSub.value = 10; slPunch.value = 6.5; slClarity.value = 4.5;
+          modeLabel.textContent = 'DEMBOW DOMINICANO';
         } else if (p === 'vocal') {
-          slSub.value = 3.5; slPunch.value = 2; slClarity.value = 9;
-          modeLabel.textContent = 'CLARIDAD HD';
+          slSub.value = 1.5; slPunch.value = 2.0; slClarity.value = 8.5;
+          modeLabel.textContent = 'MÚSICA VOCAL';
         } else {
           slSub.value = 0; slPunch.value = 0; slClarity.value = 0;
           modeLabel.textContent = 'FLAT STUDIO';

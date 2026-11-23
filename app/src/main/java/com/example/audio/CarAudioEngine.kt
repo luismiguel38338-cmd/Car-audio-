@@ -853,7 +853,7 @@ class CarAudioEngine(private val context: Context) {
                             processPlaybackFft(fft)
                         }
                     }
-                }, (Visualizer.getMaxCaptureRate() / 2).coerceAtMost(20000), true, true)
+                }, (Visualizer.getMaxCaptureRate() / 2).coerceAtMost(12000), true, true)
                 vis.enabled = isVisualizerUiActive && isPlaying
                 visualizerFx = vis
             } else {
@@ -907,6 +907,10 @@ class CarAudioEngine(private val context: Context) {
             dynamicsProcessingFx?.let { dp ->
                 try {
                     dp.enabled = dsp.dspMasterEnabled
+                    if (!dsp.dspMasterEnabled) {
+                        virtualizerFx?.enabled = false
+                        return
+                    }
 
                     val freqs31 = EqualizerSettings.FREQUENCIES_HZ_31
                     var maxEqBoost = 0f

@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -76,18 +77,16 @@ fun TutorialCenterView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 14.dp)
             .testTag("tutorial_center_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item(key = "tutorial_header") {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = true
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -166,14 +165,12 @@ private fun TutorialAccordionCard(
     theme: CarAudioThemeType,
     onToggle: () -> Unit
 ) {
-    Card(
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = isExpanded,
         modifier = Modifier
-            .fillMaxWidth()
             .clickable { onToggle() }
-            .testTag("tutorial_topic_${topic.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, if (isExpanded) theme.accentColor.copy(alpha = 0.55f) else theme.cardColor)
+            .testTag("tutorial_topic_${topic.id}")
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

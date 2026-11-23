@@ -19,6 +19,21 @@ enum class CarAudioThemeType(
     val errorColor: Color = Color(0xFFE06C75),
     val isVipOnly: Boolean = false
 ) {
+    NEON_DSP_PRO(
+        id = "neon_dsp_pro",
+        displayName = "Epic Violet DSP Pro",
+        subtitle = "Negro OLED profundo, iluminación LED violeta, morado y detalles plata",
+        primaryColor = Color(0xFFA855F7),
+        accentColor = Color(0xFFC084FC),
+        backgroundColor = Color(0xFF05040A),
+        surfaceColor = Color(0xFF0E0A1B),
+        cardColor = Color(0xFF191230),
+        onPrimaryColor = Color(0xFFFFFFFF),
+        textColor = Color(0xFFF8FAFC),
+        textSecondaryColor = Color(0xFFA79EC0),
+        meterPeakColor = Color(0xFFE9D5FF),
+        isVipOnly = false
+    ),
     GRAPHITE_STUDIO(
         id = "graphite_studio",
         displayName = "Grafito Discreto",
@@ -111,10 +126,13 @@ enum class CarAudioThemeType(
     );
 
     val textPrimaryColor: Color get() = textColor
+    val silverDetailColor: Color get() = Color(0xFFE2E8F0)
+    val ledGlowColor: Color get() = accentColor
+    val glassBackgroundColor: Color get() = surfaceColor.copy(alpha = 0.80f)
 
     companion object {
         fun fromId(id: String?): CarAudioThemeType {
-            return entries.firstOrNull { it.id == id } ?: GRAPHITE_STUDIO
+            return entries.firstOrNull { it.id == id } ?: NEON_DSP_PRO
         }
     }
 }

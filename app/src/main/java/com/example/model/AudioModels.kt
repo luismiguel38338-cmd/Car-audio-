@@ -9,16 +9,177 @@ enum class AppSection(
     val shortTitle: String,
     val subtitle: String
 ) {
-    HOME("home", "Inicio", "Inicio", "Tu música, recientes y accesos rápidos"),
-    MY_MUSIC("my_music", "Mi música", "Biblioteca", "Canciones, álbumes, artistas, carpetas y listas"),
-    PLAYER("player", "Reproductor", "Repro", "Reproducción, temporizador, velocidad y cola"),
-    EQUALIZER("equalizer", "Ecualizador", "EQ", "Ecualizador de 31 y 10 bandas, paramétrico y A/B"),
-    YOUTUBE_MUSIC("youtube_music", "YouTube Music", "YT Music", "Búsqueda y accesos directos oficiales"),
-    AUDIO_TOOLS("audio_tools", "Estudio DSP", "Estudio", "Graves, dinámica, filtros, RTA y medidores"),
-    PRESETS("presets", "Presets", "Presets", "Perfiles calibrados y comparación A / B"),
-    FAVORITES("favorites", "Favoritos", "Favoritos", "Canciones favoritas, listas y accesos guardados"),
-    SETTINGS("settings", "Configuración", "Ajustes", "Apariencia, reproducción, guías y diagnóstico")
+    HOME("home", "Inicio", "Inicio", "Tu música reciente, biblioteca y accesos rápidos"),
+    MY_MUSIC("my_music", "Mi Música", "Música", "Canciones, álbumes, artistas, carpetas y listas"),
+    PLAYER("player", "Reproductor", "Sonando", "Carátula, barra de progreso, cola y temporizador"),
+    ONLINE_MUSIC("online_music", "Música Online", "Online", "Catálogo Jamendo libre de derechos y YouTube Music"),
+    DOWNLOADS("downloads", "Descargas", "Descargas", "Descargas offline con progreso y pausa"),
+    EQUALIZER("equalizer", "Ecualizador", "EQ / DSP", "Ecualizador de 10 y 31 bandas, paramétrico y A/B"),
+    BASS_BOOST("bass_boost", "Bass Boost", "Graves", "Potenciador Normal, Potente y Extremo con anticlipping"),
+    SUBWOOFER("subwoofer", "Subwoofer", "Subwoofer", "Control de sub-graves, filtro subsónico y crossover LPF"),
+    AUDIO_TOOLS("audio_tools", "Efectos de Sonido", "Efectos", "Loudness, balance L/R, estéreo, compresor y excitador"),
+    VISUALIZER("visualizer", "Visualizador", "Visualizador", "Espectro 31B, osciloscopio, medidores y modo ligero"),
+    PRESETS("presets", "Presets", "Presets", "Dembow, Reggaetón, Bachata, Trap, perfiles y A/B"),
+    FAVORITES("favorites", "Favoritos", "Favoritos", "Canciones favoritas y accesos rápidos guardados"),
+    PLAYLISTS("playlists", "Listas", "Listas", "Crea, edita y reproduce tus listas de reproducción"),
+    SETTINGS("settings", "Ajustes", "Ajustes", "Temas, rendimiento, almacenamiento y permisos"),
+    PROFILE("profile", "Perfil", "Perfil", "Estadísticas locales y canciones más escuchadas"),
+    ABOUT("about", "Acerca de", "Acerca", "CAR AUDIO DSP PRO • LM Produce — Producción de Luis Miguel"),
+    YOUTUBE_MUSIC("youtube_music", "YouTube Music", "YT Music", "Búsqueda y accesos directos oficiales");
 }
+
+enum class BassMode(
+    val label: String,
+    val description: String,
+    val defaultBoostDb: Float,
+    val defaultCenterHz: Float,
+    val defaultSubBassDb: Float,
+    val defaultPunch: Float,
+    val forceLimiter: Boolean
+) {
+    NORMAL(
+        label = "Normal",
+        description = "Graves balanceados y limpios para bocinas de cabina",
+        defaultBoostDb = 3.0f,
+        defaultCenterHz = 52f,
+        defaultSubBassDb = 2.0f,
+        defaultPunch = 1.5f,
+        forceLimiter = false
+    ),
+    POWERFUL(
+        label = "Potente",
+        description = "Pegada reforzada en sub-bajos con buena definición vocal",
+        defaultBoostDb = 7.5f,
+        defaultCenterHz = 46f,
+        defaultSubBassDb = 5.0f,
+        defaultPunch = 4.5f,
+        forceLimiter = true
+    ),
+    EXTREME(
+        label = "Extremo",
+        description = "Máxima presión sonora con limitador anti-saturación activo",
+        defaultBoostDb = 11.5f,
+        defaultCenterHz = 40f,
+        defaultSubBassDb = 8.5f,
+        defaultPunch = 7.5f,
+        forceLimiter = true
+    )
+}
+
+@Immutable
+data class OnlineTrackItem(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val durationSeconds: Int,
+    val artworkUrl: String?,
+    val streamUrl: String,
+    val downloadUrl: String?,
+    val downloadAllowed: Boolean,
+    val licenseUrl: String?,
+    val sourceName: String = "Jamendo"
+) {
+    fun toAudioTrackItem(localUri: Uri? = null): AudioTrackItem = AudioTrackItem(
+        id = "online_$id",
+        title = title,
+        artist = artist,
+        album = album.ifBlank { sourceName },
+        durationSeconds = durationSeconds,
+        category = TrackCategory.USER_CUSTOM,
+        frequencyDescription = if (localUri != null) "Descarga Offline • $sourceName" else "Streaming Online • $sourceName",
+        customUri = localUri ?: Uri.parse(streamUrl),
+        albumArtUri = artworkUrl?.takeIf { it.isNotBlank() }?.let { Uri.parse(it) },
+        audioFormatLabel = if (localUri != null) "MP3 Offline" else "MP3 Stream",
+        folderName = sourceName
+    )
+}
+
+@Immutable
+data class OnlineArtistItem(
+    val id: String,
+    val name: String,
+    val imageUrl: String?,
+    val shareUrl: String?
+)
+
+@Immutable
+data class OnlineAlbumItem(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val imageUrl: String?,
+    val releaseDate: String?
+)
+
+@Immutable
+data class OnlineSearchState(
+    val query: String = "",
+    val isLoading: Boolean = false,
+    val isConfigured: Boolean = false,
+    val errorMessage: String? = null,
+    val tracks: List<OnlineTrackItem> = emptyList(),
+    val artists: List<OnlineArtistItem> = emptyList(),
+    val albums: List<OnlineAlbumItem> = emptyList(),
+    val providerStatusMessage: String = ""
+)
+
+enum class DownloadStatus(val label: String) {
+    QUEUED("En cola"),
+    DOWNLOADING("Descargando"),
+    PAUSED("Pausada"),
+    COMPLETED("Completada"),
+    FAILED("Error"),
+    CANCELLED("Cancelada")
+}
+
+@Immutable
+data class DownloadItem(
+    val id: String,
+    val trackId: String,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val artworkUrl: String?,
+    val remoteUrl: String,
+    val localPath: String,
+    val licenseUrl: String?,
+    val durationSeconds: Int,
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = 0L,
+    val status: DownloadStatus = DownloadStatus.QUEUED,
+    val errorMessage: String? = null,
+    val updatedAtMs: Long = System.currentTimeMillis()
+) {
+    val progressFraction: Float
+        get() = if (totalBytes > 0L) (bytesDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+        else if (status == DownloadStatus.COMPLETED) 1f else 0f
+}
+
+@Immutable
+data class LocalProfileStats(
+    val displayName: String = "Cabina de Luis Miguel",
+    val totalPlays: Int = 0,
+    val totalListeningSeconds: Long = 0L,
+    val customPresetsCount: Int = 0,
+    val playlistsCount: Int = 0,
+    val favoritesCount: Int = 0,
+    val downloadsCount: Int = 0
+)
+
+enum class AdSlotType(val label: String) {
+    BANNER("Banner inferior discreto"),
+    INTERSTITIAL("Intersticial entre pantallas"),
+    REWARDED("Recompensado opcional")
+}
+
+@Immutable
+data class AdSlotConfig(
+    val slotType: AdSlotType,
+    val isSdkEnabled: Boolean = false,
+    val isConfigured: Boolean = false,
+    val policySummary: String = "Desactivado por política del Programa para Creadores de Google Play."
+)
 
 enum class LibrarySortOrder(val label: String) {
     RECENT("Recientes"),

@@ -1,75 +1,48 @@
-# Car Audio DSP Pro — v6.0.0 (Edición Todo Rojo)
+# CAR AUDIO DSP PRO — v6.5.0 (Potencia tu Música)
 
-Aplicación nativa para Android (**Kotlin + Jetpack Compose Material 3**) diseñada como reproductor musical de alta fidelidad y procesador digital de audio (**AudioFX** en tiempo real) para car audio, Bluetooth, audífonos y altavoces, conservando al 100% la identidad visual roja y negra.
+**Marca:** LM Produce — Producción de Luis Miguel  
+**Plataforma:** Android 7.0+ (API 24+) · Target / Compile SDK 36  
+**Estilo:** NEON DSP PRO (Negro OLED `#06070B` + Azul Eléctrico `#00D4FF` + Violeta Neón `#A855F7`)
 
----
-
-## Capturas de Pantalla (v6.0.0)
-
-| Panel Principal (`MÚSICA` + Modificador) | Ecualizador Rojo (31 ISO / 15B / Paramétrico) |
-| :---: | :---: |
-| ![Panel Música y Modificador](screenshots/01_musica_panel.png) | ![Ecualizador Rojo Pro](screenshots/02_ecualizador_rojo.png) |
-
-| Procesador DSP Master | Ajustes y Compatibilidad |
-| :---: | :---: |
-| ![Procesador DSP Master](screenshots/03_dsp_pro.png) | ![Ajustes y Modo Ligero](screenshots/05_ajustes_pro.png) |
-
-| Pantalla de Arranque & Logo Studio |
-| :---: |
-| ![Logo y Arranque Todo Rojo](screenshots/04_splash_logo.png) |
+Aplicación nativa para Android (**Kotlin + Jetpack Compose Material 3**) diseñada como reproductor musical real y estudio DSP automotriz profesional optimizado para teléfonos de gama baja y media (incluyendo **TECNO BG6** y **Android 13+**).
 
 ---
 
-## Novedades Clave de la Versión 6.0.0
+## Características Principales (v6.5.0)
 
-1. **Máxima Velocidad y Eficiencia (`Prioridad 1`)**
-   - Limpieza de dependencias no usadas en `app/build.gradle.kts` para arranque rápido y menor peso.
-   - Búferes FFT/RTA pre-asignados sin recolección de basura en bucle, pausa automática del `Visualizer` en segundo plano y caché de carátulas `AlbumArtCache` en IO.
-   - `collectAsStateWithLifecycle()`, `drawWithCache` en curvas de respuesta y **Modo Ligero** automático o manual para teléfonos modestos (`isLowRamDevice`).
+1. **Acceso Directo y Cero Sonidos Automáticos**
+   - Entrada directa a la cabina sin inicio de sesión obligatorio ni pantallas de bloqueo.
+   - Sin sonidos automáticos al arrancar la aplicación.
 
-2. **Motor DSP de Alta Precisión (`Prioridad 2`)**
-   - **31 Bandas ISO** con corte geométrico exacto, **15 Bandas Gráficas** con interpolación suave y **Paramétrico de 5 Bandas** (`Peaking`, `Low Shelf`, `High Shelf`, `Notch`).
-   - Etapas `DynamicsProcessing` cacheadas con coalescencia hardware de 16 ms para mover controles sin cortes ni clics.
-   - **Bass Boost**, **Preamp**, **HPF / LPF Butterworth**, **Compresor** y **Limitador anti-clipping**.
+2. **Reproductor Musical Completo (Media3 + MediaSession)**
+   - Escaneo automático de música local (`MediaStore`) y carga mediante el selector de archivos de Android (MP3, FLAC, WAV, AAC, OGG).
+   - Controles completos: reproducir/pausar, anterior/siguiente, barra de progreso interactiva, volumen, aleatorio (`Shuffle`), repetir (`Off / Todo / 1`), cola de reproducción, favoritas, listas, reproducción en segundo plano y pantalla bloqueada.
 
-3. **Reproductor y Segundo Plano (`Prioridad 3`)**
-   - Búsqueda en vivo, filtros (`Todas`, `Favoritas`, `Cargadas`), **Shuffle**, **Repetir (Off/Todo/1)** y carátulas de álbum.
-   - Servicio en primer plano `CarAudioPlaybackService` con `MediaSession` y notificación `MediaStyle` compatible con controles Bluetooth/volante.
-   - Detección en tiempo real de dispositivo de salida (**Bluetooth**, **USB**, **Auriculares**, **Altavoz**) y pausa automática al desconectar.
+3. **Ecualizador DSP Profesional + Sistema de Bajos y Subwoofer 3D**
+   - **10 bandas**, **31 bandas ISO** y **Paramétrico de 5 bandas**, más balance L/R, amplitud estéreo, ganancia master, loudness, compresor y limitador anti-clipping.
+   - **10 presets por género calibrados:** *Dembow dominicano, Reggaetón, Bachata, Merengue, Trap, Hip-Hop, Electrónica, Rock, Música vocal* y *Personalizado* (junto a presets de estudio).
+   - **Bass Boost (Normal / Potente / Extremo)** con protección anti-clipping y **Subwoofer 3D** con altavoces reactivos al ritmo.
 
-4. **Pantalla Virtual Flotante Roja y Compatibilidad Real**
-   - Círculo rojo abierto flotante (`SYSTEM_ALERT_WINDOW`) para ajustes rápidos sobre otras apps.
-   - Información clara de sesión activa: garantía total en música local cargada en la app; compatibilidad en YouTube/apps externas sujeta a permisos de sesión del dispositivo.
+4. **Música Online Legal (Jamendo API v3 + YouTube Music) y Descargas Offline**
+   - Catálogo real libre de derechos mediante la API oficial de **Jamendo** (requiere configurar `JAMENDO_CLIENT_ID` en Secrets de AI Studio / `.env`).
+   - Sección oficial para búsquedas y accesos directos favoritos a **YouTube Music** sin extracción ilegal.
+   - Gestor real de **Descargas Offline** con progreso en porcentaje, pausa/reanudar HTTP `Range`, cancelación, eliminación y verificación de licencia (`audiodownload_allowed`).
+
+5. **Visualizador RTA, Perfil Local y Acerca de**
+   - Espectro RTA de 31 bandas, osciloscopio, medidores VU L/R, modo visual ligero para ahorro de RAM/batería en TECNO BG6 y estadísticas locales del usuario.
 
 ---
 
-## Requisitos, Pruebas y Compilación
+## Configuración de Claves API (Secrets) y Compilación
 
-- **Android Studio** Ladybug o superior
-- **JDK:** Java 17 / 21
-- **Min SDK:** 24 (Android 7.0+) · **Target / Compile SDK:** 36
+Copia `.env.example` a `.env` o define `JAMENDO_CLIENT_ID` en el panel **Secrets** de AI Studio:
 
 ```bash
-chmod +x gradlew
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
+gradle :app:testDebugUnitTest
+gradle :app:assembleDebug
 ```
 
 El APK generado queda en:
 ```
 app/build/outputs/apk/debug/app-debug.apk
 ```
-
----
-
-## Publicar Rama `v6.0` y Release `v6.0.0` en GitHub
-
-```bash
-git checkout -b v6.0
-git add .
-git commit -m "Release v6.0.0: Optimizacion de rendimiento, motor DSP mejorado y MediaSession"
-git tag -a v6.0.0 -m "Car Audio DSP Pro v6.0.0"
-git push -u origin v6.0 --tags
-```
-
-Consulta [CHANGELOG_v6.0.md](CHANGELOG_v6.0.md) y [ARCHITECTURE_v6.0.md](ARCHITECTURE_v6.0.md) para el registro técnico detallado y [RELEASE_NOTES.md](RELEASE_NOTES.md) para las notas de lanzamiento.

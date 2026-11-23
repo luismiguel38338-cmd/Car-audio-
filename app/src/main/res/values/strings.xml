@@ -1,18 +1,29 @@
 <resources>
     <string name="app_name">Car Audio DSP Pro</string>
+    <string name="app_brand_tagline">POTENCIA TU MÚSICA</string>
+    <string name="app_brand_author">LM Produce — Producción de Luis Miguel</string>
     <string name="section_inicio">Inicio</string>
-    <string name="section_mi_musica">Mi música</string>
+    <string name="section_mi_musica">Biblioteca</string>
     <string name="section_reproductor">Reproductor</string>
+    <string name="section_online">Música Online</string>
+    <string name="section_descargas">Descargas</string>
     <string name="section_ecualizador">Ecualizador</string>
+    <string name="section_bass_boost">Bass Boost</string>
+    <string name="section_subwoofer">Subwoofer</string>
     <string name="section_youtube_music">YouTube Music</string>
-    <string name="section_herramientas">Herramientas de audio</string>
+    <string name="section_herramientas">Efectos DSP</string>
+    <string name="section_visualizador">Visualizador</string>
     <string name="section_presets">Presets</string>
     <string name="section_favoritos">Favoritos</string>
-    <string name="section_configuracion">Configuración</string>
+    <string name="section_listas">Listas</string>
+    <string name="section_configuracion">Ajustes</string>
+    <string name="section_perfil">Perfil</string>
+    <string name="section_acerca_de">Acerca de</string>
     <string name="permission_audio_title">Permiso de Micrófono RTA</string>
     <string name="permission_audio_desc">Necesario para análisis de espectro acústico en tiempo real con el micrófono.</string>
     <string name="permission_notification_title">Permiso de Notificaciones</string>
-    <string name="permission_notification_desc">Controles de reproducción Media3 en pantalla bloqueada y alertas de saturación de audio.</string>
+    <string name="permission_notification_desc">Controles de reproducción Media3 en pantalla bloqueada y progreso de descargas.</string>
     <string name="permission_storage_title">Permiso de Audio Local</string>
     <string name="permission_storage_desc">Permite descubrir y reproducir las canciones, álbumes y artistas guardados en tu teléfono.</string>
 </resources>
+

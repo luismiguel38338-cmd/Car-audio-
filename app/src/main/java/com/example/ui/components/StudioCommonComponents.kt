@@ -167,18 +167,32 @@ fun MiniPlayerBar(
     } else 0f
 
     Surface(
-        color = theme.surfaceColor,
-        tonalElevation = 4.dp,
-        shadowElevation = 6.dp,
+        color = theme.surfaceColor.copy(alpha = 0.88f),
+        tonalElevation = 6.dp,
+        shadowElevation = 10.dp,
         modifier = modifier
             .fillMaxWidth()
             .clickable { onOpenPlayer() }
             .testTag("mini_player_bar")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                theme.primaryColor.copy(alpha = if (isPlaying) 0.70f else 0.30f),
+                                theme.silverDetailColor.copy(alpha = 0.28f),
+                                theme.accentColor.copy(alpha = if (isPlaying) 0.70f else 0.30f)
+                            )
+                        )
+                    )
+            )
             LinearProgressIndicator(
                 progress = { progress },
-                color = theme.accentColor,
+                color = theme.primaryColor,
                 trackColor = theme.cardColor,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,7 +209,7 @@ fun MiniPlayerBar(
                     track = track,
                     theme = theme,
                     size = 42.dp,
-                    cornerRadius = 8.dp
+                    cornerRadius = 10.dp
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -217,21 +231,29 @@ fun MiniPlayerBar(
                 IconButton(
                     onClick = onTogglePlayPause,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .background(theme.primaryColor.copy(alpha = 0.14f))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    theme.primaryColor.copy(alpha = 0.30f),
+                                    theme.accentColor.copy(alpha = 0.18f)
+                                )
+                            )
+                        )
+                        .border(1.dp, theme.accentColor.copy(alpha = 0.55f), CircleShape)
                         .testTag("mini_player_play_pause")
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                        tint = theme.accentColor
+                        tint = theme.silverDetailColor
                     )
                 }
                 IconButton(
                     onClick = onNextTrack,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .testTag("mini_player_next")
                 ) {
                     Icon(
@@ -434,13 +456,10 @@ fun AbQuickComparisonBar(
     onToggleAb: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.cardColor),
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("ab_comparison_bar")
+    GlassStudioCard(
+        theme = theme,
+        highlightBorder = activeSlot != null,
+        modifier = modifier.testTag("ab_comparison_bar")
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -594,14 +613,33 @@ fun TrackRowCard(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
+    val trackBorder = if (isActive) {
+        Brush.linearGradient(
+            listOf(
+                theme.silverDetailColor.copy(alpha = 0.50f),
+                theme.primaryColor.copy(alpha = 0.85f),
+                theme.accentColor.copy(alpha = 0.75f)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            listOf(
+                theme.silverDetailColor.copy(alpha = 0.14f),
+                theme.primaryColor.copy(alpha = 0.28f)
+            )
+        )
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .border(1.dp, trackBorder, RoundedCornerShape(15.dp))
             .clickable { onSelect() }
             .testTag("track_row_${track.id}"),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isActive) theme.cardColor else theme.surfaceColor),
-        border = BorderStroke(1.dp, if (isActive) theme.accentColor.copy(alpha = 0.65f) else theme.cardColor)
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) theme.cardColor.copy(alpha = 0.78f) else theme.surfaceColor.copy(alpha = 0.72f)
+        )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
@@ -705,11 +743,9 @@ fun EmptyLibraryNotice(
     subtitle: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-        border = BorderStroke(1.dp, theme.cardColor),
-        modifier = modifier.fillMaxWidth()
+    GlassStudioCard(
+        theme = theme,
+        modifier = modifier
     ) {
         Column(
             modifier = Modifier
@@ -723,3 +759,99 @@ fun EmptyLibraryNotice(
         }
     }
 }
+
+@Composable
+fun GlassStudioCard(
+    theme: CarAudioThemeType,
+    modifier: Modifier = Modifier,
+    highlightBorder: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val borderBrush = Brush.linearGradient(
+        listOf(
+            theme.silverDetailColor.copy(alpha = if (highlightBorder) 0.42f else 0.16f),
+            theme.primaryColor.copy(alpha = if (highlightBorder) 0.78f else 0.34f),
+            theme.accentColor.copy(alpha = if (highlightBorder) 0.68f else 0.24f)
+        )
+    )
+    val glassBg = Brush.verticalGradient(
+        listOf(
+            theme.cardColor.copy(alpha = 0.68f),
+            theme.surfaceColor.copy(alpha = 0.84f),
+            theme.backgroundColor.copy(alpha = 0.90f)
+        )
+    )
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, borderBrush, RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(glassBg)
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun BrandFooterBadge(
+    theme: CarAudioThemeType,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = theme.surfaceColor.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, theme.cardColor),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CAR AUDIO DSP PRO • POTENCIA TU MÚSICA",
+                    color = theme.primaryColor,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.7.sp
+                )
+                Text(
+                    text = "LM Produce — Producción de Luis Miguel",
+                    color = theme.textSecondaryColor,
+                    fontSize = 10.sp
+                )
+            }
+            Text(
+                text = "v6.5",
+                color = theme.accentColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+
+fun formatStorageBytes(bytes: Long): String {
+    if (bytes <= 0L) return "0 MB"
+    val kb = bytes / 1024.0
+    val mb = kb / 1024.0
+    val gb = mb / 1024.0
+    return when {
+        gb >= 1.0 -> "%.2f GB".format(gb)
+        mb >= 1.0 -> "%.1f MB".format(mb)
+        else -> "%.0f KB".format(kb.coerceAtLeast(1.0))
+    }
+}
+

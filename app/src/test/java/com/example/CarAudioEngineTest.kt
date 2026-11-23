@@ -355,11 +355,11 @@ class CarAudioEngineTest {
     }
 
     @Test
-    fun `viewmodel persists eq 10 and 31 bands shuffle repeat and settings across 9 sections`() {
-        assertEquals(9, AppSection.entries.size)
+    fun `viewmodel persists eq 10 and 31 bands shuffle repeat and settings across 17 sections`() {
+        assertEquals(17, AppSection.entries.size)
 
         val vm1 = CarAudioViewModel(app)
-        assertEquals(CarAudioThemeType.GRAPHITE_STUDIO, vm1.currentTheme.value)
+        assertEquals(CarAudioThemeType.NEON_DSP_PRO, vm1.currentTheme.value)
         assertEquals(AppSection.HOME, vm1.selectedSection.value)
 
         vm1.selectSection(AppSection.AUDIO_TOOLS)

@@ -77,38 +77,44 @@ fun AudioMetersView(
     powerTelemetry: DevicePowerTelemetry,
     onToggleMicRta: () -> Unit,
     onRefreshTelemetry: () -> Unit,
+    scrollable: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val scroll = rememberScrollState()
-
-    Column(
-        modifier = modifier
+    val containerModifier = if (scrollable) {
+        modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .verticalScroll(scroll)
             .padding(14.dp)
-            .testTag("audio_meters_view"),
+            .testTag("audio_meters_view")
+    } else {
+        modifier
+            .fillMaxWidth()
+            .background(Color.Transparent)
+            .padding(10.dp)
+            .testTag("audio_meters_view")
+    }
+
+    Column(
+        modifier = containerModifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        StudioSignalIndicatorBar(
-            isAudioPlaying = isAnyAudioPlaying || isMicRtaActive,
+        EpicTriBandPowerMeters(
+            isPlaying = isAnyAudioPlaying || isMicRtaActive,
             bassEnergy = bassEnergy,
             midEnergy = midEnergy,
             trebleEnergy = trebleEnergy,
+            dspMasterEnabled = true,
             theme = theme,
-            liteVisuals = liteVisuals,
-            title = "MEDIDORES DE ESTUDIO • ENERGÍA POR BANDAS",
-            showMiniBars = true
+            liteVisuals = liteVisuals
         )
 
         // 1. 31-Band Real-Time Spectrum Analyzer (RTA)
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("meters_rta_card")
+        GlassStudioCard(
+            theme = theme,
+            highlightBorder = isAnyAudioPlaying || isMicRtaActive,
+            modifier = Modifier.testTag("meters_rta_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -211,13 +217,10 @@ fun AudioMetersView(
         }
 
         // 2. Real-Time Oscilloscope Canvas
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("meters_oscilloscope_card")
+        GlassStudioCard(
+            theme = theme,
+            highlightBorder = isAnyAudioPlaying || isMicRtaActive,
+            modifier = Modifier.testTag("meters_oscilloscope_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -278,16 +281,10 @@ fun AudioMetersView(
         }
 
         // 3. Audio Level Meter (VU L/R, RMS dBFS, Peak Clipping)
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(
-                1.dp,
-                if (isClippingDetected) theme.clipAlertColor else theme.cardColor
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("meters_vu_rms_card")
+        GlassStudioCard(
+            theme = theme,
+            highlightBorder = isClippingDetected || isAnyAudioPlaying,
+            modifier = Modifier.testTag("meters_vu_rms_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
@@ -322,13 +319,9 @@ fun AudioMetersView(
         }
 
         // 4. Real Android Battery Telemetry (%, V, °C, and mA Current)
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-            border = BorderStroke(1.dp, theme.cardColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("meters_battery_telemetry_card")
+        GlassStudioCard(
+            theme = theme,
+            modifier = Modifier.testTag("meters_battery_telemetry_card")
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),

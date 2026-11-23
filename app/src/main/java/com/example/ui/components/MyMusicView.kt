@@ -1,8 +1,12 @@
 package com.example.ui.components
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,9 +28,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
@@ -40,8 +46,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -52,12 +56,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -83,6 +90,7 @@ import com.example.model.FolderSummary
 import com.example.model.LibrarySortOrder
 import com.example.model.MusicPlaylist
 import com.example.viewmodel.LibraryFilter
+import kotlinx.coroutines.delay
 
 @Composable
 fun MyMusicView(
@@ -130,6 +138,30 @@ fun MyMusicView(
     var trackForDetailsDialog by remember { mutableStateOf<AudioTrackItem?>(null) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
 
+    var selectedAlbumTitle by remember { mutableStateOf<String?>(null) }
+    var selectedArtistName by remember { mutableStateOf<String?>(null) }
+    var selectedFolderName by remember { mutableStateOf<String?>(null) }
+    var actionMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(actionMessage) {
+        if (actionMessage != null) {
+            delay(2200L)
+            actionMessage = null
+        }
+    }
+
+    val hasInlineDrilldown = (selectedTab == 1 && selectedAlbumTitle != null) ||
+        (selectedTab == 2 && selectedArtistName != null) ||
+        (selectedTab == 3 && selectedFolderName != null)
+
+    BackHandler(enabled = hasInlineDrilldown) {
+        when (selectedTab) {
+            1 -> selectedAlbumTitle = null
+            2 -> selectedArtistName = null
+            3 -> selectedFolderName = null
+        }
+    }
+
     val multiAudioPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
@@ -154,7 +186,9 @@ fun MyMusicView(
                 Button(
                     onClick = {
                         if (newPlaylistName.isNotBlank()) {
-                            onCreatePlaylist(newPlaylistName.trim())
+                            val name = newPlaylistName.trim()
+                            onCreatePlaylist(name)
+                            actionMessage = "Lista \"$name\" creada"
                             newPlaylistName = ""
                             showCreatePlaylistDialog = false
                         }
@@ -191,6 +225,7 @@ fun MyMusicView(
                                     .background(theme.surfaceColor)
                                     .clickable {
                                         onAddTrackToPlaylist(pl.id, targetTrack.id)
+                                        actionMessage = "Agregada a \"${pl.name}\""
                                         trackForPlaylistDialog = null
                                     }
                                     .padding(12.dp),
@@ -233,18 +268,16 @@ fun MyMusicView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 16.dp)
             .testTag("my_music_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item(key = "mymusic_header") {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = true
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -269,18 +302,17 @@ fun MyMusicView(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        GlowActionButton(
+                            text = "Importar audio",
+                            theme = theme,
                             onClick = { multiAudioPicker.launch(arrayOf("audio/*")) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
+                            leadingIcon = {
+                                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("mymusic_import_button")
-                        ) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Importar audio", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                        }
+                        )
 
                         OutlinedButton(
                             onClick = {
@@ -335,12 +367,43 @@ fun MyMusicView(
             }
         }
 
+        item(key = "mymusic_action_feedback") {
+            AnimatedVisibility(
+                visible = actionMessage != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = theme.primaryColor.copy(alpha = 0.22f),
+                    border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.65f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
+                        Text(
+                            text = actionMessage.orEmpty(),
+                            color = theme.silverDetailColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
         item(key = "mymusic_tabs") {
             val tabTitles = listOf("Canciones", "Álbumes", "Artistas", "Carpetas", "Listas")
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 edgePadding = 8.dp,
-                containerColor = theme.surfaceColor,
+                containerColor = theme.surfaceColor.copy(alpha = 0.80f),
                 contentColor = theme.accentColor,
                 indicator = { tabPositions ->
                     if (selectedTab < tabPositions.size) {
@@ -357,7 +420,12 @@ fun MyMusicView(
                 tabTitles.forEachIndexed { idx, title ->
                     Tab(
                         selected = selectedTab == idx,
-                        onClick = { selectedTab = idx },
+                        onClick = {
+                            selectedTab = idx
+                            if (idx != 1) selectedAlbumTitle = null
+                            if (idx != 2) selectedArtistName = null
+                            if (idx != 3) selectedFolderName = null
+                        },
                         text = {
                             Text(
                                 text = title,
@@ -483,12 +551,45 @@ fun MyMusicView(
                 }
 
                 if (tracks.isEmpty()) {
-                    item(key = "mymusic_empty_tracks") {
-                        EmptyLibraryNotice(
-                            theme = theme,
-                            title = "No se encontraron canciones",
-                            subtitle = "Pulsa 'Actualizar' o 'Importar audio' para cargar archivos MP3, FLAC, WAV o M4A."
-                        )
+                    if (!hasAudioLibraryPermission) {
+                        item(key = "mymusic_permission_card") {
+                            GlassStudioCard(theme = theme, highlightBorder = true) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Permiso necesario para leer tu música",
+                                        color = theme.textColor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Autoriza el acceso al almacenamiento de audio para listar automáticamente las canciones de tu teléfono, o usa 'Importar audio' para archivos específicos.",
+                                        color = theme.textSecondaryColor,
+                                        fontSize = 12.sp
+                                    )
+                                    GlowActionButton(
+                                        text = "Permitir acceso a música",
+                                        theme = theme,
+                                        onClick = onRequestLibraryPermission,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("mymusic_empty_permission_button")
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        item(key = "mymusic_empty_tracks") {
+                            EmptyLibraryNotice(
+                                theme = theme,
+                                title = "No se encontraron canciones",
+                                subtitle = "Pulsa 'Actualizar' o 'Importar audio' para cargar archivos MP3, FLAC, WAV o M4A."
+                            )
+                        }
                     }
                 } else {
                     items(tracks, key = { it.stableKey }) { track ->
@@ -498,8 +599,14 @@ fun MyMusicView(
                             theme = theme,
                             onSelect = { onTrackSelect(track) },
                             onToggleFavorite = { onToggleFavorite(track) },
-                            onAddToQueue = { onAddToQueue(track) },
-                            onPlayNext = { onPlayNextInQueue(track) },
+                            onAddToQueue = {
+                                onAddToQueue(track)
+                                actionMessage = "Añadida a la cola: ${track.title}"
+                            },
+                            onPlayNext = {
+                                onPlayNextInQueue(track)
+                                actionMessage = "Sonará después: ${track.title}"
+                            },
                             onAddToPlaylist = { trackForPlaylistDialog = track },
                             onRemove = { onRemoveTrack(track) },
                             onShowDetails = { trackForDetailsDialog = track }
@@ -509,19 +616,53 @@ fun MyMusicView(
             }
 
             1 -> {
-                if (albums.isEmpty()) {
+                val activeAlbum = selectedAlbumTitle
+                if (activeAlbum != null) {
+                    val albumTracks = tracks.filter { it.album.equals(activeAlbum, ignoreCase = true) }
+                    item(key = "album_drilldown_header") {
+                        DrilldownGroupHeader(
+                            title = activeAlbum,
+                            subtitle = "${albumTracks.size} canciones en este álbum",
+                            theme = theme,
+                            onBack = { selectedAlbumTitle = null },
+                            onPlayAll = { onPlayAlbum(activeAlbum) }
+                        )
+                    }
+                    if (albumTracks.isEmpty()) {
+                        item(key = "album_drilldown_empty") {
+                            EmptyLibraryNotice(theme, "Sin pistas visibles", "Limpia el filtro o la búsqueda para ver todas las canciones de este álbum.")
+                        }
+                    } else {
+                        items(albumTracks, key = { "album_${it.stableKey}" }) { track ->
+                            TrackRowCard(
+                                track = track,
+                                isActive = currentTrack?.stableKey == track.stableKey,
+                                theme = theme,
+                                onSelect = { onTrackSelect(track) },
+                                onToggleFavorite = { onToggleFavorite(track) },
+                                onAddToQueue = {
+                                    onAddToQueue(track)
+                                    actionMessage = "Añadida a la cola: ${track.title}"
+                                },
+                                onPlayNext = {
+                                    onPlayNextInQueue(track)
+                                    actionMessage = "Sonará después: ${track.title}"
+                                },
+                                onAddToPlaylist = { trackForPlaylistDialog = track },
+                                onRemove = { onRemoveTrack(track) },
+                                onShowDetails = { trackForDetailsDialog = track }
+                            )
+                        }
+                    }
+                } else if (albums.isEmpty()) {
                     item(key = "mymusic_empty_albums") {
                         EmptyLibraryNotice(theme, "Sin álbumes locales", "Escanea o importa música para agrupar por álbum.")
                     }
                 } else {
                     items(albums, key = { "${it.title}_${it.artist}" }) { album ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPlayAlbum(album.title) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                            border = BorderStroke(1.dp, theme.cardColor)
+                        GlassStudioCard(
+                            theme = theme,
+                            modifier = Modifier.clickable { selectedAlbumTitle = album.title }
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -553,7 +694,12 @@ fun MyMusicView(
                                     Text(album.title, color = theme.textColor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text("${album.artist} • ${album.trackCount} pistas", color = theme.textSecondaryColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir álbum", tint = theme.accentColor)
+                                IconButton(
+                                    onClick = { onPlayAlbum(album.title) },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir álbum", tint = theme.accentColor)
+                                }
                             }
                         }
                     }
@@ -561,19 +707,53 @@ fun MyMusicView(
             }
 
             2 -> {
-                if (artists.isEmpty()) {
+                val activeArtist = selectedArtistName
+                if (activeArtist != null) {
+                    val artistTracks = tracks.filter { it.artist.equals(activeArtist, ignoreCase = true) }
+                    item(key = "artist_drilldown_header") {
+                        DrilldownGroupHeader(
+                            title = activeArtist,
+                            subtitle = "${artistTracks.size} canciones disponibles",
+                            theme = theme,
+                            onBack = { selectedArtistName = null },
+                            onPlayAll = { onPlayArtist(activeArtist) }
+                        )
+                    }
+                    if (artistTracks.isEmpty()) {
+                        item(key = "artist_drilldown_empty") {
+                            EmptyLibraryNotice(theme, "Sin pistas visibles", "Limpia el filtro o la búsqueda para ver las canciones de este artista.")
+                        }
+                    } else {
+                        items(artistTracks, key = { "artist_${it.stableKey}" }) { track ->
+                            TrackRowCard(
+                                track = track,
+                                isActive = currentTrack?.stableKey == track.stableKey,
+                                theme = theme,
+                                onSelect = { onTrackSelect(track) },
+                                onToggleFavorite = { onToggleFavorite(track) },
+                                onAddToQueue = {
+                                    onAddToQueue(track)
+                                    actionMessage = "Añadida a la cola: ${track.title}"
+                                },
+                                onPlayNext = {
+                                    onPlayNextInQueue(track)
+                                    actionMessage = "Sonará después: ${track.title}"
+                                },
+                                onAddToPlaylist = { trackForPlaylistDialog = track },
+                                onRemove = { onRemoveTrack(track) },
+                                onShowDetails = { trackForDetailsDialog = track }
+                            )
+                        }
+                    }
+                } else if (artists.isEmpty()) {
                     item(key = "mymusic_empty_artists") {
                         EmptyLibraryNotice(theme, "Sin artistas locales", "Escanea o importa música para agrupar por artista.")
                     }
                 } else {
                     items(artists, key = { it.name }) { artist ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPlayArtist(artist.name) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                            border = BorderStroke(1.dp, theme.cardColor)
+                        GlassStudioCard(
+                            theme = theme,
+                            modifier = Modifier.clickable { selectedArtistName = artist.name }
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -593,7 +773,12 @@ fun MyMusicView(
                                     Text(artist.name, color = theme.textColor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text("${artist.trackCount} canciones • ${artist.albumCount} álbumes", color = theme.textSecondaryColor, fontSize = 11.sp)
                                 }
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir artista", tint = theme.accentColor)
+                                IconButton(
+                                    onClick = { onPlayArtist(artist.name) },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir artista", tint = theme.accentColor)
+                                }
                             }
                         }
                     }
@@ -601,19 +786,53 @@ fun MyMusicView(
             }
 
             3 -> {
-                if (folders.isEmpty()) {
+                val activeFolder = selectedFolderName
+                if (activeFolder != null) {
+                    val folderTracks = tracks.filter { it.folderName.equals(activeFolder, ignoreCase = true) }
+                    item(key = "folder_drilldown_header") {
+                        DrilldownGroupHeader(
+                            title = activeFolder,
+                            subtitle = "${folderTracks.size} archivos en esta carpeta",
+                            theme = theme,
+                            onBack = { selectedFolderName = null },
+                            onPlayAll = { onPlayFolder(activeFolder) }
+                        )
+                    }
+                    if (folderTracks.isEmpty()) {
+                        item(key = "folder_drilldown_empty") {
+                            EmptyLibraryNotice(theme, "Sin archivos visibles", "Limpia el filtro o la búsqueda para ver las pistas de esta carpeta.")
+                        }
+                    } else {
+                        items(folderTracks, key = { "folder_${it.stableKey}" }) { track ->
+                            TrackRowCard(
+                                track = track,
+                                isActive = currentTrack?.stableKey == track.stableKey,
+                                theme = theme,
+                                onSelect = { onTrackSelect(track) },
+                                onToggleFavorite = { onToggleFavorite(track) },
+                                onAddToQueue = {
+                                    onAddToQueue(track)
+                                    actionMessage = "Añadida a la cola: ${track.title}"
+                                },
+                                onPlayNext = {
+                                    onPlayNextInQueue(track)
+                                    actionMessage = "Sonará después: ${track.title}"
+                                },
+                                onAddToPlaylist = { trackForPlaylistDialog = track },
+                                onRemove = { onRemoveTrack(track) },
+                                onShowDetails = { trackForDetailsDialog = track }
+                            )
+                        }
+                    }
+                } else if (folders.isEmpty()) {
                     item(key = "mymusic_empty_folders") {
                         EmptyLibraryNotice(theme, "Sin carpetas detectadas", "Escanea el dispositivo para organizar tu música por carpetas.")
                     }
                 } else {
                     items(folders, key = { it.name }) { folder ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPlayFolder(folder.name) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                            border = BorderStroke(1.dp, theme.cardColor)
+                        GlassStudioCard(
+                            theme = theme,
+                            modifier = Modifier.clickable { selectedFolderName = folder.name }
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -633,7 +852,12 @@ fun MyMusicView(
                                     Text(folder.name, color = theme.textColor, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text("${folder.trackCount} archivos de audio", color = theme.textSecondaryColor, fontSize = 11.sp)
                                 }
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir carpeta", tint = theme.accentColor)
+                                IconButton(
+                                    onClick = { onPlayFolder(folder.name) },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir carpeta", tint = theme.accentColor)
+                                }
                             }
                         }
                     }
@@ -660,16 +884,13 @@ fun MyMusicView(
                 } else {
                     items(playlists, key = { it.id }) { pl ->
                         val active = selectedPlaylistId == pl.id
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onSelectPlaylist(if (active) null else pl.id)
-                                    selectedTab = 0
-                                },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                            border = BorderStroke(1.dp, if (active) theme.accentColor else theme.cardColor)
+                        GlassStudioCard(
+                            theme = theme,
+                            highlightBorder = active,
+                            modifier = Modifier.clickable {
+                                onSelectPlaylist(if (active) null else pl.id)
+                                selectedTab = 0
+                            }
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -692,6 +913,61 @@ fun MyMusicView(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrilldownGroupHeader(
+    title: String,
+    subtitle: String,
+    theme: CarAudioThemeType,
+    onBack: () -> Unit,
+    onPlayAll: () -> Unit
+) {
+    GlassStudioCard(theme = theme, highlightBorder = true) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = theme.silverDetailColor
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = theme.textColor,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    color = theme.textSecondaryColor,
+                    fontSize = 11.sp
+                )
+            }
+            OutlinedButton(
+                onClick = onPlayAll,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.65f)),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Todo", color = theme.accentColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -1,5 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +39,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -45,8 +51,8 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -58,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,7 +73,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -130,11 +140,15 @@ fun PlayerView(
     var showSleepDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showVolumeControl by remember { mutableStateOf(false) }
 
     val maxSec = (currentTrack?.durationSeconds ?: 180).coerceAtLeast(1)
     var isSeeking by remember { mutableStateOf(false) }
     var seekSliderValue by remember(currentTrack?.stableKey) {
         mutableFloatStateOf(playbackSeconds.coerceIn(0, maxSec).toFloat())
+    }
+    LaunchedEffect(currentTrack?.stableKey) {
+        isSeeking = false
     }
     val displayedPositionSec = if (isSeeking) seekSliderValue.roundToInt() else playbackSeconds.coerceIn(0, maxSec)
 
@@ -253,7 +267,7 @@ fun PlayerView(
                                 onClick = { onSetPlaybackSpeed(spd) },
                                 label = { Text("%.2fx".format(spd).replace(".00x", ".0x"), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = theme.accentColor,
+                                    selectedContainerColor = theme.primaryColor,
                                     selectedLabelColor = theme.onPrimaryColor
                                 )
                             )
@@ -310,26 +324,24 @@ fun PlayerView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 16.dp)
             .testTag("music_player_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Discreet Real Player Console
+        // 1. Reproductor Principal
         item(key = "player_head_unit_card") {
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, theme.cardColor),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = isPlaying
             ) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Output & Timer / Favorite Row
+                    // Salida, temporizador y acciones de pista
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -340,13 +352,14 @@ fun PlayerView(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(theme.backgroundColor)
+                                .background(theme.backgroundColor.copy(alpha = 0.85f))
+                                .border(0.8.dp, theme.cardColor, RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Icon(Icons.Default.Headphones, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(14.dp))
                             Text(
                                 text = outputDeviceStatus.label,
-                                color = theme.textSecondaryColor,
+                                color = theme.silverDetailColor,
                                 fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -357,7 +370,8 @@ fun PlayerView(
                             if (sleepTimerRemainingSec != null || sleepTimerStopAfterTrack) {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = theme.accentColor.copy(alpha = 0.16f),
+                                    color = theme.primaryColor.copy(alpha = 0.22f),
+                                    border = BorderStroke(0.8.dp, theme.accentColor.copy(alpha = 0.5f)),
                                     modifier = Modifier
                                         .clickable { showSleepDialog = true }
                                         .padding(end = 4.dp)
@@ -374,13 +388,13 @@ fun PlayerView(
                             if (currentTrack != null) {
                                 IconButton(
                                     onClick = { showDetailsDialog = true },
-                                    modifier = Modifier.size(40.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(Icons.Default.Info, contentDescription = "Detalles de pista", tint = theme.textSecondaryColor, modifier = Modifier.size(19.dp))
                                 }
                                 IconButton(
                                     onClick = { onToggleFavorite(currentTrack) },
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         imageVector = if (currentTrack.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -392,16 +406,54 @@ fun PlayerView(
                         }
                     }
 
-                    // Clean Album Artwork
-                    TrackArtwork(
-                        track = currentTrack,
-                        theme = theme,
-                        size = 228.dp,
-                        cornerRadius = 18.dp,
-                        modifier = Modifier.shadow(10.dp, RoundedCornerShape(18.dp))
-                    )
+                    // Carátula grande con aura violeta sutil
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .then(
+                                if (!liteVisuals) {
+                                    Modifier.drawBehind {
+                                        drawCircle(
+                                            brush = Brush.radialGradient(
+                                                colors = listOf(
+                                                    theme.primaryColor.copy(alpha = if (isPlaying) 0.34f else 0.14f),
+                                                    theme.accentColor.copy(alpha = if (isPlaying) 0.12f else 0.03f),
+                                                    Color.Transparent
+                                                )
+                                            ),
+                                            radius = size.maxDimension * 0.72f
+                                        )
+                                    }
+                                } else Modifier
+                            )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(21.dp))
+                                .border(
+                                    width = 1.3.dp,
+                                    brush = Brush.linearGradient(
+                                        listOf(
+                                            theme.silverDetailColor.copy(alpha = 0.42f),
+                                            theme.primaryColor.copy(alpha = 0.80f),
+                                            theme.accentColor.copy(alpha = 0.60f)
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(21.dp)
+                                )
+                        ) {
+                            TrackArtwork(
+                                track = currentTrack,
+                                theme = theme,
+                                size = 240.dp,
+                                cornerRadius = 20.dp,
+                                modifier = if (liteVisuals) Modifier else Modifier.shadow(12.dp, RoundedCornerShape(20.dp))
+                            )
+                        }
+                    }
 
-                    // Song Metadata
+                    // Título, artista y formato
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -410,7 +462,7 @@ fun PlayerView(
                         Text(
                             text = currentTrack?.title ?: "Sin canción seleccionada",
                             color = theme.textColor,
-                            fontSize = 18.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
@@ -418,7 +470,7 @@ fun PlayerView(
                         )
                         Text(
                             text = currentTrack?.let { "${it.artist} • ${it.album}" }
-                                ?: "Abre Mi música para elegir una canción del dispositivo",
+                                ?: "Abre Mi música para elegir una canción del teléfono",
                             color = theme.textSecondaryColor,
                             fontSize = 12.5.sp,
                             textAlign = TextAlign.Center,
@@ -438,11 +490,12 @@ fun PlayerView(
                             text = metaBadge,
                             color = theme.accentColor,
                             fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
 
-                    // Smooth Non-Jittery Seekbar
+                    // Barra de progreso
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Slider(
                             value = if (isSeeking) seekSliderValue else playbackSeconds.coerceIn(0, maxSec).toFloat(),
@@ -458,8 +511,8 @@ fun PlayerView(
                             valueRange = 0f..maxSec.toFloat(),
                             enabled = currentTrack != null,
                             colors = SliderDefaults.colors(
-                                thumbColor = theme.primaryColor,
-                                activeTrackColor = theme.accentColor,
+                                thumbColor = theme.silverDetailColor,
+                                activeTrackColor = theme.primaryColor,
                                 inactiveTrackColor = theme.cardColor
                             ),
                             modifier = Modifier
@@ -483,7 +536,7 @@ fun PlayerView(
                         }
                     }
 
-                    // Primary Transport Controls
+                    // Controles de transporte
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -507,13 +560,25 @@ fun PlayerView(
                                 .size(48.dp)
                                 .testTag("player_prev_button")
                         ) {
-                            Icon(Icons.Default.SkipPrevious, contentDescription = "Anterior", tint = theme.textColor, modifier = Modifier.size(30.dp))
+                            Icon(Icons.Default.SkipPrevious, contentDescription = "Anterior", tint = theme.silverDetailColor, modifier = Modifier.size(32.dp))
                         }
                         Box(
                             modifier = Modifier
-                                .size(62.dp)
+                                .size(66.dp)
                                 .clip(CircleShape)
-                                .background(theme.primaryColor)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            theme.primaryColor,
+                                            theme.accentColor
+                                        )
+                                    )
+                                )
+                                .border(
+                                    1.4.dp,
+                                    theme.silverDetailColor.copy(alpha = 0.55f),
+                                    CircleShape
+                                )
                                 .clickable { onPlayPause() }
                                 .testTag("player_play_pause_button"),
                             contentAlignment = Alignment.Center
@@ -522,7 +587,7 @@ fun PlayerView(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                                 tint = theme.onPrimaryColor,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(34.dp)
                             )
                         }
                         IconButton(
@@ -531,7 +596,7 @@ fun PlayerView(
                                 .size(48.dp)
                                 .testTag("player_next_button")
                         ) {
-                            Icon(Icons.Default.SkipNext, contentDescription = "Siguiente", tint = theme.textColor, modifier = Modifier.size(30.dp))
+                            Icon(Icons.Default.SkipNext, contentDescription = "Siguiente", tint = theme.silverDetailColor, modifier = Modifier.size(32.dp))
                         }
                         IconButton(
                             onClick = onCycleRepeat,
@@ -547,36 +612,33 @@ fun PlayerView(
                         }
                     }
 
-                    // Volume Bar
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Volumen", tint = theme.textSecondaryColor, modifier = Modifier.size(18.dp))
-                        Slider(
-                            value = volumeLevel,
-                            onValueChange = onVolumeChange,
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = theme.primaryColor,
-                                activeTrackColor = theme.accentColor,
-                                inactiveTrackColor = theme.cardColor
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(28.dp)
-                        )
-                        Text("${(volumeLevel * 100).toInt()}%", color = theme.textSecondaryColor, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace)
-                    }
-
-                    // Real Player Utility Strip (Sleep Timer, Speed/Pitch, EQ, Library)
+                    // Acciones limpias de Reproductor (EQ, Volumen, Temporizador, Velocidad, A/B, Biblioteca)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        OutlinedButton(
+                            onClick = onOpenEqualizer,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.55f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Equalizer, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text("Ecualizador", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                        OutlinedButton(
+                            onClick = { showVolumeControl = !showVolumeControl },
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (showVolumeControl) theme.accentColor else theme.cardColor),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text("${(volumeLevel * 100).toInt()}%", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
                         OutlinedButton(
                             onClick = { showSleepDialog = true },
                             shape = RoundedCornerShape(10.dp),
@@ -606,16 +668,6 @@ fun PlayerView(
                             Text("%.2gx".format(playbackSpeed), color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                         OutlinedButton(
-                            onClick = onOpenEqualizer,
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, theme.cardColor),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Equalizer, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text("Ecualizador", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                        OutlinedButton(
                             onClick = onToggleAbComparison,
                             shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, if (activeAbSlot != null) theme.accentColor else theme.cardColor),
@@ -634,26 +686,42 @@ fun PlayerView(
                             Text("Biblioteca", color = theme.textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
+
+                    // Control de volumen desplegable
+                    AnimatedVisibility(
+                        visible = showVolumeControl,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Volumen", tint = theme.accentColor, modifier = Modifier.size(18.dp))
+                            Slider(
+                                value = volumeLevel,
+                                onValueChange = onVolumeChange,
+                                valueRange = 0f..1f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = theme.silverDetailColor,
+                                    activeTrackColor = theme.primaryColor,
+                                    inactiveTrackColor = theme.cardColor
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                            )
+                            Text("${(volumeLevel * 100).toInt()}%", color = theme.silverDetailColor, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
                 }
             }
         }
 
-        // 2. Subtle Signal Monitor (only when playing)
-        if (isAnyAudioPlaying) {
-            item(key = "player_signal_bar") {
-                StudioSignalIndicatorBar(
-                    isAudioPlaying = isAnyAudioPlaying,
-                    bassEnergy = bassEnergy,
-                    midEnergy = midEnergy,
-                    trebleEnergy = trebleEnergy,
-                    theme = theme,
-                    liteVisuals = liteVisuals,
-                    title = "Monitor de señal en vivo"
-                )
-            }
-        }
-
-        // 3. Playback Queue Header & Items
+        // 2. Cola de reproducción inmediata
         item(key = "player_queue_header") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -662,7 +730,7 @@ fun PlayerView(
             ) {
                 Text(
                     text = "Cola de reproducción (${queueTracks.size})",
-                    color = theme.textColor,
+                    color = theme.silverDetailColor,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -685,21 +753,20 @@ fun PlayerView(
         } else {
             itemsIndexed(queueTracks, key = { index, item -> "${index}_${item.stableKey}" }) { index, qTrack ->
                 val isActive = currentTrack?.stableKey == qTrack.stableKey
-                Card(
+                var queueMenuExpanded by remember { mutableStateOf(false) }
+                GlassStudioCard(
+                    theme = theme,
+                    highlightBorder = isActive,
                     modifier = Modifier
-                        .fillMaxWidth()
                         .clickable { onPlayQueueAt(index) }
-                        .testTag("queue_item_$index"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (isActive) theme.cardColor else theme.surfaceColor),
-                    border = BorderStroke(1.dp, if (isActive) theme.accentColor.copy(alpha = 0.65f) else theme.cardColor)
+                        .testTag("queue_item_$index")
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        TrackArtwork(track = qTrack, theme = theme, size = 38.dp, cornerRadius = 8.dp)
+                        TrackArtwork(track = qTrack, theme = theme, size = 40.dp, cornerRadius = 8.dp)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = qTrack.title,
@@ -717,14 +784,49 @@ fun PlayerView(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        IconButton(onClick = { onMoveQueueUp(index) }, enabled = index > 0, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.ArrowUpward, contentDescription = "Subir en cola", tint = if (index > 0) theme.textColor else theme.textSecondaryColor.copy(alpha = 0.3f), modifier = Modifier.size(17.dp))
-                        }
-                        IconButton(onClick = { onMoveQueueDown(index) }, enabled = index < queueTracks.lastIndex, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.ArrowDownward, contentDescription = "Bajar en cola", tint = if (index < queueTracks.lastIndex) theme.textColor else theme.textSecondaryColor.copy(alpha = 0.3f), modifier = Modifier.size(17.dp))
-                        }
-                        IconButton(onClick = { onRemoveFromQueue(index) }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Quitar de la cola", tint = theme.textSecondaryColor, modifier = Modifier.size(17.dp))
+                        Box {
+                            IconButton(
+                                onClick = { queueMenuExpanded = true },
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Opciones en cola",
+                                    tint = theme.textSecondaryColor
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = queueMenuExpanded,
+                                onDismissRequest = { queueMenuExpanded = false },
+                                containerColor = theme.cardColor
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Subir en cola", color = if (index > 0) theme.textColor else theme.textSecondaryColor) },
+                                    leadingIcon = { Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = theme.accentColor) },
+                                    enabled = index > 0,
+                                    onClick = {
+                                        queueMenuExpanded = false
+                                        onMoveQueueUp(index)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Bajar en cola", color = if (index < queueTracks.lastIndex) theme.textColor else theme.textSecondaryColor) },
+                                    leadingIcon = { Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = theme.accentColor) },
+                                    enabled = index < queueTracks.lastIndex,
+                                    onClick = {
+                                        queueMenuExpanded = false
+                                        onMoveQueueDown(index)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Quitar de la cola", color = theme.errorColor) },
+                                    leadingIcon = { Icon(Icons.Default.Close, contentDescription = null, tint = theme.errorColor) },
+                                    onClick = {
+                                        queueMenuExpanded = false
+                                        onRemoveFromQueue(index)
+                                    }
+                                )
+                            }
                         }
                     }
                 }

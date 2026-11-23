@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -131,7 +132,7 @@ fun PresetsView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(theme.backgroundColor)
+            .background(Color.Transparent)
             .padding(horizontal = 14.dp)
             .testTag("presets_view"),
         contentPadding = PaddingValues(vertical = 12.dp),
@@ -139,11 +140,9 @@ fun PresetsView(
     ) {
         // 1. Detailed A / B Comparison Studio Card
         item(key = "presets_ab_detailed") {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.2.dp, theme.accentColor.copy(alpha = 0.45f)),
-                modifier = Modifier.fillMaxWidth()
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = activeAbSlot != null
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
@@ -202,18 +201,17 @@ fun PresetsView(
 
         // 2. Save Current Configuration Button
         item(key = "presets_save_button") {
-            Button(
+            GlowActionButton(
+                text = "Guardar Configuración Actual",
+                theme = theme,
                 onClick = { showSaveDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = theme.primaryColor, contentColor = theme.onPrimaryColor),
+                leadingIcon = {
+                    Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("presets_save_profile_button")
-            ) {
-                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Guardar Configuración Actual", fontSize = 12.sp, fontWeight = FontWeight.Black)
-            }
+            )
         }
 
         // 3. Saved Custom Sound Profiles
@@ -228,14 +226,12 @@ fun PresetsView(
             }
             items(customProfiles, key = { it.id }) { prof ->
                 val active = activePresetName == prof.name
-                Card(
+                GlassStudioCard(
+                    theme = theme,
+                    highlightBorder = active,
                     modifier = Modifier
-                        .fillMaxWidth()
                         .clickable { onApplySoundProfile(prof) }
-                        .testTag("custom_profile_${prof.id}"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                    border = BorderStroke(1.dp, if (active) theme.accentColor else theme.cardColor)
+                        .testTag("custom_profile_${prof.id}")
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -266,14 +262,12 @@ fun PresetsView(
 
         items(presets, key = { it.name }) { preset ->
             val selected = activePresetName == preset.name
-            Card(
+            GlassStudioCard(
+                theme = theme,
+                highlightBorder = selected,
                 modifier = Modifier
-                    .fillMaxWidth()
                     .clickable { onSelectPreset(preset) }
-                    .testTag("eq_preset_${preset.name}"),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = theme.surfaceColor),
-                border = BorderStroke(1.dp, if (selected) theme.accentColor else theme.cardColor)
+                    .testTag("eq_preset_${preset.name}")
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
