@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -36,12 +39,15 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -71,8 +77,10 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.model.AudioSessionTarget
 import com.example.model.CarAudioThemeType
 import com.example.model.DspCapabilityReport
+import com.example.model.DspEngineStatus
 import com.example.model.FaultSeverity
 import com.example.model.OutputDeviceStatus
+import com.example.model.OutputKind
 import com.example.model.SystemFaultAlert
 import com.example.service.FloatingEqualizerService
 import java.text.SimpleDateFormat
@@ -105,6 +113,17 @@ fun AppSettingsView(
     onClearCache: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
+    floatingEqOnLeave: Boolean = false,
+    onToggleFloatingEqOnLeave: (Boolean) -> Unit = {},
+    autoProfileByOutput: Boolean = true,
+    onToggleAutoProfileByOutput: (Boolean) -> Unit = {},
+    savedOutputProfileKinds: Set<OutputKind> = emptySet(),
+    onSaveProfileForCurrentOutput: () -> Unit = {},
+    onClearProfileForOutput: (OutputKind) -> Unit = {},
+    drivingModeEnabled: Boolean = false,
+    onToggleDrivingMode: (Boolean) -> Unit = {},
+    drivingKeepScreenOn: Boolean = true,
+    onToggleDrivingKeepScreenOn: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -269,7 +288,7 @@ fun AppSettingsView(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = item.displayName,
-                                    color = theme.textColor,
+                                    color = if (isSelected) item.textColor else theme.textColor,
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
@@ -277,7 +296,7 @@ fun AppSettingsView(
                                 )
                                 Text(
                                     text = item.subtitle,
-                                    color = theme.textSecondaryColor,
+                                    color = if (isSelected) item.textSecondaryColor else theme.textSecondaryColor,
                                     fontSize = 10.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -286,7 +305,7 @@ fun AppSettingsView(
                             if (isSelected) {
                                 Text(
                                     text = "ACTIVO",
-                                    color = theme.accentColor,
+                                    color = item.accentColor,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace
@@ -332,9 +351,27 @@ fun AppSettingsView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Icon(Icons.Default.Headphones, contentDescription = null, tint = theme.accentColor)
-                        Text("Diagnóstico de audio y permisos", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Column {
+                            Text("Diagnóstico de audio y permisos", color = theme.textColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(3.dp))
+                            SmartStatusLedBadge(
+                                status = when (capabilityReport.engineStatus) {
+                                    DspEngineStatus.ACTIVE_INTERNAL -> SmartLightStatus.ACTIVE_READY
+                                    DspEngineStatus.ACTIVE_EXTERNAL -> SmartLightStatus.AVAILABLE
+                                    DspEngineStatus.LIMITED_FALLBACK -> SmartLightStatus.WARNING_LIMIT
+                                    DspEngineStatus.BYPASSED -> SmartLightStatus.DISABLED
+                                },
+                                text = capabilityReport.engineStatus.label,
+                                theme = theme,
+                                liteVisuals = liteVisuals
+                            )
+                        }
                     }
                     TextButton(onClick = onRefreshDiagnostics) {
                         Icon(Icons.Default.Refresh, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
@@ -345,8 +382,65 @@ fun AppSettingsView(
 
                 DiagnosticStatusRow("Motor DSP", capabilityReport.engineSummary, theme)
                 DiagnosticStatusRow("Sesión AudioFX", sessionTarget.label, theme)
-                DiagnosticStatusRow("Salida Activa", outputDeviceStatus.label, theme)
+                DiagnosticStatusRow("Salida Activa", "${outputDeviceStatus.label} (${outputDeviceStatus.kind.displayLabel})", theme)
                 DiagnosticStatusRow("Anti Doble Proceso", if (capabilityReport.antiDoubleProcessingSafe) "Verificado y Seguro" else "Revisar", theme)
+
+                HorizontalDivider(color = theme.cardColor)
+
+                SettingsToggleRow(
+                    title = "Perfil automático por dispositivo de salida",
+                    subtitle = "Carga tus ajustes guardados al cambiar entre Bluetooth, Cable/AUX, USB o Altavoz",
+                    checked = autoProfileByOutput,
+                    onCheckedChange = onToggleAutoProfileByOutput,
+                    theme = theme,
+                    modifier = Modifier.testTag("settings_auto_output_profile_switch")
+                )
+
+                OutlinedButton(
+                    onClick = onSaveProfileForCurrentOutput,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.accentColor.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_save_output_profile_button")
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Guardar perfil actual para ${outputDeviceStatus.kind.displayLabel}",
+                        color = theme.textColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (savedOutputProfileKinds.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        savedOutputProfileKinds.forEach { kind ->
+                            FilterChip(
+                                selected = kind == outputDeviceStatus.kind,
+                                onClick = { onClearProfileForOutput(kind) },
+                                label = {
+                                    Text("${kind.displayLabel} ✕", fontSize = 10.5.sp)
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = theme.primaryColor,
+                                    selectedLabelColor = theme.onPrimaryColor,
+                                    containerColor = theme.backgroundColor,
+                                    labelColor = theme.textColor
+                                ),
+                                modifier = Modifier.testTag("settings_saved_output_chip_${kind.name.lowercase()}")
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -430,6 +524,48 @@ fun AppSettingsView(
                     Icon(Icons.Default.PlayCircle, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Ver Bienvenida y Guía Rápida", color = theme.textColor, fontSize = 11.5.sp)
+                }
+
+                SettingsToggleRow(
+                    title = "Ecualizador flotante automático al salir",
+                    subtitle = "Opcional (desactivado por defecto). Requiere permiso de superposición sobre apps",
+                    checked = floatingEqOnLeave,
+                    onCheckedChange = onToggleFloatingEqOnLeave,
+                    theme = theme,
+                    modifier = Modifier.testTag("settings_floating_eq_on_leave_switch")
+                )
+
+                SettingsToggleRow(
+                    title = "Modo Conducción Manual en pantalla",
+                    subtitle = "Botones grandes y cero distracciones visuales (no sustituye a Android Auto)",
+                    checked = drivingModeEnabled,
+                    onCheckedChange = onToggleDrivingMode,
+                    theme = theme,
+                    modifier = Modifier.testTag("settings_driving_mode_switch")
+                )
+
+                if (drivingModeEnabled) {
+                    SettingsToggleRow(
+                        title = "Mantener pantalla en Modo Conducción",
+                        subtitle = "Evita que el tablero se apague durante la sesión manual",
+                        checked = drivingKeepScreenOn,
+                        onCheckedChange = onToggleDrivingKeepScreenOn,
+                        theme = theme,
+                        modifier = Modifier.testTag("settings_driving_keep_screen_switch")
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = { onToggleDrivingMode(true) },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_open_driving_mode_button")
+                ) {
+                    Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = theme.accentColor, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Abrir Modo Conducción Manual", color = theme.textColor, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                 }
 
                 OutlinedButton(

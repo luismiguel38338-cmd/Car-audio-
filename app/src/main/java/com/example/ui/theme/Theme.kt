@@ -2,6 +2,7 @@ package com.example.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import com.example.model.CarAudioThemeType
 
@@ -10,24 +11,45 @@ fun CarAudioAppTheme(
     themeType: CarAudioThemeType = CarAudioThemeType.NEON_DSP_PRO,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = darkColorScheme(
-        primary = themeType.primaryColor,
-        onPrimary = themeType.onPrimaryColor,
-        primaryContainer = themeType.surfaceColor,
-        onPrimaryContainer = themeType.primaryColor,
-        secondary = themeType.accentColor,
-        onSecondary = themeType.onPrimaryColor,
-        secondaryContainer = themeType.surfaceColor,
-        onSecondaryContainer = themeType.accentColor,
-        tertiary = themeType.accentColor,
-        background = themeType.backgroundColor,
-        onBackground = themeType.textColor,
-        surface = themeType.surfaceColor,
-        onSurface = themeType.textColor,
-        surfaceVariant = themeType.cardColor,
-        onSurfaceVariant = themeType.textSecondaryColor,
-        error = themeType.errorColor
-    )
+    val colorScheme = if (themeType.isLightTheme) {
+        lightColorScheme(
+            primary = themeType.primaryColor,
+            onPrimary = themeType.onPrimaryColor,
+            primaryContainer = themeType.cardColor,
+            onPrimaryContainer = themeType.primaryColor,
+            secondary = themeType.accentColor,
+            onSecondary = themeType.onPrimaryColor,
+            secondaryContainer = themeType.cardColor,
+            onSecondaryContainer = themeType.accentColor,
+            tertiary = themeType.accentColor,
+            background = themeType.backgroundColor,
+            onBackground = themeType.textColor,
+            surface = themeType.surfaceColor,
+            onSurface = themeType.textColor,
+            surfaceVariant = themeType.cardColor,
+            onSurfaceVariant = themeType.textSecondaryColor,
+            error = themeType.errorColor
+        )
+    } else {
+        darkColorScheme(
+            primary = themeType.primaryColor,
+            onPrimary = themeType.onPrimaryColor,
+            primaryContainer = themeType.surfaceColor,
+            onPrimaryContainer = themeType.primaryColor,
+            secondary = themeType.accentColor,
+            onSecondary = themeType.onPrimaryColor,
+            secondaryContainer = themeType.surfaceColor,
+            onSecondaryContainer = themeType.accentColor,
+            tertiary = themeType.accentColor,
+            background = themeType.backgroundColor,
+            onBackground = themeType.textColor,
+            surface = themeType.surfaceColor,
+            onSurface = themeType.textColor,
+            surfaceVariant = themeType.cardColor,
+            onSurfaceVariant = themeType.textSecondaryColor,
+            error = themeType.errorColor
+        )
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

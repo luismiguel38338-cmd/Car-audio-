@@ -191,7 +191,21 @@ fun BassBoostView(
         }
 
         // Consola rotatoria 3D para Bass, Frecuencia y Ganancia + Protección anticlipping
-        GlassStudioCard(theme = theme, highlightBorder = dspSettings.bassBoostEnabled && !isClippingDetected) {
+        val bassProtectionStatus = when {
+            isClippingDetected -> SmartLightStatus.DANGER_CLIP
+            dspSettings.limiterEnabled -> SmartLightStatus.ACTIVE_READY
+            else -> SmartLightStatus.WARNING_LIMIT
+        }
+        GlassStudioCard(
+            theme = theme,
+            highlightBorder = dspSettings.bassBoostEnabled && !isClippingDetected,
+            modifier = Modifier.smartBorderLight(
+                status = bassProtectionStatus,
+                theme = theme,
+                active = dspSettings.bassBoostEnabled && (isClippingDetected || bassMode == BassMode.EXTREME),
+                liteVisuals = liteVisuals
+            )
+        ) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -209,23 +223,17 @@ fun BassBoostView(
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 0.6.sp
                     )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isClippingDetected) theme.errorColor.copy(alpha = 0.2f) else theme.backgroundColor.copy(alpha = 0.9f),
-                        border = BorderStroke(
-                            0.8.dp,
-                            if (isClippingDetected) theme.errorColor else theme.primaryColor.copy(alpha = 0.45f)
-                        )
-                    ) {
-                        Text(
-                            text = if (isClippingDetected) "ALERTA CLIP" else "SEÑAL LIMPIA",
-                            color = if (isClippingDetected) theme.errorColor else theme.accentColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    SmartStatusLedBadge(
+                        status = bassProtectionStatus,
+                        text = when {
+                            isClippingDetected -> "ALERTA CLIP"
+                            dspSettings.limiterEnabled -> "LIMITADOR ON"
+                            else -> "SIN LIMITADOR"
+                        },
+                        theme = theme,
+                        liteVisuals = liteVisuals,
+                        pulse = isClippingDetected
+                    )
                 }
 
                 LinearProgressIndicator(

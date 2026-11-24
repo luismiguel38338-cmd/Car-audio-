@@ -131,7 +131,7 @@ fun StudioSignalIndicatorBar(
                     Text(
                         text = if (isAudioPlaying) "ACTIVO" else "EN REPOSO",
                         color = if (isAudioPlaying) theme.accentColor else theme.textSecondaryColor,
-                        fontSize = 9.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
@@ -189,7 +189,7 @@ fun StudioSignalIndicatorBar(
                             } else {
                                 theme.textSecondaryColor.copy(alpha = 0.6f)
                             },
-                            fontSize = 8.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )

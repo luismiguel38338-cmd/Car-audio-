@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -63,6 +65,132 @@ import com.example.model.CarAudioThemeType
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+enum class SmartLightStatus {
+    ACTIVE_READY,
+    AVAILABLE,
+    WARNING_LIMIT,
+    DANGER_CLIP,
+    INFO_NEUTRAL,
+    DISABLED
+}
+
+fun smartLightColor(status: SmartLightStatus, theme: CarAudioThemeType): Color = when (status) {
+    SmartLightStatus.ACTIVE_READY -> if (theme.isLightTheme) Color(0xFF15803D) else Color(0xFF22C55E)
+    SmartLightStatus.AVAILABLE -> if (theme.isLightTheme) Color(0xFF0369A1) else Color(0xFF38BDF8)
+    SmartLightStatus.WARNING_LIMIT -> if (theme.isLightTheme) Color(0xFFD97706) else Color(0xFFF59E0B)
+    SmartLightStatus.DANGER_CLIP -> if (theme.isLightTheme) Color(0xFFDC2626) else Color(0xFFEF4444)
+    SmartLightStatus.INFO_NEUTRAL -> theme.silverDetailColor
+    SmartLightStatus.DISABLED -> theme.textSecondaryColor.copy(alpha = 0.65f)
+}
+
+@Composable
+fun SmartStatusLedBadge(
+    status: SmartLightStatus,
+    text: String,
+    theme: CarAudioThemeType,
+    liteVisuals: Boolean = false,
+    pulse: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val color = smartLightColor(status, theme)
+    val shouldAnimate = pulse && !liteVisuals &&
+        (status == SmartLightStatus.ACTIVE_READY || status == SmartLightStatus.WARNING_LIMIT || status == SmartLightStatus.DANGER_CLIP)
+    val dotAlpha = if (shouldAnimate) {
+        val transition = rememberInfiniteTransition(label = "smart_led_badge")
+        val a by transition.animateFloat(
+            initialValue = 0.55f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "led_alpha"
+        )
+        a
+    } else 1f
+
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = color.copy(alpha = if (theme.isLightTheme) 0.12f else 0.15f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.50f)),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = dotAlpha))
+            )
+            Text(
+                text = text,
+                color = color,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun Modifier.smartBorderLight(
+    status: SmartLightStatus,
+    theme: CarAudioThemeType,
+    active: Boolean = true,
+    liteVisuals: Boolean = false,
+    cornerRadius: Dp = 18.dp
+): Modifier {
+    val leadColor = smartLightColor(status, theme)
+    if (!active || liteVisuals) {
+        return this.border(
+            width = if (active) 1.2.dp else 0.8.dp,
+            color = leadColor.copy(alpha = if (active) 0.45f else 0.18f),
+            shape = RoundedCornerShape(cornerRadius)
+        )
+    }
+    val transition = rememberInfiniteTransition(label = "smart_border_sweep")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 4400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "border_angle"
+    )
+    return this
+        .clip(RoundedCornerShape(cornerRadius))
+        .drawWithCache {
+            val strokePx = 1.6.dp.toPx()
+            val radiusPx = cornerRadius.toPx()
+            val cr = CornerRadius(radiusPx, radiusPx)
+            val sweepColors = listOf(
+                leadColor.copy(alpha = 0.15f),
+                leadColor.copy(alpha = 0.88f),
+                theme.silverDetailColor.copy(alpha = 0.65f),
+                leadColor.copy(alpha = 0.15f)
+            )
+            onDrawBehind {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val sweepBrush = Brush.sweepGradient(colors = sweepColors, center = center)
+                rotate(degrees = angle, pivot = center) {
+                    drawRoundRect(
+                        brush = sweepBrush,
+                        cornerRadius = cr,
+                        style = Stroke(width = strokePx)
+                    )
+                }
+            }
+        }
+}
 
 /**
  * Deep OLED obsidian backdrop with subtle ambient violet/purple radial LED illumination.
@@ -284,9 +412,9 @@ fun RotaryKnob3D(
                     )
                 }
 
-                // Inactive dark metallic track arc
+                // Inactive metallic track arc
                 drawArc(
-                    color = Color(0xFF1E1736),
+                    color = if (theme.isLightTheme) theme.cardColor else Color(0xFF1E1736),
                     startAngle = 135f,
                     sweepAngle = 270f,
                     useCenter = false,
@@ -295,7 +423,7 @@ fun RotaryKnob3D(
                     style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // Active glowing violet LED arc
+                // Active glowing LED arc
                 if (norm > 0.005f) {
                     drawArc(
                         brush = Brush.sweepGradient(
@@ -319,13 +447,14 @@ fun RotaryKnob3D(
 
                 // 3D Brushed metallic bezel
                 val bezelR = r * 0.72f
+                val bezelColors = if (theme.isLightTheme) {
+                    listOf(Color(0xFFE2E8F0), Color(0xFF94A3B8), Color(0xFFCBD5E1))
+                } else {
+                    listOf(Color(0xFF4B4563), Color(0xFF141024), Color(0xFF2B2344))
+                }
                 drawCircle(
                     brush = Brush.linearGradient(
-                        listOf(
-                            Color(0xFF4B4563),
-                            Color(0xFF141024),
-                            Color(0xFF2B2344)
-                        ),
+                        bezelColors,
                         start = Offset(center.x - bezelR, center.y - bezelR),
                         end = Offset(center.x + bezelR, center.y + bezelR)
                     ),
@@ -333,15 +462,16 @@ fun RotaryKnob3D(
                     center = center
                 )
 
-                // Recessed inner obsidian dial with 3D specular highlight
+                // Recessed inner dial with 3D specular highlight
                 val innerR = r * 0.62f
+                val innerColors = if (theme.isLightTheme) {
+                    listOf(Color(0xFFFFFFFF), Color(0xFFE2E8F0), Color(0xFFCBD5E1))
+                } else {
+                    listOf(Color(0xFF221A3D), Color(0xFF0A0714), Color(0xFF05040A))
+                }
                 drawCircle(
                     brush = Brush.radialGradient(
-                        listOf(
-                            Color(0xFF221A3D),
-                            Color(0xFF0A0714),
-                            Color(0xFF05040A)
-                        ),
+                        innerColors,
                         center = Offset(center.x - innerR * 0.28f, center.y - innerR * 0.28f),
                         radius = innerR * 1.35f
                     ),
@@ -349,7 +479,7 @@ fun RotaryKnob3D(
                     center = center
                 )
 
-                // Specular silver rim highlight
+                // Specular rim highlight
                 drawCircle(
                     color = theme.silverDetailColor.copy(alpha = if (enabled) 0.30f else 0.12f),
                     radius = innerR,
@@ -367,8 +497,13 @@ fun RotaryKnob3D(
                     center.x + cos(pointerAngle) * (innerR * 0.84f),
                     center.y + sin(pointerAngle) * (innerR * 0.84f)
                 )
+                val pointerColor = when {
+                    !enabled -> theme.textSecondaryColor
+                    theme.isLightTheme -> theme.primaryColor
+                    else -> Color.White
+                }
                 drawLine(
-                    color = if (enabled) Color.White else theme.textSecondaryColor,
+                    color = pointerColor,
                     start = pStart,
                     end = pEnd,
                     strokeWidth = 2.6.dp.toPx(),
@@ -602,7 +737,7 @@ fun AnimatedFrequencyCurveCanvas(
                         brush = Brush.horizontalGradient(
                             listOf(
                                 theme.primaryColor,
-                                Color.White,
+                                if (theme.isLightTheme) theme.accentColor else Color.White,
                                 theme.accentColor
                             )
                         ),

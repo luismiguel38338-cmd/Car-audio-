@@ -184,9 +184,12 @@
     </div>
 
     <section class="policy-card">
-      <h2>1. Procesamiento Local y Sin Inicio de Sesión</h2>
+      <h2>1. Modo Local Completo y Cuenta Google Opcional</h2>
       <p>
-        <strong>CAR AUDIO DSP PRO</strong> opera sin exigir cuentas de usuario ni registro previo. Tu biblioteca musical local, listas de reproducción, estadísticas de escucha, perfiles de ecualización y nombre de cabina permanecen almacenados únicamente en tu dispositivo Android.
+        <strong>CAR AUDIO DSP PRO</strong> funciona con todas sus herramientas DSP desbloqueadas sin exigir cuentas de usuario ni registro previo. Tu biblioteca musical local, perfiles por dispositivo de salida, listas de reproducción, estadísticas de escucha y curvas de ecualización permanecen guardadas en tu dispositivo Android.
+      </p>
+      <p style="margin-top: 8px;">
+        De manera estrictamente <strong>opcional</strong>, puedes iniciar sesión con tu cuenta de Google en <strong>Perfil</strong> para respaldar y sincronizar en <strong>Firebase Firestore</strong> tus presets personalizados, listas, tema elegido, favoritos y posición de reproducción. Puedes cerrar sesión o <strong>eliminar definitivamente tu cuenta y datos en la nube</strong> desde el botón <em>Eliminar cuenta</em> dentro de la misma pantalla de Perfil.
       </p>
     </section>
 
@@ -198,7 +201,10 @@
           <span class="perm-name mono">READ_MEDIA_AUDIO / READ_EXTERNAL_STORAGE</span>: Escanea y reproduce exclusivamente las pistas de audio guardadas en tu dispositivo junto con su título, artista y carátula local.
         </li>
         <li>
-          <span class="perm-name mono">RECORD_AUDIO</span> (opcional): Alimenta el analizador de espectro en tiempo real (<span class="mono">RTA / Visualizer</span>) cuando lo activas manualmente; nunca graba ni transmite audio.
+          <span class="perm-name mono">RECORD_AUDIO</span> (opcional): Alimenta en memoria el analizador acústico <span class="mono">RTA</span> y muestra un indicador de <strong>SPL relativo no calibrado</strong> cuando lo activas manualmente; nunca graba ni transmite audio.
+        </li>
+        <li>
+          <span class="perm-name mono">SYSTEM_ALERT_WINDOW</span> (opcional, desactivado por defecto): Solo se solicita si activas el ecualizador flotante rápido sobre otras aplicaciones desde <strong>Ajustes</strong>.
         </li>
         <li>
           <span class="perm-name mono">MODIFY_AUDIO_SETTINGS</span>: Aplica en tiempo real el ecualizador de 10 y 31 bandas, filtros paramétricos, Bass Boost, Subwoofer, compresor y limitador sobre la sesión de reproducción.
@@ -210,7 +216,7 @@
           <span class="perm-name mono">FOREGROUND_SERVICE / FOREGROUND_SERVICE_MEDIA_PLAYBACK</span>: Mantiene la reproducción continua con pantalla apagada o en segundo plano.
         </li>
         <li>
-          <span class="perm-name mono">INTERNET / ACCESS_NETWORK_STATE</span>: Se utiliza exclusivamente cuando usas <strong>Música Online</strong> para consultar el catálogo público oficial de <strong>Jamendo API v3</strong>, descargar pistas con licencia abierta autorizada (<span class="mono">audiodownload_allowed</span>) o abrir enlaces oficiales en YouTube Music.
+          <span class="perm-name mono">INTERNET / ACCESS_NETWORK_STATE</span>: Se utiliza exclusivamente cuando usas <strong>Música Online</strong> (catálogo público de <strong>Jamendo API v3</strong> y descargas abiertas autorizadas), enlaces externos a YouTube Music o el respaldo opcional en Firebase.
         </li>
       </ul>
     </section>
@@ -230,9 +236,9 @@
     </section>
 
     <section class="policy-card">
-      <h2>5. Privacidad de Menores</h2>
+      <h2>5. Privacidad de Menores y Eliminación de Datos</h2>
       <p>
-        Al no recopilar cuentas personales ni datos de identificación, la aplicación no recoge información personal de menores ni de terceros.
+        Al operar en modo local por defecto, la aplicación no recopila información personal de menores ni de terceros. Si un usuario decide activar el respaldo opcional con Google, puede revocar y eliminar todos sus documentos almacenados en Firebase Firestore directamente desde <strong>Perfil &gt; Eliminar cuenta</strong>.
       </p>
     </section>
 

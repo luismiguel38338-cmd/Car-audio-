@@ -42,32 +42,32 @@ fun PrivacyPolicyDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 PolicySection(
-                    title = "1. Acceso Directo Sin Cuenta Obligatoria",
-                    body = "Car Audio DSP Pro funciona directamente sin exigir inicio de sesión ni recopilar tu nombre, correo electrónico o contraseñas personales.",
+                    title = "1. Modo Local Completo y Cuenta Google Opcional",
+                    body = "Car Audio DSP Pro funciona al 100% sin exigir registro ni cuentas. Opcionalmente, desde Perfil puedes iniciar sesión con Google para sincronizar tus presets, listas, favoritos y tema en Firebase Firestore, y eliminar tu cuenta y respaldo en la nube en cualquier momento desde el mismo panel.",
                     theme = theme
                 )
                 HorizontalDivider(color = theme.surfaceColor)
                 PolicySection(
-                    title = "2. Almacenamiento 100% Local en tu Dispositivo",
-                    body = "Todas tus curvas de ecualización (31 y 10 bandas), snapshots de comparación A/B, perfiles DSP, listas de reproducción, tema visual 3D y accesos guardados permanecen exclusivamente en las preferencias locales de tu teléfono.",
+                    title = "2. Almacenamiento Local en tu Dispositivo",
+                    body = "Todas tus curvas de ecualización (31 y 10 bandas), perfiles por salida (Bluetooth, AUX, USB, Altavoz), snapshots A/B, listas y preferencias permanecen guardadas localmente en tu teléfono aunque no uses la nube.",
                     theme = theme
                 )
                 HorizontalDivider(color = theme.surfaceColor)
                 PolicySection(
-                    title = "3. Archivos de Música Locales",
-                    body = "Las canciones escaneadas con READ_MEDIA_AUDIO o importadas manualmente se reproducen localmente mediante Media3 / ExoPlayer. Nunca subimos tus archivos de música a servidores externos.",
+                    title = "3. Archivos de Música, Jamendo API y Descargas",
+                    body = "Las canciones locales escaneadas (READ_MEDIA_AUDIO) o importadas se reproducen con Media3 / ExoPlayer sin salir de tu teléfono. Música Online consulta el catálogo público Creative Commons de Jamendo API v3 y guarda descargas autorizadas en almacenamiento privado de la app.",
                     theme = theme
                 )
                 HorizontalDivider(color = theme.surfaceColor)
                 PolicySection(
-                    title = "4. Permiso de Micrófono (RTA Opcional)",
-                    body = "El analizador acústico de cabina mediante micrófono solo se activa cuando lo habilitas manualmente en Herramientas de audio > RTA y Medidores dB. El audio se procesa en memoria en tiempo real y nunca se graba ni se envía fuera del teléfono.",
+                    title = "4. Micrófono RTA Local y SPL Relativo (Opcional)",
+                    body = "El analizador acústico mediante micrófono (RECORD_AUDIO) solo se activa cuando lo pulsas manualmente. Se procesa únicamente en memoria para mostrar el RTA y un SPL relativo no calibrado; nunca se graba ni se transmite audio.",
                     theme = theme
                 )
                 HorizontalDivider(color = theme.surfaceColor)
                 PolicySection(
-                    title = "5. Enlaces Directos a YouTube Music",
-                    body = "La sección YouTube Music construye búsquedas y enlaces directos que abren la aplicación oficial de YouTube Music o el portal web oficial en tu navegador, sin descargar ni extraer audio de terceros.",
+                    title = "5. Ecualizador Flotante (Opt-in) y Enlaces YouTube Music",
+                    body = "La burbuja flotante sobre otras aplicaciones (SYSTEM_ALERT_WINDOW) está desactivada por defecto al salir de la app y solo se activa si tú la habilitas en Ajustes. Los accesos de YouTube Music abren búsquedas en la app o web oficial sin extraer audio.",
                     theme = theme
                 )
             }

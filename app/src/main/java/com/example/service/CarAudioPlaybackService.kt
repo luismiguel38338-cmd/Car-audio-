@@ -92,11 +92,22 @@ class CarAudioPlaybackService : MediaSessionService() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                audioEngine.onAudioFaultListener?.invoke(
-                    "Error en Reproductor Media3",
-                    "No se pudo reproducir el archivo seleccionado: ${error.localizedMessage ?: error.errorCodeName}.",
-                    FaultSeverity.ERROR
+                audioEngine.syncPlaybackStateFromMedia3(
+                    track = audioEngine.currentTrack,
+                    playing = false,
+                    positionSeconds = (player.currentPosition / 1000L).toInt().coerceAtLeast(0)
                 )
+                val detail = "No se pudo reproducir el archivo seleccionado: ${error.localizedMessage ?: error.errorCodeName}."
+                val errListener = audioEngine.onPlaybackErrorListener
+                if (errListener != null) {
+                    errListener.invoke("Error en Reproductor Media3", detail)
+                } else {
+                    audioEngine.onAudioFaultListener?.invoke(
+                        "Error en Reproductor Media3",
+                        detail,
+                        FaultSeverity.ERROR
+                    )
+                }
             }
         })
 
@@ -138,6 +149,7 @@ class CarAudioPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         audioEngine.onVolumeChangedListener = null
+        audioEngine.releaseSessionEffectsIfIdle()
         mediaSession?.run {
             player.release()
             release()

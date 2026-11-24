@@ -7,8 +7,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +42,7 @@ import com.example.model.AbSlot
 import com.example.model.CarAudioThemeType
 import com.example.model.DspAbSnapshot
 import com.example.model.DspCapabilityReport
+import com.example.model.DspEngineStatus
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
 import com.example.model.ParametricFilterType
@@ -108,6 +111,18 @@ fun EqualizerView(
                                 color = if (dspOn) theme.accentColor else theme.textSecondaryColor,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            SmartStatusLedBadge(
+                                status = when (capabilityReport.engineStatus) {
+                                    DspEngineStatus.ACTIVE_INTERNAL -> SmartLightStatus.ACTIVE_READY
+                                    DspEngineStatus.ACTIVE_EXTERNAL -> SmartLightStatus.AVAILABLE
+                                    DspEngineStatus.LIMITED_FALLBACK -> SmartLightStatus.WARNING_LIMIT
+                                    DspEngineStatus.BYPASSED -> SmartLightStatus.DISABLED
+                                },
+                                text = capabilityReport.engineStatus.label,
+                                theme = theme,
+                                liteVisuals = liteVisuals
                             )
                         }
                     }

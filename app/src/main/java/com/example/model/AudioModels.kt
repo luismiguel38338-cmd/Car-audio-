@@ -25,7 +25,8 @@ enum class AppSection(
     SETTINGS("settings", "Ajustes", "Ajustes", "Temas, rendimiento, almacenamiento y permisos"),
     PROFILE("profile", "Perfil", "Perfil", "Estadísticas locales y canciones más escuchadas"),
     ABOUT("about", "Acerca de", "Acerca", "CAR AUDIO DSP PRO • LM Produce — Producción de Luis Miguel"),
-    YOUTUBE_MUSIC("youtube_music", "YouTube Music", "YT Music", "Búsqueda y accesos directos oficiales");
+    YOUTUBE_MUSIC("youtube_music", "YouTube Music", "YT Music", "Búsqueda y accesos directos oficiales"),
+    DRIVING_MODE("driving_mode", "Modo Conducción", "Conducción", "Controles grandes en pantalla sin distracciones");
 }
 
 enum class BassMode(
@@ -305,12 +306,12 @@ enum class RepeatMode(val label: String) {
     ONE("Repetir una")
 }
 
-enum class OutputKind {
-    SPEAKER,
-    WIRED_HEADSET,
-    BLUETOOTH,
-    USB_AUDIO,
-    OTHER
+enum class OutputKind(val displayLabel: String) {
+    SPEAKER("Altavoz"),
+    WIRED_HEADSET("Cable / AUX"),
+    BLUETOOTH("Bluetooth"),
+    USB_AUDIO("Audio USB"),
+    OTHER("Otra Salida")
 }
 
 @Immutable
@@ -334,6 +335,13 @@ enum class AudioSessionTarget(val label: String, val detail: String) {
     )
 }
 
+enum class DspEngineStatus(val label: String, val badgeText: String) {
+    ACTIVE_INTERNAL("DSP Directo Activo", "DIRECTO"),
+    ACTIVE_EXTERNAL("DSP en Sesión Externa", "EXTERNO"),
+    LIMITED_FALLBACK("DSP Compatibilidad / Limitado", "COMPATIBLE"),
+    BYPASSED("DSP en Bypass / Apagado", "BYPASS")
+}
+
 @Immutable
 data class DspCapabilityReport(
     val audioSessionId: Int = -1,
@@ -346,6 +354,7 @@ data class DspCapabilityReport(
     val virtualizerSupported: Boolean = false,
     val virtualizerActive: Boolean = false,
     val antiDoubleProcessingSafe: Boolean = true,
+    val engineStatus: DspEngineStatus = DspEngineStatus.LIMITED_FALLBACK,
     val engineSummary: String = "Esperando sesión de audio..."
 )
 
@@ -361,7 +370,9 @@ enum class FaultActionType {
     REQUEST_AUDIO_PERMISSION,
     REQUEST_NOTIFICATION_PERMISSION,
     RELOAD_LIBRARY,
-    OPEN_DIAGNOSTICS
+    OPEN_DIAGNOSTICS,
+    RETRY_PLAYBACK,
+    NEXT_TRACK
 }
 
 @Immutable

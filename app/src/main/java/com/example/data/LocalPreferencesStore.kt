@@ -12,7 +12,9 @@ import com.example.model.EqPresetCatalog
 import com.example.model.EqPresetItem
 import com.example.model.EqualizerSettings
 import com.example.model.MusicPlaylist
+import com.example.model.OutputKind
 import com.example.model.RepeatMode
+import com.example.model.SplWeighting
 import com.example.model.TrackCategory
 import com.example.model.YouTubeMusicItem
 import org.json.JSONArray
@@ -48,6 +50,35 @@ class LocalPreferencesStore(context: Context) {
     var keepScreenOn: Boolean
         get() = prefs.getBoolean("keep_screen_on", false)
         set(value) = prefs.edit().putBoolean("keep_screen_on", value).apply()
+
+    var floatingEqOnLeave: Boolean
+        get() = prefs.getBoolean("floating_eq_on_leave", false)
+        set(value) = prefs.edit().putBoolean("floating_eq_on_leave", value).apply()
+
+    var drivingModeEnabled: Boolean
+        get() = prefs.getBoolean("driving_mode_enabled", false)
+        set(value) = prefs.edit().putBoolean("driving_mode_enabled", value).apply()
+
+    var drivingKeepScreenOn: Boolean
+        get() = prefs.getBoolean("driving_keep_screen_on", true)
+        set(value) = prefs.edit().putBoolean("driving_keep_screen_on", value).apply()
+
+    var autoProfileByOutput: Boolean
+        get() = prefs.getBoolean("auto_profile_by_output", true)
+        set(value) = prefs.edit().putBoolean("auto_profile_by_output", value).apply()
+
+    fun loadSplWeighting(): SplWeighting {
+        val raw = prefs.getString("spl_weighting", SplWeighting.C_WEIGHTING.name)
+        return try {
+            SplWeighting.valueOf(raw ?: SplWeighting.C_WEIGHTING.name)
+        } catch (_: Throwable) {
+            SplWeighting.C_WEIGHTING
+        }
+    }
+
+    fun saveSplWeighting(weighting: SplWeighting) {
+        prefs.edit().putString("spl_weighting", weighting.name).apply()
+    }
 
     fun getLiteVisualsEnabled(defaultLowRam: Boolean): Boolean =
         prefs.getBoolean("lite_visuals_enabled", defaultLowRam)
@@ -527,6 +558,62 @@ class LocalPreferencesStore(context: Context) {
         if (slot == null) prefs.edit().remove("active_ab_slot").apply()
         else prefs.edit().putString("active_ab_slot", slot.name).apply()
     }
+
+    // =====================================================================
+    // Per-OutputKind Automatic Profile Persistence (Speaker / BT / USB / AUX)
+    // =====================================================================
+    fun saveOutputKindProfile(kind: OutputKind, dsp: DspSettings, eq: EqualizerSettings) {
+        try {
+            val obj = JSONObject().apply {
+                put("dsp", dspToJson(dsp))
+                put("en", eq.isEnabled)
+                put("mg", eq.masterGainDb.toDouble())
+                put("preset", eq.activePresetName)
+                put("b10", JSONArray(eq.bands10.map { it.toDouble() }))
+                put("b15", JSONArray(eq.bands15.map { it.toDouble() }))
+                put("b31", JSONArray(eq.bands31.map { it.toDouble() }))
+            }
+            prefs.edit().putString("output_profile_${kind.name}", obj.toString()).apply()
+        } catch (_: Throwable) {}
+    }
+
+    fun loadOutputKindProfile(kind: OutputKind): Pair<DspSettings, EqualizerSettings>? {
+        val raw = prefs.getString("output_profile_${kind.name}", null) ?: return null
+        return try {
+            val o = JSONObject(raw)
+            val dsp = dspFromJson(o.optJSONObject("dsp") ?: JSONObject())
+            val arr31 = o.optJSONArray("b31")
+            val b31 = if (arr31 != null && arr31.length() == 31) {
+                List(31) { arr31.optDouble(it, 0.0).toFloat() }
+            } else EqualizerSettings().bands31
+            val arr15 = o.optJSONArray("b15")
+            val b15 = if (arr15 != null && arr15.length() == 15) {
+                List(15) { arr15.optDouble(it, 0.0).toFloat() }
+            } else EqualizerSettings().bands15
+            val arr10 = o.optJSONArray("b10")
+            val b10 = if (arr10 != null && arr10.length() == 10) {
+                List(10) { arr10.optDouble(it, 0.0).toFloat() }
+            } else EqualizerSettings.bands10From31(b31)
+            val eq = EqualizerSettings(
+                isEnabled = o.optBoolean("en", true),
+                masterGainDb = o.optDouble("mg", 0.0).toFloat(),
+                bands10 = b10,
+                bands31 = b31,
+                bands15 = b15,
+                activePresetName = o.optString("preset", dsp.activePresetName)
+            )
+            dsp to eq
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun clearOutputKindProfile(kind: OutputKind) {
+        prefs.edit().remove("output_profile_${kind.name}").apply()
+    }
+
+    fun loadSavedOutputProfileKinds(): Set<OutputKind> =
+        OutputKind.entries.filter { prefs.contains("output_profile_${it.name}") }.toSet()
 
     // =====================================================================
     // YouTube Music Saved Shortcuts & Search History Persistence

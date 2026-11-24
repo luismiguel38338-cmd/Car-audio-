@@ -15,10 +15,12 @@
     public <init>(android.app.Application);
 }
 
-# Preserve models, Firestore POJOs (@DocumentId / @ServerTimestamp / @IgnoreExtraProperties), auth & repositories
+# Preserve models, Firestore POJOs (@DocumentId / @ServerTimestamp / @IgnoreExtraProperties), auth, online & repositories
 -keep class com.example.model.** { *; }
 -keep class com.example.auth.** { *; }
 -keep class com.example.data.** { *; }
+-keep class com.example.online.** { *; }
+-keep class com.example.downloads.** { *; }
 -keepclassmembers class com.example.model.** { *; }
 
 # Preserve Android Media3 & Credential Manager reflection classes

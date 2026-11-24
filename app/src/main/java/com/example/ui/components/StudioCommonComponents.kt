@@ -670,7 +670,7 @@ fun TrackRowCard(
                 )
             }
 
-            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(44.dp)) {
+            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(48.dp)) {
                 Icon(
                     imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Favorito",
@@ -680,7 +680,7 @@ fun TrackRowCard(
             }
 
             Box {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Opciones de pista", tint = theme.textSecondaryColor)
                 }
                 DropdownMenu(
@@ -774,13 +774,22 @@ fun GlassStudioCard(
             theme.accentColor.copy(alpha = if (highlightBorder) 0.68f else 0.24f)
         )
     )
-    val glassBg = Brush.verticalGradient(
-        listOf(
-            theme.cardColor.copy(alpha = 0.68f),
-            theme.surfaceColor.copy(alpha = 0.84f),
-            theme.backgroundColor.copy(alpha = 0.90f)
+    val glassBg = if (theme.isLightTheme) {
+        Brush.verticalGradient(
+            listOf(
+                theme.surfaceColor.copy(alpha = 0.96f),
+                theme.backgroundColor.copy(alpha = 0.92f)
+            )
         )
-    )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                theme.cardColor.copy(alpha = 0.68f),
+                theme.surfaceColor.copy(alpha = 0.84f),
+                theme.backgroundColor.copy(alpha = 0.90f)
+            )
+        )
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()

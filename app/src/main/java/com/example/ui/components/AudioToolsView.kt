@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,12 +38,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.AudioSessionTarget
 import com.example.model.CarAudioThemeType
 import com.example.model.DevicePowerTelemetry
 import com.example.model.DspCapabilityReport
+import com.example.model.DspEngineStatus
 import com.example.model.DspSettings
 import com.example.model.OutputDeviceStatus
 import com.example.model.RtaBand
+import com.example.model.SplWeighting
 
 @Composable
 fun AudioToolsView(
@@ -89,6 +94,9 @@ fun AudioToolsView(
     onExciterChanged: (Boolean, Float) -> Unit,
     onToggleMicRta: () -> Unit,
     onRefreshTelemetry: () -> Unit,
+    sessionTarget: AudioSessionTarget = AudioSessionTarget.INTERNAL_PLAYER,
+    splWeighting: SplWeighting = SplWeighting.C_WEIGHTING,
+    onSelectSplWeighting: (SplWeighting) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0=Tono y Mejoras, 1=Dinámica y Filtros, 2=RTA y Medidores dB
@@ -122,7 +130,19 @@ fun AudioToolsView(
                         Icon(Icons.Default.Tune, contentDescription = null, tint = theme.accentColor)
                         Column {
                             Text("Estudio DSP", color = theme.textColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Text(capabilityReport.engineSummary, color = theme.accentColor, fontSize = 11.sp)
+                            Text(sessionTarget.label, color = theme.accentColor, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            SmartStatusLedBadge(
+                                status = when (capabilityReport.engineStatus) {
+                                    DspEngineStatus.ACTIVE_INTERNAL -> SmartLightStatus.ACTIVE_READY
+                                    DspEngineStatus.ACTIVE_EXTERNAL -> SmartLightStatus.AVAILABLE
+                                    DspEngineStatus.LIMITED_FALLBACK -> SmartLightStatus.WARNING_LIMIT
+                                    DspEngineStatus.BYPASSED -> SmartLightStatus.DISABLED
+                                },
+                                text = capabilityReport.engineStatus.label,
+                                theme = theme,
+                                liteVisuals = liteVisuals
+                            )
                         }
                     }
                     Switch(
@@ -185,7 +205,9 @@ fun AudioToolsView(
                     outputDeviceStatus = outputDeviceStatus,
                     powerTelemetry = powerTelemetry,
                     onToggleMicRta = onToggleMicRta,
-                    onRefreshTelemetry = onRefreshTelemetry
+                    onRefreshTelemetry = onRefreshTelemetry,
+                    splWeighting = splWeighting,
+                    onSelectSplWeighting = onSelectSplWeighting
                 )
             }
         } else {

@@ -54,6 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Error
@@ -130,6 +131,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.credentials.CredentialManager
+import com.example.auth.attemptAutoSignIn
+import com.example.data.LocalPreferencesStore
 import com.example.model.AppSection
 import com.example.model.FaultActionType
 import com.example.model.FaultSeverity
@@ -140,6 +144,7 @@ import com.example.ui.components.AudioToolsView
 import com.example.ui.components.BassBoostView
 import com.example.ui.components.CarAudioSplashScreen
 import com.example.ui.components.DownloadsView
+import com.example.ui.components.DrivingModeView
 import com.example.ui.components.EpicAmbientBackdrop
 import com.example.ui.components.EqualizerView
 import com.example.ui.components.FavoritesView
@@ -156,6 +161,8 @@ import com.example.ui.components.VisualizerView
 import com.example.ui.components.YouTubeMusicView
 import com.example.ui.theme.CarAudioAppTheme
 import com.example.viewmodel.CarAudioViewModel
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -175,7 +182,8 @@ class MainActivity : ComponentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         try {
-            if (Settings.canDrawOverlays(this)) {
+            val prefs = LocalPreferencesStore(applicationContext)
+            if (prefs.floatingEqOnLeave && Settings.canDrawOverlays(this)) {
                 FloatingEqualizerService.start(this)
             }
         } catch (_: Throwable) {}
@@ -200,6 +208,7 @@ private fun sectionIcon(section: AppSection): ImageVector = when (section) {
     AppSection.PROFILE -> Icons.Default.Person
     AppSection.ABOUT -> Icons.Default.Info
     AppSection.YOUTUBE_MUSIC -> Icons.Default.MusicNote
+    AppSection.DRIVING_MODE -> Icons.Default.DirectionsCar
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -220,14 +229,51 @@ fun CarAudioAppRoot(
     val dspSettings by viewModel.dspSettings.collectAsStateWithLifecycle()
     val showSplashScreen by viewModel.showSplashScreen.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
+    val drivingKeepScreenOn by viewModel.drivingKeepScreenOn.collectAsStateWithLifecycle()
     val outputDeviceStatus by viewModel.outputDeviceStatus.collectAsStateWithLifecycle()
     val latestBannerAlert by viewModel.latestBannerAlert.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        if (FirebaseApp.getApps(context).isNotEmpty()) {
+            val cm = CredentialManager.create(context)
+            attemptAutoSignIn(
+                context = context,
+                credentialManager = cm,
+                onAuthSuccess = {
+                    val user = runCatching { FirebaseAuth.getInstance().currentUser }.getOrNull()
+                    if (user != null) {
+                        viewModel.bindAuthenticatedUser(
+                            uid = user.uid,
+                            displayName = user.displayName ?: "Oyente",
+                            email = user.email,
+                            photoUrl = user.photoUrl?.toString()
+                        )
+                    }
+                },
+                onUnauthenticated = {},
+                scope = coroutineScope
+            )
+        }
+    }
 
     val navigateToSection: (AppSection) -> Unit = { target ->
         viewModel.selectSection(target)
         val currentRoute = navController.currentBackStackEntry?.destination?.route
         if (currentRoute != target.route) {
             navController.navigate(target.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    LaunchedEffect(selectedSection) {
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        if (currentRoute != selectedSection.route) {
+            navController.navigate(selectedSection.route) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true
                 }
@@ -258,8 +304,9 @@ fun CarAudioAppRoot(
     }
 
     val activity = context as? ComponentActivity
-    LaunchedEffect(keepScreenOn) {
-        if (keepScreenOn) {
+    val shouldKeepScreenOn = keepScreenOn || (selectedSection == AppSection.DRIVING_MODE && drivingKeepScreenOn)
+    LaunchedEffect(shouldKeepScreenOn) {
+        if (shouldKeepScreenOn) {
             activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -332,6 +379,7 @@ fun CarAudioAppRoot(
                 AppSection.HOME,
                 AppSection.MY_MUSIC,
                 AppSection.PLAYER,
+                AppSection.DRIVING_MODE,
                 AppSection.FAVORITES,
                 AppSection.PLAYLISTS
             ),
@@ -619,7 +667,7 @@ fun CarAudioAppRoot(
                         }
                     },
                     bottomBar = {
-                        if (!useNavigationRail) {
+                        if (!useNavigationRail && selectedSection != AppSection.DRIVING_MODE) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 Box(
                                     modifier = Modifier
@@ -763,6 +811,8 @@ fun CarAudioAppRoot(
                                                             FaultActionType.REQUEST_NOTIFICATION_PERMISSION -> requestNotificationPermission()
                                                             FaultActionType.RELOAD_LIBRARY -> viewModel.scanDeviceMusicLibrary()
                                                             FaultActionType.OPEN_DIAGNOSTICS -> navigateToSection(AppSection.SETTINGS)
+                                                            FaultActionType.RETRY_PLAYBACK -> viewModel.retryCurrentTrack()
+                                                            FaultActionType.NEXT_TRACK -> viewModel.nextTrack()
                                                             FaultActionType.NONE -> Unit
                                                         }
                                                         viewModel.dismissBannerAlert()
@@ -771,7 +821,7 @@ fun CarAudioAppRoot(
                                                     Text(alert.actionLabel, color = currentTheme.accentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
-                                            IconButton(onClick = { viewModel.dismissBannerAlert() }, modifier = Modifier.size(36.dp)) {
+                                            IconButton(onClick = { viewModel.dismissBannerAlert() }, modifier = Modifier.size(48.dp)) {
                                                 Icon(Icons.Default.Close, contentDescription = "Cerrar alerta", tint = currentTheme.textSecondaryColor)
                                             }
                                         }
@@ -801,6 +851,9 @@ fun CarAudioAppRoot(
                                     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
                                     val bassMode by viewModel.bassMode.collectAsStateWithLifecycle()
                                     val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+                                    val bassEnergy by viewModel.bassEnergy.collectAsStateWithLifecycle()
+                                    val midEnergy by viewModel.midEnergy.collectAsStateWithLifecycle()
+                                    val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
                                     val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
                                     val hasAudioLibraryPermission by viewModel.hasAudioLibraryPermission.collectAsStateWithLifecycle()
 
@@ -838,6 +891,9 @@ fun CarAudioAppRoot(
                                         },
                                         onSelectBassMode = { viewModel.setBassMode(it) },
                                         onSelectPreset = { viewModel.selectPreset(it) },
+                                        bassEnergy = bassEnergy,
+                                        midEnergy = midEnergy,
+                                        trebleEnergy = trebleEnergy,
                                         liteVisuals = liteVisuals,
                                         libraryTracks = tracks,
                                         hasAudioLibraryPermission = hasAudioLibraryPermission,
@@ -1058,6 +1114,8 @@ fun CarAudioAppRoot(
                                     val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
                                     val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
                                     val devicePowerTelemetry by viewModel.devicePowerTelemetry.collectAsStateWithLifecycle()
+                                    val sessionTarget by viewModel.sessionTarget.collectAsStateWithLifecycle()
+                                    val splWeighting by viewModel.splWeighting.collectAsStateWithLifecycle()
 
                                     AudioToolsView(
                                         theme = currentTheme,
@@ -1103,7 +1161,10 @@ fun CarAudioAppRoot(
                                         onClarityChanged = { en, lvl -> viewModel.setClarity(en, lvl) },
                                         onExciterChanged = { en, lvl -> viewModel.setExciter(en, lvl) },
                                         onToggleMicRta = handleToggleMicRta,
-                                        onRefreshTelemetry = { viewModel.refreshDevicePowerTelemetry() }
+                                        onRefreshTelemetry = { viewModel.refreshDevicePowerTelemetry() },
+                                        sessionTarget = sessionTarget,
+                                        splWeighting = splWeighting,
+                                        onSelectSplWeighting = { viewModel.setSplWeighting(it) }
                                     )
                                 }
 
@@ -1285,6 +1346,7 @@ fun CarAudioAppRoot(
                                     val trebleEnergy by viewModel.trebleEnergy.collectAsStateWithLifecycle()
                                     val liteVisuals by viewModel.liteVisualsEnabled.collectAsStateWithLifecycle()
                                     val devicePowerTelemetry by viewModel.devicePowerTelemetry.collectAsStateWithLifecycle()
+                                    val splWeighting by viewModel.splWeighting.collectAsStateWithLifecycle()
 
                                     VisualizerView(
                                         theme = currentTheme,
@@ -1307,7 +1369,9 @@ fun CarAudioAppRoot(
                                         powerTelemetry = devicePowerTelemetry,
                                         onToggleLiteVisuals = { viewModel.setLiteVisualsEnabled(it) },
                                         onToggleMicRta = handleToggleMicRta,
-                                        onRefreshTelemetry = { viewModel.refreshDevicePowerTelemetry() }
+                                        onRefreshTelemetry = { viewModel.refreshDevicePowerTelemetry() },
+                                        splWeighting = splWeighting,
+                                        onSelectSplWeighting = { viewModel.setSplWeighting(it) }
                                     )
                                 }
 
@@ -1339,6 +1403,10 @@ fun CarAudioAppRoot(
                                     val hasNotificationPermission by viewModel.hasNotificationPermission.collectAsStateWithLifecycle()
                                     val faultAlerts by viewModel.faultAlerts.collectAsStateWithLifecycle()
                                     val storageUsedBytes by viewModel.storageUsedBytes.collectAsStateWithLifecycle()
+                                    val floatingEqOnLeave by viewModel.floatingEqOnLeave.collectAsStateWithLifecycle()
+                                    val autoProfileByOutput by viewModel.autoProfileByOutput.collectAsStateWithLifecycle()
+                                    val savedOutputProfileKinds by viewModel.savedOutputProfileKinds.collectAsStateWithLifecycle()
+                                    val drivingModeEnabled by viewModel.drivingModeEnabled.collectAsStateWithLifecycle()
 
                                     AppSettingsView(
                                         theme = currentTheme,
@@ -1364,7 +1432,18 @@ fun CarAudioAppRoot(
                                         storageUsedBytes = storageUsedBytes,
                                         onClearCache = { viewModel.clearCachedData() },
                                         onOpenProfile = { navigateToSection(AppSection.PROFILE) },
-                                        onOpenAbout = { navigateToSection(AppSection.ABOUT) }
+                                        onOpenAbout = { navigateToSection(AppSection.ABOUT) },
+                                        floatingEqOnLeave = floatingEqOnLeave,
+                                        onToggleFloatingEqOnLeave = { viewModel.setFloatingEqOnLeave(it) },
+                                        autoProfileByOutput = autoProfileByOutput,
+                                        onToggleAutoProfileByOutput = { viewModel.setAutoProfileByOutput(it) },
+                                        savedOutputProfileKinds = savedOutputProfileKinds,
+                                        onSaveProfileForCurrentOutput = { viewModel.saveProfileForCurrentOutput() },
+                                        onClearProfileForOutput = { viewModel.clearProfileForOutput(it) },
+                                        drivingModeEnabled = drivingModeEnabled,
+                                        onToggleDrivingMode = { viewModel.setDrivingModeEnabled(it) },
+                                        drivingKeepScreenOn = drivingKeepScreenOn,
+                                        onToggleDrivingKeepScreenOn = { viewModel.setDrivingKeepScreenOn(it) }
                                     )
                                 }
 
@@ -1379,6 +1458,9 @@ fun CarAudioAppRoot(
                                     val downloads by viewModel.downloads.collectAsStateWithLifecycle()
                                     val mostPlayedTracks by viewModel.mostPlayedTracks.collectAsStateWithLifecycle()
                                     val favoriteTracks by viewModel.favoriteTracks.collectAsStateWithLifecycle()
+                                    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+                                    val cloudSyncActive by viewModel.cloudSyncActive.collectAsStateWithLifecycle()
+                                    val isDeletingAccount by viewModel.isDeletingAccount.collectAsStateWithLifecycle()
 
                                     val stats = remember(
                                         localProfileName,
@@ -1402,7 +1484,46 @@ fun CarAudioAppRoot(
                                         onPlayTrack = {
                                             viewModel.playTrack(it)
                                             navigateToSection(AppSection.PLAYER)
+                                        },
+                                        userProfile = userProfile,
+                                        cloudSyncActive = cloudSyncActive,
+                                        isDeletingAccount = isDeletingAccount,
+                                        onGoogleSignInSuccess = { uid, name, email, photo ->
+                                            viewModel.bindAuthenticatedUser(uid, name, email, photo)
+                                        },
+                                        onSignOut = { viewModel.clearSessionOnSignOut() },
+                                        onDeleteAccountAndCloudData = { onSuccess, onError ->
+                                            viewModel.deleteAccountAndCloudData(onSuccess, onError)
                                         }
+                                    )
+                                }
+
+                                composable(AppSection.DRIVING_MODE.route) {
+                                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                                    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+                                    val volumeLevel by viewModel.volumeLevel.collectAsStateWithLifecycle()
+                                    val capabilityReport by viewModel.capabilityReport.collectAsStateWithLifecycle()
+                                    val eqPresets by viewModel.eqPresets.collectAsStateWithLifecycle()
+                                    val equalizerSettings by viewModel.equalizerSettings.collectAsStateWithLifecycle()
+
+                                    DrivingModeView(
+                                        theme = currentTheme,
+                                        currentTrack = currentTrack,
+                                        isPlaying = isPlaying,
+                                        volumeLevel = volumeLevel,
+                                        dspSettings = dspSettings,
+                                        capabilityReport = capabilityReport,
+                                        outputDeviceStatus = outputDeviceStatus,
+                                        quickPresets = eqPresets,
+                                        activePresetName = equalizerSettings.activePresetName,
+                                        drivingKeepScreenOn = drivingKeepScreenOn,
+                                        onPlayPause = { viewModel.togglePlayPause() },
+                                        onPrevious = { viewModel.previousTrack() },
+                                        onNext = { viewModel.nextTrack() },
+                                        onVolumeChange = { viewModel.setVolume(it) },
+                                        onSelectPreset = { viewModel.selectPreset(it) },
+                                        onToggleKeepScreenOn = { viewModel.setDrivingKeepScreenOn(it) },
+                                        onExitDrivingMode = { viewModel.setDrivingModeEnabled(false) }
                                     )
                                 }
 
@@ -1418,7 +1539,7 @@ fun CarAudioAppRoot(
                             RootMiniPlayerSlot(
                                 viewModel = viewModel,
                                 theme = currentTheme,
-                                isPlayerScreen = selectedSection == AppSection.PLAYER,
+                                isPlayerScreen = selectedSection == AppSection.PLAYER || selectedSection == AppSection.DRIVING_MODE,
                                 onOpenPlayer = { navigateToSection(AppSection.PLAYER) }
                             )
                         }

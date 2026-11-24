@@ -27,10 +27,13 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.audio.CarAudioEngine
+import com.example.data.LocalPreferencesStore
+import com.example.model.CarAudioThemeType
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -45,17 +48,24 @@ class FloatingEqualizerService : Service() {
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var windowParams: WindowManager.LayoutParams? = null
 
+    private val localPrefs by lazy { LocalPreferencesStore(applicationContext) }
+
+    private fun currentTheme(): CarAudioThemeType = localPrefs.loadTheme(vipUnlocked = true)
+    private fun accentArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.accentColor.toArgb()
+    private fun primaryArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.primaryColor.toArgb()
+    private fun surfaceArgb(theme: CarAudioThemeType = currentTheme()): Int =
+        theme.surfaceColor.copy(alpha = 0.95f).toArgb()
+    private fun chipArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.cardColor.toArgb()
+    private fun textPrimaryArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.textColor.toArgb()
+    private fun textSecondaryArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.textSecondaryColor.toArgb()
+    private fun onPrimaryArgb(theme: CarAudioThemeType = currentTheme()): Int = theme.onPrimaryColor.toArgb()
+
     companion object {
         const val CHANNEL_ID = "audio_dsp_floating_eq_channel"
         const val NOTIFICATION_ID = 2026
         const val ACTION_START = "ACTION_START_FLOATING_EQ"
         const val ACTION_STOP = "ACTION_STOP_FLOATING_EQ"
 
-        private const val COLOR_ICE_BLUE = 0xFF78B7E8.toInt()
-        private const val COLOR_SILVER = 0xFFD6DCE5.toInt()
-        private const val COLOR_WHITE = 0xFFF5F7FA.toInt()
-        private const val COLOR_GRAPHITE_SURFACE = 0xF5161920.toInt()
-        private const val COLOR_GRAPHITE_CHIP = 0xFF1E232D.toInt()
         private const val COLOR_BYPASS = 0xFF28303D.toInt()
 
         fun start(context: Context) {
@@ -155,20 +165,21 @@ class FloatingEqualizerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val theme = currentTheme()
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Ecualizador Flotante Activo • Audio DSP Pro")
-            .setContentText("Toca el acceso flotante para ajustar EQ y graves en vivo")
+            .setContentTitle("Ecualizador Flotante Activo • Car Audio DSP Pro")
+            .setContentText("${theme.displayName} • Toca para ajustar EQ y graves en vivo")
             .setSmallIcon(R.drawable.ic_notification_dsp)
-            .setColor(COLOR_ICE_BLUE)
+            .setColor(accentArgb(theme))
             .setContentIntent(openAppIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cerrar", stopIntent)
             .setOngoing(true)
             .build()
     }
 
-    private fun tintSeekBarAccent(seekBar: SeekBar) {
-        val accentList = ColorStateList.valueOf(COLOR_ICE_BLUE)
-        val trackList = ColorStateList.valueOf(COLOR_BYPASS)
+    private fun tintSeekBarAccent(seekBar: SeekBar, theme: CarAudioThemeType = currentTheme()) {
+        val accentList = ColorStateList.valueOf(accentArgb(theme))
+        val trackList = ColorStateList.valueOf(if (theme.isLightTheme) 0xFFCBD5E1.toInt() else COLOR_BYPASS)
         seekBar.thumbTintList = accentList
         seekBar.progressTintList = accentList
         seekBar.progressBackgroundTintList = trackList
@@ -177,6 +188,7 @@ class FloatingEqualizerService : Service() {
     @SuppressLint("ClickableViewAccessibility")
     private fun showFloatingBubble() {
         if (bubbleView != null) return
+        val theme = currentTheme()
 
         val bubbleSizePx = dpToPx(60)
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -203,8 +215,8 @@ class FloatingEqualizerService : Service() {
         val frame = FrameLayout(this).apply {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(COLOR_GRAPHITE_SURFACE)
-                setStroke(dpToPx(2), COLOR_ICE_BLUE)
+                setColor(surfaceArgb(theme))
+                setStroke(dpToPx(2), accentArgb(theme))
             }
             background = bg
             elevation = dpToPx(8).toFloat()
@@ -292,6 +304,16 @@ class FloatingEqualizerService : Service() {
         }
         windowParams = params
 
+        val theme = currentTheme()
+        val accentColor = accentArgb(theme)
+        val primaryColor = primaryArgb(theme)
+        val surfaceColor = surfaceArgb(theme)
+        val chipColor = chipArgb(theme)
+        val textColor = textPrimaryArgb(theme)
+        val secondaryTextColor = textSecondaryArgb(theme)
+        val onPrimary = onPrimaryArgb(theme)
+        val bypassBg = if (theme.isLightTheme) 0xFFCBD5E1.toInt() else COLOR_BYPASS
+
         val rootCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val pad = dpToPx(14)
@@ -299,8 +321,8 @@ class FloatingEqualizerService : Service() {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(18).toFloat()
-                setColor(COLOR_GRAPHITE_SURFACE)
-                setStroke(dpToPx(1), COLOR_SILVER)
+                setColor(surfaceColor)
+                setStroke(dpToPx(1), accentColor)
             }
             background = bg
             elevation = dpToPx(12).toFloat()
@@ -317,17 +339,17 @@ class FloatingEqualizerService : Service() {
         }
 
         val titleTv = TextView(this).apply {
-            text = "AUDIO DSP PRO • CONTROL RÁPIDO"
-            setTextColor(COLOR_WHITE)
+            text = "CAR AUDIO DSP PRO • CONTROL RÁPIDO"
+            setTextColor(textColor)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.04f
         }
 
         val statusTv = TextView(this).apply {
-            text = "Estudio Grafito • Procesamiento en Vivo"
-            setTextColor(COLOR_ICE_BLUE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            text = "${theme.displayName} • Procesamiento en Vivo"
+            setTextColor(accentColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
         }
 
         titleCol.addView(titleTv)
@@ -335,21 +357,23 @@ class FloatingEqualizerService : Service() {
 
         val minimizeBtn = Button(this).apply {
             text = "▼"
-            setTextColor(COLOR_SILVER)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            contentDescription = "Minimizar control flotante"
+            setTextColor(secondaryTextColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setBackgroundColor(Color.TRANSPARENT)
-            val btnSize = dpToPx(36)
+            val btnSize = dpToPx(48)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
             setOnClickListener { collapseToBubble() }
         }
 
         val closeBtn = Button(this).apply {
             text = "✕"
-            setTextColor(COLOR_ICE_BLUE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            contentDescription = "Cerrar ecualizador flotante"
+            setTextColor(accentColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
             setBackgroundColor(Color.TRANSPARENT)
-            val btnSize = dpToPx(36)
+            val btnSize = dpToPx(48)
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
             setOnClickListener { stopSelf() }
         }
@@ -369,22 +393,22 @@ class FloatingEqualizerService : Service() {
             val isEnabled = audioEngine.currentDspSettings.dspMasterEnabled
             text = if (isEnabled) "DSP ACTIVO (ON)" else "DSP BYPASS (OFF)"
             background = GradientDrawable().apply {
-                cornerRadius = dpToPx(8).toFloat()
-                setColor(if (isEnabled) COLOR_SILVER else COLOR_BYPASS)
+                cornerRadius = dpToPx(10).toFloat()
+                setColor(if (isEnabled) primaryColor else bypassBg)
             }
-            setTextColor(if (isEnabled) 0xFF0E1014.toInt() else COLOR_WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextColor(if (isEnabled) onPrimary else textColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(48), 1f)
             setOnClickListener {
                 val newState = !audioEngine.currentDspSettings.dspMasterEnabled
                 audioEngine.toggleMasterPower(newState)
                 text = if (newState) "DSP ACTIVO (ON)" else "DSP BYPASS (OFF)"
                 background = GradientDrawable().apply {
-                    cornerRadius = dpToPx(8).toFloat()
-                    setColor(if (newState) COLOR_SILVER else COLOR_BYPASS)
+                    cornerRadius = dpToPx(10).toFloat()
+                    setColor(if (newState) primaryColor else bypassBg)
                 }
-                setTextColor(if (newState) 0xFF0E1014.toInt() else COLOR_WHITE)
+                setTextColor(if (newState) onPrimary else textColor)
             }
         }
         powerRow.addView(powerBtn)
@@ -402,14 +426,14 @@ class FloatingEqualizerService : Service() {
         val bassLabel = TextView(this).apply {
             val bbVal = audioEngine.currentDspSettings.bassBoostDb
             text = "BASS BOOST: ${bbVal.roundToInt()} dB"
-            setTextColor(COLOR_SILVER)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextColor(secondaryTextColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
         }
         val bassSeek = SeekBar(this).apply {
             max = 24
             progress = audioEngine.currentDspSettings.bassBoostDb.roundToInt().coerceIn(0, 24)
-            tintSeekBarAccent(this)
+            tintSeekBarAccent(this, theme)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) {
@@ -431,14 +455,14 @@ class FloatingEqualizerService : Service() {
         val loudLabel = TextView(this).apply {
             val preamp = audioEngine.currentDspSettings.preampDb
             text = "PREAMP: ${preamp.roundToInt()} dB"
-            setTextColor(COLOR_ICE_BLUE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextColor(accentColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
         }
         val loudSeek = SeekBar(this).apply {
             max = 30
             progress = (audioEngine.currentDspSettings.preampDb + 12f).roundToInt().coerceIn(0, 30)
-            tintSeekBarAccent(this)
+            tintSeekBarAccent(this, theme)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) {
@@ -460,8 +484,8 @@ class FloatingEqualizerService : Service() {
 
         val eqTitle = TextView(this).apply {
             text = "ECUALIZADOR 5 BANDAS EN VIVO"
-            setTextColor(COLOR_SILVER)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextColor(secondaryTextColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, dpToPx(6), 0, dpToPx(4))
         }
@@ -486,21 +510,21 @@ class FloatingEqualizerService : Service() {
 
             val bName = TextView(this).apply {
                 text = bandLabels[i]
-                setTextColor(COLOR_WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
+                setTextColor(textColor)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
                 typeface = Typeface.DEFAULT_BOLD
             }
 
             val bGainTv = TextView(this).apply {
                 text = if (initialDb > 0) "+${initialDb}dB" else "${initialDb}dB"
-                setTextColor(COLOR_ICE_BLUE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f)
+                setTextColor(accentColor)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
             }
 
             val bSeek = SeekBar(this).apply {
                 max = 30
                 progress = initialDb + 15
-                tintSeekBarAccent(this)
+                tintSeekBarAccent(this, theme)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                         if (fromUser) {
@@ -535,21 +559,21 @@ class FloatingEqualizerService : Service() {
         presets.forEach { presetName ->
             val pBtn = Button(this).apply {
                 text = presetName
-                setTextColor(COLOR_WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                setTextColor(textColor)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 background = GradientDrawable().apply {
-                    cornerRadius = dpToPx(6).toFloat()
-                    setColor(COLOR_GRAPHITE_CHIP)
-                    setStroke(dpToPx(1), COLOR_ICE_BLUE)
+                    cornerRadius = dpToPx(8).toFloat()
+                    setColor(chipColor)
+                    setStroke(dpToPx(1), accentColor)
                 }
-                val padH = dpToPx(8)
-                val padV = dpToPx(2)
+                val padH = dpToPx(10)
+                val padV = dpToPx(4)
                 setPadding(padH, padV, padH, padV)
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
-                    dpToPx(32)
+                    dpToPx(48)
                 ).apply {
-                    setMargins(dpToPx(2), 0, dpToPx(2), 0)
+                    setMargins(dpToPx(3), 0, dpToPx(3), 0)
                 }
 
                 setOnClickListener {

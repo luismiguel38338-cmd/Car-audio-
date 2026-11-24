@@ -72,6 +72,7 @@ jobs:
             --tests "com.example.CarAudioEngineTest" \
             --tests "com.example.CarAudioProModulesTest" \
             --tests "com.example.CarAudioProUiRenderTest" \
+            --tests "com.example.CarAudioUpgradePhaseTest" \
             --tests "com.example.ExampleRobolectricTest" \
             --tests "com.example.ExampleUnitTest" \
             --tests "com.example.GreetingScreenshotTest" \
@@ -101,7 +102,7 @@ jobs:
         run: |
           VER="${{ steps.version.outputs.name }}"
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk "release-output/CarAudio-DSP-Pro-v${VER}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "release-output/CarAudio-DSP-Pro-v${VER}-debug.apk"
           if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
             cp app/build/outputs/bundle/release/app-release.aab "release-output/CarAudio-DSP-Pro-v${VER}-googleplay.aab"
             cp app/build/outputs/apk/release/app-release.apk "release-output/CarAudio-DSP-Pro-v${VER}-release-signed.apk"
@@ -154,7 +155,7 @@ jobs:
             echo ""
             echo "| Plataforma | Paquete | Estado |"
             echo "| :--- | :--- | :--- |"
-            echo "| **GitHub Releases / Android Directo / Obtainium** | \`CarAudio-DSP-Pro-v${VER}.apk\` | Generado |"
+            echo "| **GitHub Releases / Android Debug / Pruebas** | \`CarAudio-DSP-Pro-v${VER}-debug.apk\` | Generado |"
             if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
               echo "| **Google Play Console** | \`CarAudio-DSP-Pro-v${VER}-googleplay.aab\` | Firmado y listo |"
               echo "| **Samsung Galaxy / Amazon / AppGallery / Directo Release** | \`CarAudio-DSP-Pro-v${VER}-release-signed.apk\` | Firmado y listo |"

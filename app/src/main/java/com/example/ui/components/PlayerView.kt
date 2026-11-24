@@ -495,6 +495,18 @@ fun PlayerView(
                         )
                     }
 
+                    StudioSignalIndicatorBar(
+                        isAudioPlaying = isAnyAudioPlaying,
+                        bassEnergy = bassEnergy,
+                        midEnergy = midEnergy,
+                        trebleEnergy = trebleEnergy,
+                        theme = theme,
+                        liteVisuals = liteVisuals,
+                        title = "SEÑAL EN VIVO",
+                        showMiniBars = !liteVisuals,
+                        modifier = Modifier.testTag("player_signal_indicator_bar")
+                    )
+
                     // Barra de progreso
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Slider(
@@ -787,7 +799,7 @@ fun PlayerView(
                         Box {
                             IconButton(
                                 onClick = { queueMenuExpanded = true },
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,

@@ -17,7 +17,8 @@ enum class CarAudioThemeType(
     val meterPeakColor: Color,
     val clipAlertColor: Color = Color(0xFFF5A623),
     val errorColor: Color = Color(0xFFE06C75),
-    val isVipOnly: Boolean = false
+    val isVipOnly: Boolean = false,
+    val isLightTheme: Boolean = false
 ) {
     NEON_DSP_PRO(
         id = "neon_dsp_pro",
@@ -123,12 +124,30 @@ enum class CarAudioThemeType(
         textSecondaryColor = Color(0xFF7E8B9E),
         meterPeakColor = Color(0xFF7DD3FC),
         isVipOnly = false
+    ),
+    DAYLIGHT_STUDIO(
+        id = "daylight_studio",
+        displayName = "Luz de Día (Modo Claro)",
+        subtitle = "Alta legibilidad solar para conducción diurna con acento violeta",
+        primaryColor = Color(0xFF6D28D9),
+        accentColor = Color(0xFF7C3AED),
+        backgroundColor = Color(0xFFF1F5F9),
+        surfaceColor = Color(0xFFFFFFFF),
+        cardColor = Color(0xFFE2E8F0),
+        onPrimaryColor = Color(0xFFFFFFFF),
+        textColor = Color(0xFF0F172A),
+        textSecondaryColor = Color(0xFF475569),
+        meterPeakColor = Color(0xFF6D28D9),
+        clipAlertColor = Color(0xFFD97706),
+        errorColor = Color(0xFFDC2626),
+        isVipOnly = false,
+        isLightTheme = true
     );
 
     val textPrimaryColor: Color get() = textColor
-    val silverDetailColor: Color get() = Color(0xFFE2E8F0)
+    val silverDetailColor: Color get() = if (isLightTheme) Color(0xFF334155) else Color(0xFFE2E8F0)
     val ledGlowColor: Color get() = accentColor
-    val glassBackgroundColor: Color get() = surfaceColor.copy(alpha = 0.80f)
+    val glassBackgroundColor: Color get() = if (isLightTheme) surfaceColor.copy(alpha = 0.94f) else surfaceColor.copy(alpha = 0.80f)
 
     companion object {
         fun fromId(id: String?): CarAudioThemeType {

@@ -25,6 +25,7 @@ import java.util.UUID
 import com.example.model.AudioSessionTarget
 import com.example.model.AudioTrackItem
 import com.example.model.DspCapabilityReport
+import com.example.model.DspEngineStatus
 import com.example.model.DspSettings
 import com.example.model.EqualizerSettings
 import com.example.model.FaultSeverity
@@ -159,6 +160,7 @@ class CarAudioEngine(private val context: Context) {
         private set
     var onSettingsChangedListener: ((DspSettings, EqualizerSettings) -> Unit)? = null
     var onAudioFaultListener: ((title: String, detail: String, severity: FaultSeverity) -> Unit)? = null
+    var onPlaybackErrorListener: ((title: String, detail: String) -> Unit)? = null
     @Volatile var fxEngineStatus: String = "Esperando sesión de audio Media3..."
         private set
     @Volatile var capabilityReport: DspCapabilityReport = DspCapabilityReport()
@@ -443,6 +445,10 @@ class CarAudioEngine(private val context: Context) {
             outputDeviceStatus = updated
             onOutputDeviceChangedListener?.invoke(updated)
         } catch (_: Throwable) {}
+    }
+
+    fun setSplWeightingMode(weighting: SplWeighting) {
+        splWeighting = weighting
     }
 
     fun setVisualizerActive(active: Boolean) {
@@ -767,24 +773,27 @@ class CarAudioEngine(private val context: Context) {
             val virtSupported = runCatching { virtualizerFx?.strengthSupported == true }.getOrDefault(false)
 
             val summary = when {
+                !dsp.dspMasterEnabled -> "DSP en Bypass (Audio original sin procesar)"
                 useDynamicsProcessingPostEq -> "DynamicsProcessing 31B + Dinámica (Sin doble proceso)"
                 equalizerFx != null -> "Ecualizador Nativo (${eqBandCount}B) + BassBoost Hardware"
                 bassBoostFx != null -> "Solo BassBoost Hardware (EQ limitado)"
                 else -> "Modo Compatibilidad (AudioFX restringido por sesión)"
             }
+            val engineStatus = computeEngineStatus(dsp)
             fxEngineStatus = summary
 
             capabilityReport = DspCapabilityReport(
                 audioSessionId = sessionId,
                 dynamicsProcessingSupported = useDynamicsProcessingPostEq,
-                dynamicsProcessingActive = useDynamicsProcessingPostEq,
+                dynamicsProcessingActive = useDynamicsProcessingPostEq && dsp.dspMasterEnabled,
                 equalizerBandCount = eqBandCount,
                 usingFallbackEqualizer = !useDynamicsProcessingPostEq && equalizerFx != null,
                 bassBoostSupported = bassSupported,
-                bassBoostActive = !useDynamicsProcessingPostEq && bassBoostFx != null,
+                bassBoostActive = !useDynamicsProcessingPostEq && bassBoostFx != null && dsp.dspMasterEnabled,
                 virtualizerSupported = virtSupported,
-                virtualizerActive = virtualizerFx != null,
+                virtualizerActive = virtualizerFx != null && dsp.dspMasterEnabled,
                 antiDoubleProcessingSafe = true,
+                engineStatus = engineStatus,
                 engineSummary = summary
             )
 
@@ -887,20 +896,36 @@ class CarAudioEngine(private val context: Context) {
             lastHardwareCommitMs = now
             pendingCommitJob?.cancel()
             pendingCommitJob = scope.launch {
-                synchronized(fxLock) {
-                    commitHardwareParameters(currentDspSettings, currentEqualizerSettings)
+                    synchronized(fxLock) {
+                        commitHardwareParameters(currentDspSettings, currentEqualizerSettings)
+                    }
+                }
+            } else if (pendingCommitJob == null || pendingCommitJob?.isActive != true) {
+                pendingCommitJob = scope.launch {
+                    delay(MIN_HARDWARE_COMMIT_INTERVAL_MS)
+                    lastHardwareCommitMs = android.os.SystemClock.uptimeMillis()
+                    synchronized(fxLock) {
+                        commitHardwareParameters(currentDspSettings, currentEqualizerSettings)
+                    }
                 }
             }
-        } else if (pendingCommitJob == null || pendingCommitJob?.isActive != true) {
-            pendingCommitJob = scope.launch {
-                delay(MIN_HARDWARE_COMMIT_INTERVAL_MS)
-                lastHardwareCommitMs = android.os.SystemClock.uptimeMillis()
-                synchronized(fxLock) {
-                    commitHardwareParameters(currentDspSettings, currentEqualizerSettings)
-                }
+            capabilityReport = capabilityReport.copy(
+                dynamicsProcessingActive = useDynamicsProcessingPostEq && dsp.dspMasterEnabled,
+                bassBoostActive = !useDynamicsProcessingPostEq && bassBoostFx != null && dsp.dspMasterEnabled,
+                virtualizerActive = virtualizerFx != null && dsp.dspMasterEnabled,
+                engineStatus = computeEngineStatus(dsp)
+            )
+        }
+
+        private fun computeEngineStatus(dsp: DspSettings): DspEngineStatus {
+            if (!dsp.dspMasterEnabled) return DspEngineStatus.BYPASSED
+            val hasFullFx = useDynamicsProcessingPostEq || equalizerFx != null
+            return when {
+                sessionTarget == AudioSessionTarget.INTERNAL_PLAYER && hasFullFx -> DspEngineStatus.ACTIVE_INTERNAL
+                sessionTarget == AudioSessionTarget.EXTERNAL_APP && hasFullFx -> DspEngineStatus.ACTIVE_EXTERNAL
+                else -> DspEngineStatus.LIMITED_FALLBACK
             }
         }
-    }
 
     private fun commitHardwareParameters(dsp: DspSettings, eq: EqualizerSettings) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && useDynamicsProcessingPostEq) {
@@ -1119,7 +1144,12 @@ class CarAudioEngine(private val context: Context) {
         val calculatedDb = if (rms > 0.001f) 20 * log10(rms) else -60f
         rmsLevelDb = calculatedDb.coerceIn(-60f, 0f)
 
-        val spl = (88f + (rmsLevelDb + 45f) * 1.1f + splCalibrationOffsetDb).coerceIn(40f, 138f)
+        val weightingOffset = when (splWeighting) {
+            SplWeighting.A_WEIGHTING -> -4.5f
+            SplWeighting.C_WEIGHTING -> 0.0f
+            SplWeighting.Z_WEIGHTING -> 1.0f
+        }
+        val spl = (88f + (rmsLevelDb + 45f) * 1.1f + splCalibrationOffsetDb + weightingOffset).coerceIn(40f, 138f)
         currentSplDb = spl
         peakSplDb = if (currentSplDb > peakSplDb) currentSplDb else (peakSplDb * 0.97f).coerceAtLeast(currentSplDb)
 
@@ -1186,37 +1216,106 @@ class CarAudioEngine(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    fun startMicRta(hasRecordPermission: Boolean) {
-        if (!hasRecordPermission || isMicRtaActive) return
+    fun startMicRta(hasRecordPermission: Boolean): Boolean {
+        if (!hasRecordPermission || isMicRtaActive) return isMicRtaActive
 
-        try {
-            val minBuf = AudioRecord.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
+        val minBuf = AudioRecord.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        if (minBuf <= 0) {
+            onAudioFaultListener?.invoke(
+                "Micrófono RTA No Disponible",
+                "El hardware no reportó un tamaño de búfer válido para grabación a $sampleRate Hz.",
+                FaultSeverity.WARNING
             )
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                sampleRate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                minBuf * 2
+            return false
+        }
+
+        val supportsUnprocessed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            runCatching {
+                audioManager.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true"
+            }.getOrDefault(false)
+
+        val candidateSources = buildList {
+            if (supportsUnprocessed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                add(MediaRecorder.AudioSource.UNPROCESSED)
+            }
+            add(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            add(MediaRecorder.AudioSource.MIC)
+        }
+
+        var initializedRecord: AudioRecord? = null
+        for (source in candidateSources) {
+            var candidate: AudioRecord? = null
+            try {
+                candidate = AudioRecord(
+                    source,
+                    sampleRate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    (minBuf * 2).coerceAtLeast(4096)
+                )
+                if (candidate.state == AudioRecord.STATE_INITIALIZED) {
+                    initializedRecord = candidate
+                    break
+                } else {
+                    candidate.release()
+                }
+            } catch (_: Throwable) {
+                try {
+                    candidate?.release()
+                } catch (_: Throwable) {}
+            }
+        }
+
+        if (initializedRecord == null) {
+            isMicRtaActive = false
+            onAudioFaultListener?.invoke(
+                "Micrófono Ocupado o No Compatible",
+                "No se pudo inicializar el micrófono para el analizador RTA en este dispositivo.",
+                FaultSeverity.WARNING
             )
-            audioRecord?.startRecording()
+            return false
+        }
+
+        return try {
+            audioRecord = initializedRecord
+            initializedRecord.startRecording()
             isMicRtaActive = true
 
             micRecordJob = scope.launch {
                 val buffer = ShortArray(1024)
                 while (isActive && isMicRtaActive) {
-                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    val read = try {
+                        audioRecord?.read(buffer, 0, buffer.size) ?: -1
+                    } catch (_: Throwable) {
+                        -1
+                    }
                     if (read > 0 && isVisualizerUiActive) {
                         processMicPcm(buffer, read)
+                    } else if (read < 0) {
+                        stopMicRta()
+                        onAudioFaultListener?.invoke(
+                            "Captura de Micrófono Interrumpida",
+                            "Otra aplicación tomó el control del micrófono o se desconectó la entrada.",
+                            FaultSeverity.WARNING
+                        )
+                        break
                     }
                     delay(45)
                 }
             }
-        } catch (_: Exception) {
-            isMicRtaActive = false
+            true
+        } catch (t: Throwable) {
+            stopMicRta()
+            onAudioFaultListener?.invoke(
+                "Error al Iniciar Micrófono RTA",
+                t.localizedMessage ?: "No se pudo iniciar la captura del micrófono.",
+                FaultSeverity.WARNING
+            )
+            false
         }
     }
 
@@ -1251,7 +1350,12 @@ class CarAudioEngine(private val context: Context) {
         isClippingDetected = (clippedSamples > 0)
         if (isClippingDetected) clipEventsCount += clippedSamples
 
-        val calculatedSpl = (94.0f + db.toFloat() + 35.0f + splCalibrationOffsetDb).coerceIn(35f, 145f)
+        val weightingOffset = when (splWeighting) {
+            SplWeighting.A_WEIGHTING -> -4.5f
+            SplWeighting.C_WEIGHTING -> 0.0f
+            SplWeighting.Z_WEIGHTING -> 1.0f
+        }
+        val calculatedSpl = (94.0f + db.toFloat() + 35.0f + splCalibrationOffsetDb + weightingOffset).coerceIn(35f, 145f)
         currentSplDb = calculatedSpl
         peakSplDb = if (currentSplDb > peakSplDb) currentSplDb else (peakSplDb * 0.96f).coerceAtLeast(currentSplDb)
 
@@ -1289,6 +1393,13 @@ class CarAudioEngine(private val context: Context) {
             rtaPeaksDb[i] = if (bandDb > rtaPeaksDb[i]) bandDb else (rtaPeaksDb[i] - 1.2f).coerceAtLeast(-60f)
         }
         rtaDirty = true
+    }
+
+    fun releaseSessionEffectsIfIdle() {
+        stopMicRta()
+        if (!isPlaying && externalAudioSessionId <= 0) {
+            releaseAudioFx()
+        }
     }
 
     fun release() {

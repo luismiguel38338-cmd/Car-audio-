@@ -58,9 +58,11 @@ import com.example.model.MusicPlaylist
 import com.example.model.OnlineSearchState
 import com.example.model.OnlineTrackItem
 import com.example.model.OutputDeviceStatus
+import com.example.model.OutputKind
 import com.example.model.ParametricFilterType
 import com.example.model.RepeatMode
 import com.example.model.RtaBand
+import com.example.model.SplWeighting
 import com.example.model.SystemFaultAlert
 import com.example.model.TrackCategory
 import com.example.model.YouTubeMusicItem
@@ -135,13 +137,33 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private val _keepScreenOn = MutableStateFlow(localStore.keepScreenOn)
     val keepScreenOn: StateFlow<Boolean> = _keepScreenOn.asStateFlow()
 
+    private val _floatingEqOnLeave = MutableStateFlow(localStore.floatingEqOnLeave)
+    val floatingEqOnLeave: StateFlow<Boolean> = _floatingEqOnLeave.asStateFlow()
+
+    private val _drivingModeEnabled = MutableStateFlow(localStore.drivingModeEnabled)
+    val drivingModeEnabled: StateFlow<Boolean> = _drivingModeEnabled.asStateFlow()
+
+    private val _drivingKeepScreenOn = MutableStateFlow(localStore.drivingKeepScreenOn)
+    val drivingKeepScreenOn: StateFlow<Boolean> = _drivingKeepScreenOn.asStateFlow()
+
+    private val _autoProfileByOutput = MutableStateFlow(localStore.autoProfileByOutput)
+    val autoProfileByOutput: StateFlow<Boolean> = _autoProfileByOutput.asStateFlow()
+
+    private val _savedOutputProfileKinds = MutableStateFlow(localStore.loadSavedOutputProfileKinds())
+    val savedOutputProfileKinds: StateFlow<Set<OutputKind>> = _savedOutputProfileKinds.asStateFlow()
+
+    private val _splWeighting = MutableStateFlow(localStore.loadSplWeighting())
+    val splWeighting: StateFlow<SplWeighting> = _splWeighting.asStateFlow()
+
     private val _liteVisualsEnabled = MutableStateFlow(localStore.getLiteVisualsEnabled(systemLowRam))
     val liteVisualsEnabled: StateFlow<Boolean> = _liteVisualsEnabled.asStateFlow()
 
     private val _currentTheme = MutableStateFlow(localStore.loadTheme(true))
     val currentTheme: StateFlow<CarAudioThemeType> = _currentTheme.asStateFlow()
 
-    private val _selectedSection = MutableStateFlow(AppSection.HOME)
+    private val _selectedSection = MutableStateFlow(
+        if (localStore.drivingModeEnabled) AppSection.DRIVING_MODE else AppSection.HOME
+    )
     val selectedSection: StateFlow<AppSection> = _selectedSection.asStateFlow()
 
     private val _dspSettings = MutableStateFlow(localStore.loadDspSettings(true))
@@ -477,8 +499,36 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             _capabilityReport.value = audioEngine.capabilityReport
         }
 
+        audioEngine.setSplWeightingMode(_splWeighting.value)
+
         audioEngine.onOutputDeviceChangedListener = { device ->
+            val prevKind = _outputDeviceStatus.value.kind
             _outputDeviceStatus.value = device
+            if (_autoProfileByOutput.value && prevKind != device.kind) {
+                localStore.loadOutputKindProfile(device.kind)?.let { (savedDsp, savedEq) ->
+                    val (safeDsp, _) = enforceAntiClippingLimits(savedDsp, savedEq, _bassMode.value)
+                    _dspSettings.value = safeDsp
+                    _equalizerSettings.value = savedEq
+                    audioEngine.applyDspSettings(safeDsp, savedEq)
+                    localStore.saveDspSettings(safeDsp)
+                    localStore.saveEqualizerSettings(savedEq)
+                    _capabilityReport.value = audioEngine.capabilityReport
+                }
+            }
+        }
+
+        audioEngine.onPlaybackErrorListener = { title, detail ->
+            _isPlaying.value = false
+            _isAnyAudioPlaying.value = false
+            val canAdvance = (_queueTracks.value.size > 1 || _tracks.value.size > 1)
+            reportSystemFault(
+                title = title,
+                message = detail,
+                severity = FaultSeverity.ERROR,
+                actionLabel = if (canAdvance) "Siguiente pista" else "Reintentar",
+                actionType = if (canAdvance) FaultActionType.NEXT_TRACK else FaultActionType.RETRY_PLAYBACK,
+                sendSystemNotification = false
+            )
         }
 
         audioEngine.onAudioFaultListener = { title, detail, severity ->
@@ -487,7 +537,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 message = detail,
                 severity = severity,
                 actionLabel = if (severity == FaultSeverity.ERROR) "Reintentar" else null,
-                actionType = if (severity == FaultSeverity.ERROR) FaultActionType.RELOAD_LIBRARY else FaultActionType.NONE,
+                actionType = if (severity == FaultSeverity.ERROR) FaultActionType.RETRY_PLAYBACK else FaultActionType.NONE,
                 sendSystemNotification = severity != FaultSeverity.INFO
             )
         }
@@ -712,14 +762,8 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     private fun applyCloudProfile(profile: CloudUserProfile) {
         _userProfile.value = profile
 
-        val cloudVip = profile.isVip
-        if (_isVipUnlocked.value != cloudVip) {
-            _isVipUnlocked.value = cloudVip
-            localStore.isVipUnlocked = cloudVip
-            if (!cloudVip) {
-                enforceFreeTierConstraints()
-            }
-        }
+        _isVipUnlocked.value = true
+        localStore.isVipUnlocked = true
 
         if (profile.vipPromoDismissed && !_vipPromoDismissed.value) {
             _vipPromoDismissed.value = true
@@ -731,11 +775,9 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
 
         val cloudTheme = CarAudioThemeType.fromId(profile.themeId)
-        if (!cloudTheme.isVipOnly || cloudVip) {
-            if (_currentTheme.value != cloudTheme) {
-                _currentTheme.value = cloudTheme
-                localStore.saveThemeId(cloudTheme.id)
-            }
+        if (_currentTheme.value != cloudTheme) {
+            _currentTheme.value = cloudTheme
+            localStore.saveThemeId(cloudTheme.id)
         }
 
         if (profile.favoriteTrackKeys.isNotEmpty()) {
@@ -769,33 +811,13 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun enforceFreeTierConstraints() {
-        if (_currentTheme.value.isVipOnly) {
-            _currentTheme.value = CarAudioThemeType.GRAPHITE_STUDIO
-            localStore.saveThemeId(CarAudioThemeType.GRAPHITE_STUDIO.id)
-        }
-        val curr = _dspSettings.value
-        if (curr.hiResQualityEnabled || curr.tubeWarmthLevel > 0f || curr.presenceEnabled || curr.clarityEnabled || curr.exciterEnabled) {
-            updateAndCommitDsp(
-                curr.copy(
-                    hiResQualityEnabled = false,
-                    tubeWarmthLevel = 0f,
-                    presenceEnabled = false,
-                    clarityEnabled = false,
-                    exciterEnabled = false
-                )
-            )
-        }
-    }
-
     fun clearSessionOnSignOut() {
         cancelCloudCollectors()
         activeUserId = null
         _userProfile.value = null
         _cloudSyncActive.value = false
-        _isVipUnlocked.value = false
-        localStore.isVipUnlocked = false
-        enforceFreeTierConstraints()
+        _isVipUnlocked.value = true
+        localStore.isVipUnlocked = true
     }
 
     fun deleteAccountAndCloudData(
@@ -870,7 +892,10 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     // UI Visibility & Telemetry Loop
     // =====================================================================
     private fun needsLiveVisualizer(section: AppSection = _selectedSection.value): Boolean {
-        return section == AppSection.EQUALIZER ||
+        return section == AppSection.HOME ||
+            section == AppSection.PLAYER ||
+            section == AppSection.DRIVING_MODE ||
+            section == AppSection.EQUALIZER ||
             section == AppSection.BASS_BOOST ||
             section == AppSection.SUBWOOFER ||
             section == AppSection.VISUALIZER ||
@@ -1783,6 +1808,11 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         nextTrack()
     }
 
+    fun retryCurrentTrack() {
+        val current = _currentTrack.value ?: _queueTracks.value.firstOrNull() ?: _tracks.value.firstOrNull() ?: return
+        playTrack(current, _playbackSeconds.value)
+    }
+
     fun nextTrack() {
         val mc = mediaController
         if (mc != null && mc.mediaItemCount > 1 && mc.hasNextMediaItem()) {
@@ -1888,7 +1918,10 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                 if (_capabilityReport.value != cap) _capabilityReport.value = cap
 
                 val sec = _selectedSection.value
-                val visualMeterScreen = sec == AppSection.AUDIO_TOOLS ||
+                val visualMeterScreen = sec == AppSection.HOME ||
+                    sec == AppSection.PLAYER ||
+                    sec == AppSection.DRIVING_MODE ||
+                    sec == AppSection.AUDIO_TOOLS ||
                     sec == AppSection.VISUALIZER ||
                     sec == AppSection.SUBWOOFER ||
                     sec == AppSection.BASS_BOOST ||
@@ -2097,6 +2130,48 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         localStore.keepScreenOn = enabled
     }
 
+    fun setFloatingEqOnLeave(enabled: Boolean) {
+        _floatingEqOnLeave.value = enabled
+        localStore.floatingEqOnLeave = enabled
+    }
+
+    fun setDrivingModeEnabled(enabled: Boolean) {
+        _drivingModeEnabled.value = enabled
+        localStore.drivingModeEnabled = enabled
+        if (enabled) {
+            selectSection(AppSection.DRIVING_MODE)
+        } else if (_selectedSection.value == AppSection.DRIVING_MODE) {
+            selectSection(AppSection.HOME)
+        }
+    }
+
+    fun setDrivingKeepScreenOn(enabled: Boolean) {
+        _drivingKeepScreenOn.value = enabled
+        localStore.drivingKeepScreenOn = enabled
+    }
+
+    fun setAutoProfileByOutput(enabled: Boolean) {
+        _autoProfileByOutput.value = enabled
+        localStore.autoProfileByOutput = enabled
+    }
+
+    fun saveProfileForCurrentOutput(kind: OutputKind = _outputDeviceStatus.value.kind) {
+        val (safeDsp, _) = enforceAntiClippingLimits(_dspSettings.value, _equalizerSettings.value, _bassMode.value)
+        localStore.saveOutputKindProfile(kind, safeDsp, _equalizerSettings.value)
+        _savedOutputProfileKinds.value = localStore.loadSavedOutputProfileKinds()
+    }
+
+    fun clearProfileForOutput(kind: OutputKind) {
+        localStore.clearOutputKindProfile(kind)
+        _savedOutputProfileKinds.value = localStore.loadSavedOutputProfileKinds()
+    }
+
+    fun setSplWeighting(weighting: SplWeighting) {
+        _splWeighting.value = weighting
+        localStore.saveSplWeighting(weighting)
+        audioEngine.setSplWeightingMode(weighting)
+    }
+
     fun setLiteVisualsEnabled(enabled: Boolean) {
         _liteVisualsEnabled.value = enabled
         localStore.setLiteVisualsEnabled(enabled)
@@ -2128,15 +2203,32 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun updateAndCommitDsp(updated: DspSettings, immediatePersist: Boolean = false) {
-        _dspSettings.value = updated
-        audioEngine.applyDspSettings(updated, _equalizerSettings.value)
+    private fun updateAndCommitDsp(
+        updated: DspSettings,
+        immediatePersist: Boolean = false,
+        notifyLimiterGuard: Boolean = false
+    ) {
+        val (safeDsp, guardMsg) = enforceAntiClippingLimits(updated, _equalizerSettings.value, _bassMode.value)
+        _dspSettings.value = safeDsp
+        audioEngine.applyDspSettings(safeDsp, _equalizerSettings.value)
+        _capabilityReport.value = audioEngine.capabilityReport
         schedulePersistDspAndEq(immediate = immediatePersist)
+        if (notifyLimiterGuard && guardMsg != null) {
+            reportSystemFault(
+                title = "Protección Anti-Clipping Activa",
+                message = guardMsg,
+                severity = FaultSeverity.INFO,
+                sendSystemNotification = false
+            )
+        }
     }
 
     private fun updateAndCommitEq(updated: EqualizerSettings, immediatePersist: Boolean = false) {
         _equalizerSettings.value = updated
-        audioEngine.applyDspSettings(_dspSettings.value, updated)
+        val (safeDsp, _) = enforceAntiClippingLimits(_dspSettings.value, updated, _bassMode.value)
+        _dspSettings.value = safeDsp
+        audioEngine.applyDspSettings(safeDsp, updated)
+        _capabilityReport.value = audioEngine.capabilityReport
         schedulePersistDspAndEq(immediate = immediatePersist)
     }
 
@@ -2252,7 +2344,11 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleLimiter(enabled: Boolean) {
-        updateAndCommitDsp(_dspSettings.value.copy(limiterEnabled = enabled), immediatePersist = true)
+        updateAndCommitDsp(
+            _dspSettings.value.copy(limiterEnabled = enabled),
+            immediatePersist = true,
+            notifyLimiterGuard = !enabled
+        )
     }
 
     fun setLimiterCeiling(ceilingDb: Float) {
@@ -2504,13 +2600,13 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         val cleanName = name.trim()
         if (cleanName.isEmpty()) return
         val profileId = "csp_${System.currentTimeMillis()}"
-        val dsp = _dspSettings.value
         val eq = _equalizerSettings.value
+        val (safeDsp, _) = enforceAntiClippingLimits(_dspSettings.value, eq, _bassMode.value)
         val profile = CustomSoundProfile(
             id = profileId,
             name = cleanName,
             description = description.trim().ifBlank { "Configuración guardada" },
-            dspSettings = dsp,
+            dspSettings = safeDsp,
             eqBands10 = eq.bands10,
             eqBands15 = eq.bands15,
             eqBands31 = eq.bands31
@@ -2531,17 +2627,17 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
                         description = profile.description,
                         eq10Bands = eq.bands10.map { it.toDouble() },
                         eq31Bands = eq.bands31.map { it.toDouble() },
-                        preampDb = dsp.preampDb.toDouble(),
-                        bassBoostDb = dsp.bassBoostDb.toDouble(),
-                        midGainDb = dsp.midGainDb.toDouble(),
-                        trebleGainDb = dsp.trebleGainDb.toDouble(),
-                        stereoBalance = dsp.balancePan.toDouble(),
-                        virtualizerPercent = (dsp.stereoWidthPercent - 100f).coerceIn(0f, 100f).toDouble(),
-                        compressorEnabled = dsp.compressorEnabled,
-                        limiterEnabled = dsp.limiterEnabled,
-                        hpfHz = dsp.hpfFrequencyHz.toDouble(),
-                        lpfHz = dsp.lpfFrequencyHz.toDouble(),
-                        subsonicHz = dsp.subsonicFrequencyHz.toDouble()
+                        preampDb = safeDsp.preampDb.toDouble(),
+                        bassBoostDb = safeDsp.bassBoostDb.toDouble(),
+                        midGainDb = safeDsp.midGainDb.toDouble(),
+                        trebleGainDb = safeDsp.trebleGainDb.toDouble(),
+                        stereoBalance = safeDsp.balancePan.toDouble(),
+                        virtualizerPercent = (safeDsp.stereoWidthPercent - 100f).coerceIn(0f, 100f).toDouble(),
+                        compressorEnabled = safeDsp.compressorEnabled,
+                        limiterEnabled = safeDsp.limiterEnabled,
+                        hpfHz = safeDsp.hpfFrequencyHz.toDouble(),
+                        lpfHz = safeDsp.lpfFrequencyHz.toDouble(),
+                        subsonicHz = safeDsp.subsonicFrequencyHz.toDouble()
                     )
                 )
             }
@@ -2549,7 +2645,6 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun applyCustomSoundProfile(profile: CustomSoundProfile) {
-        val newDsp = profile.dspSettings
         val b31 = if (profile.eqBands31.size == 31) profile.eqBands31 else expand10To31(profile.eqBands10)
         val b10 = if (profile.eqBands10.size == 10) profile.eqBands10 else EqualizerSettings.bands10From31(b31)
         val newEq = _equalizerSettings.value.copy(
@@ -2559,10 +2654,12 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             bands31 = b31,
             activePresetName = profile.name
         )
-        _dspSettings.value = newDsp
+        val (safeDsp, _) = enforceAntiClippingLimits(profile.dspSettings, newEq, _bassMode.value)
+        _dspSettings.value = safeDsp
         _equalizerSettings.value = newEq
-        audioEngine.applyDspSettings(newDsp, newEq)
-        localStore.saveDspSettings(newDsp)
+        audioEngine.applyDspSettings(safeDsp, newEq)
+        _capabilityReport.value = audioEngine.capabilityReport
+        localStore.saveDspSettings(safeDsp)
         localStore.saveEqualizerSettings(newEq)
     }
 
@@ -2877,8 +2974,8 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
             audioEngine.stopMicRta()
             _isMicRta.value = false
         } else {
-            audioEngine.startMicRta(true)
-            _isMicRta.value = true
+            val started = audioEngine.startMicRta(true)
+            _isMicRta.value = started
         }
         audioEngine.setVisualizerActive(uiActive && needsLiveVisualizer())
         audioEngine.ensureVisualizerAttached()
@@ -2924,6 +3021,7 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         audioEngine.onPlaybackStateChangedListener = null
         audioEngine.onOutputDeviceChangedListener = null
         audioEngine.onAudioFaultListener = null
+        audioEngine.onPlaybackErrorListener = null
         controllerFuture?.let {
             try {
                 MediaController.releaseFuture(it)
@@ -2931,5 +3029,33 @@ class CarAudioViewModel(application: Application) : AndroidViewModel(application
         }
         mediaController = null
         super.onCleared()
+    }
+
+    companion object {
+        fun enforceAntiClippingLimits(
+            dsp: DspSettings,
+            eq: EqualizerSettings,
+            bassMode: BassMode
+        ): Pair<DspSettings, String?> {
+            if (!dsp.dspMasterEnabled) return dsp to null
+            val maxEqGain = eq.bands31.maxOrNull()?.coerceAtLeast(0f) ?: 0f
+            val bassContrib = if (dsp.bassBoostEnabled) dsp.bassBoostDb * 0.45f else 0f
+            val effectiveBoost = dsp.preampDb + dsp.masterGainDb + bassContrib + maxEqGain
+            val highGainRisk = bassMode.forceLimiter || effectiveBoost >= 14f
+
+            return if (highGainRisk) {
+                val fixedCeiling = dsp.limiterCeilingDb.coerceIn(-24f, -0.5f)
+                val safeDsp = dsp.copy(
+                    limiterEnabled = true,
+                    limiterCeilingDb = fixedCeiling
+                )
+                val warning = if (!dsp.limiterEnabled) {
+                    "El limitador anti-saturación se mantuvo activo por seguridad debido al nivel de ganancia o modo ${bassMode.label}."
+                } else null
+                safeDsp to warning
+            } else {
+                dsp.copy(limiterCeilingDb = dsp.limiterCeilingDb.coerceIn(-24f, -0.2f)) to null
+            }
+        }
     }
 }

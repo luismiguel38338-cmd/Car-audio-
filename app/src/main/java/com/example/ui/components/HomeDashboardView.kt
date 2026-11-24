@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
@@ -73,6 +74,7 @@ import com.example.model.AudioTrackItem
 import com.example.model.BassMode
 import com.example.model.CarAudioThemeType
 import com.example.model.DspCapabilityReport
+import com.example.model.DspEngineStatus
 import com.example.model.DspSettings
 import com.example.model.EqPresetCatalog
 import com.example.model.EqPresetItem
@@ -189,34 +191,51 @@ fun HomeDashboardView(
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        theme.backgroundColor.copy(alpha = 0.90f),
-                                        theme.cardColor.copy(alpha = 0.70f)
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val engineLight = when (capabilityReport.engineStatus) {
+                            DspEngineStatus.ACTIVE_INTERNAL, DspEngineStatus.ACTIVE_EXTERNAL -> SmartLightStatus.ACTIVE_READY
+                            DspEngineStatus.LIMITED_FALLBACK -> SmartLightStatus.WARNING_LIMIT
+                            DspEngineStatus.BYPASSED -> SmartLightStatus.DISABLED
+                        }
+                        SmartStatusLedBadge(
+                            status = engineLight,
+                            text = capabilityReport.engineStatus.badgeText,
+                            theme = theme,
+                            liteVisuals = liteVisuals,
+                            pulse = isAnyAudioPlaying
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            theme.backgroundColor.copy(alpha = 0.90f),
+                                            theme.cardColor.copy(alpha = 0.70f)
+                                        )
                                     )
                                 )
+                                .border(
+                                    1.dp,
+                                    if (dspSettings.dspMasterEnabled) theme.accentColor.copy(alpha = 0.65f) else theme.cardColor,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { onNavigateSection(AppSection.EQUALIZER) }
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
+                                .testTag("home_preset_chip")
+                        ) {
+                            Text(
+                                text = if (dspSettings.dspMasterEnabled) equalizerSettings.activePresetName else "EQ en pausa",
+                                color = if (dspSettings.dspMasterEnabled) theme.accentColor else theme.textSecondaryColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            .border(
-                                1.dp,
-                                if (dspSettings.dspMasterEnabled) theme.accentColor.copy(alpha = 0.65f) else theme.cardColor,
-                                RoundedCornerShape(10.dp)
-                            )
-                            .clickable { onNavigateSection(AppSection.EQUALIZER) }
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                            .testTag("home_preset_chip")
-                    ) {
-                        Text(
-                            text = if (dspSettings.dspMasterEnabled) equalizerSettings.activePresetName else "EQ en pausa",
-                            color = if (dspSettings.dspMasterEnabled) theme.accentColor else theme.textSecondaryColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        }
                     }
                 }
             }
@@ -442,6 +461,17 @@ fun HomeDashboardView(
                             }
                         }
                     }
+
+                    StudioSignalIndicatorBar(
+                        isAudioPlaying = isAnyAudioPlaying,
+                        bassEnergy = bassEnergy,
+                        midEnergy = midEnergy,
+                        trebleEnergy = trebleEnergy,
+                        theme = theme,
+                        liteVisuals = liteVisuals,
+                        title = "ESPECTRO DE SALIDA EN VIVO",
+                        showMiniBars = !liteVisuals
+                    )
                 }
             }
         }
@@ -505,7 +535,7 @@ fun HomeDashboardView(
                         }
                         IconButton(
                             onClick = { onToggleFavorite(track) },
-                            modifier = Modifier.size(44.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
                                 imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -832,6 +862,7 @@ fun HomeDashboardView(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
+                    Triple(AppSection.DRIVING_MODE, "Modo Conducción", Icons.Default.DirectionsCar),
                     Triple(AppSection.AUDIO_TOOLS, "Estudio DSP", Icons.Default.Equalizer),
                     Triple(AppSection.PRESETS, "Presets", Icons.Default.MusicNote),
                     Triple(AppSection.VISUALIZER, "Visualizador 3D", Icons.Default.GraphicEq),

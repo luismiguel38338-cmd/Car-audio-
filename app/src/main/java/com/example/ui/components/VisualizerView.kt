@@ -33,6 +33,7 @@ import com.example.model.CarAudioThemeType
 import com.example.model.DevicePowerTelemetry
 import com.example.model.OutputDeviceStatus
 import com.example.model.RtaBand
+import com.example.model.SplWeighting
 
 @Composable
 fun VisualizerView(
@@ -57,6 +58,8 @@ fun VisualizerView(
     onToggleLiteVisuals: (Boolean) -> Unit,
     onToggleMicRta: () -> Unit,
     onRefreshTelemetry: () -> Unit,
+    splWeighting: SplWeighting = SplWeighting.C_WEIGHTING,
+    onSelectSplWeighting: (SplWeighting) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -165,6 +168,8 @@ fun VisualizerView(
                         powerTelemetry = powerTelemetry,
                         onToggleMicRta = onToggleMicRta,
                         onRefreshTelemetry = onRefreshTelemetry,
+                        splWeighting = splWeighting,
+                        onSelectSplWeighting = onSelectSplWeighting,
                         scrollable = false,
                         modifier = Modifier.fillMaxWidth()
                     )
