@@ -1,0 +1,21 @@
+CAR AUDIO DSP PRO by LM Produce (Luis Miguel)
+
+Turn your Android phone into a fast, modern local music player and real-time DSP audio console featuring an OLED obsidian and neon violet glassmorphism interface. Runs smoothly from the first launch with no mandatory login, no active ad SDKs, and tuned resource usage for entry-level and mid-range phones.
+
+FULL LOCAL MUSIC PLAYER (ANDROIDX MEDIA3)
+• Automatic MediaStore library scanning (tracks, albums, artists, folders) plus Android document picker support for MP3, FLAC, WAV, AAC, and OGG files.
+• Complete playback controls: play/pause, previous/next, seek bar, volume, shuffle, repeat modes (Off / All / One), editable queue, favorites, playlists, and sleep timer.
+• Background playback foreground service with MediaStyle lock-screen and notification controls, Bluetooth/headset disconnection safety, and last-track resume.
+
+REAL DSP EQUALIZER & BASS ENGINE
+• 10-band, 31-band 1/3-octave ISO, and 5-band parametric equalizer backed by Android DynamicsProcessing and Equalizer audio effects depending on device support.
+• Instant A/B comparison, L/R balance, stereo width, loudness, master gain, compressor, and anti-clipping limiter.
+• Genre-tuned presets: Dominican Dembow, Reggaeton, Bachata, Merengue, Trap, Hip-Hop, Electronic, Rock, Vocal, and custom local profiles.
+• Dedicated Bass Boost screen (Normal, Powerful, Extreme with protective limiter) and Subwoofer tuning screen with animated speaker visuals and HPF/LPF crossover filters.
+
+RTA VISUALIZER & LITE MODE
+• Real-time 31-band RTA spectrum, oscilloscope, L/R meters, clipping indicator, and Lite Visuals toggle to save battery and RAM.
+
+LEGAL ONLINE MUSIC & OFFLINE DOWNLOADS
+• Official Jamendo API v3 royalty-free catalog search (when configured with a Jamendo Client ID) with real offline download manager supporting pause/resume and license verification.
+• Official YouTube Music search shortcuts without unauthorized extraction.

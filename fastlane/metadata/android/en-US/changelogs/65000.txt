@@ -1,0 +1,5 @@
+• Phone-first streamlined Home and Music library experience with quick Mix, Favorites, and Bass Mode access.
+• Smoother Media3 playback, cached album artwork, editable queue, and sleep timer.
+• Refined Epic Violet DSP Pro OLED glassmorphism design across all modules.
+• 10/31-band & parametric EQ, Bass Boost with anti-clipping limiter, legal Jamendo API v3 streaming, and resumable offline downloads.
+• Optimized memory and battery footprint for modest Android devices.

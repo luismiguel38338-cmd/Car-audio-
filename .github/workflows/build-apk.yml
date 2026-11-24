@@ -1,101 +1,165 @@
-name: Build & Release Android APK
+name: Build, Test & Multi-Platform Release
 
 on:
   push:
-    branches: [ "main", "master", "v6.0" ]
+    branches: [ "main", "master", "v6.0", "v6.5" ]
     tags:
       - "v*"
   pull_request:
-    branches: [ "main", "master", "v6.0" ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: "Crear GitHub Release al finalizar"
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: "Etiqueta de Release (opcional, ej. v6.5.0)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Pruebas y Compilación APK v6.0
+  build-and-package:
+    name: Tests + APK + Google Play AAB
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Read Version from app/build.gradle.kts
+        id: version
+        run: |
+          VERSION_NAME=$(grep -E 'versionName\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION_CODE=$(grep -E 'versionCode\s*=' app/build.gradle.kts | head -n1 | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+          echo "name=${VERSION_NAME:-6.5.0}" >> "$GITHUB_OUTPUT"
+          echo "code=${VERSION_CODE:-65000}" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "21"
+          distribution: "temurin"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Accept Android SDK Licenses
-        run: |
-          yes | sdkmanager --licenses || true
+        run: yes | sdkmanager --licenses || true
 
-      - name: Setup Environment Files & Keystore
+      - name: Configure Environment & Debug Keystore
         run: |
           if [ -f .env.example ] && [ ! -f .env ]; then
             cp .env.example .env
           fi
+          if [ -n "${{ secrets.JAMENDO_CLIENT_ID }}" ]; then
+            sed -i '/^JAMENDO_CLIENT_ID=/d' .env 2>/dev/null || true
+            echo "JAMENDO_CLIENT_ID=${{ secrets.JAMENDO_CLIENT_ID }}" >> .env
+          fi
           if [ -f debug.keystore.base64 ] && [ ! -f debug.keystore ]; then
-            base64 -d debug.keystore.base64 > debug.keystore || true
+            base64 -d debug.keystore.base64 > debug.keystore
           fi
+          chmod +x gradlew
 
-      - name: Grant Execute Permission for Gradlew
-        run: chmod +x gradlew
-
-      - name: Run Unit & Robolectric Tests
-        run: ./gradlew testDebugUnitTest --no-daemon
-
-      - name: Build Debug APK with Gradle
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Package APK
-        id: package_apk
+      - name: Run Unit, DSP Engine & Compose UI Tests
         run: |
-          APP_VERSION="$(awk -F '"' '/versionName =/ { print $2; exit }' app/build.gradle.kts)"
-          if [ -z "$APP_VERSION" ]; then
-            echo "No se pudo leer versionName desde app/build.gradle.kts" >&2
-            exit 1
-          fi
-          APK_NAME="CarAudio-DSP-Pro-v${APP_VERSION}.apk"
-          mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk "release-output/${APK_NAME}"
-          echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
+          ./gradlew :app:testDebugUnitTest \
+            --tests "com.example.CarAudioEngineTest" \
+            --tests "com.example.CarAudioProModulesTest" \
+            --tests "com.example.CarAudioProUiRenderTest" \
+            --tests "com.example.ExampleRobolectricTest" \
+            --tests "com.example.ExampleUnitTest" \
+            --tests "com.example.GreetingScreenshotTest" \
+            --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Build Direct Install APK (Debug)
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Build Signed Play Store AAB & Store Release APK (if Keystore Secret configured)
+        id: release_signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "${{ github.workspace }}/my-upload-key.jks"
+            export KEYSTORE_PATH="${{ github.workspace }}/my-upload-key.jks"
+            ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Notice: KEYSTORE_BASE64 / STORE_PASSWORD / KEY_PASSWORD secrets not configured; skipping signed Play AAB & Release APK."
+          fi
+
+      - name: Collect Multi-Platform Packages & SHA256 Checksums
+        run: |
+          VER="${{ steps.version.outputs.name }}"
+          mkdir -p release-output
+          cp app/build/outputs/apk/debug/app-debug.apk "release-output/CarAudio-DSP-Pro-v${VER}.apk"
+          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
+            cp app/build/outputs/bundle/release/app-release.aab "release-output/CarAudio-DSP-Pro-v${VER}-googleplay.aab"
+            cp app/build/outputs/apk/release/app-release.apk "release-output/CarAudio-DSP-Pro-v${VER}-release-signed.apk"
+          fi
+          (cd release-output && sha256sum * > SHA256SUMS.txt)
+          ls -lh release-output
+
+      - name: Clean Sensitive Keystore File
+        if: always()
+        run: rm -f "${{ github.workspace }}/my-upload-key.jks"
+
+      - name: Upload Multi-Platform Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CarAudio-DSP-Pro-v${{ steps.package_apk.outputs.version }}-APK
-          path: release-output/${{ steps.package_apk.outputs.apk_name }}
-          if-no-files-found: error
+          name: CarAudio-DSP-Pro-v${{ steps.version.outputs.name }}-Packages
+          path: release-output/*
+          retention-days: 30
 
-      - name: Create versioned GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Resolve Release Tag
+        id: release_tag
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+          elif [[ -n "${{ inputs.release_tag }}" ]]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="v${{ steps.version.outputs.name }}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
         uses: softprops/action-gh-release@v2
         with:
-          files: release-output/${{ steps.package_apk.outputs.apk_name }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: "Car Audio DSP Pro v${{ steps.version.outputs.name }}"
           body_path: RELEASE_NOTES.md
-          name: "Car Audio DSP Pro ${{ github.ref_name }}"
+          files: release-output/*
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish current APK for the app catalog
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: App
-          name: "Car Audio DSP Pro"
-          body: "APK más reciente compilado y probado desde la rama main."
-          files: release-output/${{ steps.package_apk.outputs.apk_name }}
-          draft: false
-          prerelease: false
-          make_latest: true
-          overwrite_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write Build Summary
+        run: |
+          VER="${{ steps.version.outputs.name }}"
+          {
+            echo "## Car Audio DSP Pro v${VER} (Build ${{ steps.version.outputs.code }})"
+            echo ""
+            echo "| Plataforma | Paquete | Estado |"
+            echo "| :--- | :--- | :--- |"
+            echo "| **GitHub Releases / Android Directo / Obtainium** | \`CarAudio-DSP-Pro-v${VER}.apk\` | Generado |"
+            if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
+              echo "| **Google Play Console** | \`CarAudio-DSP-Pro-v${VER}-googleplay.aab\` | Firmado y listo |"
+              echo "| **Samsung Galaxy / Amazon / AppGallery / Directo Release** | \`CarAudio-DSP-Pro-v${VER}-release-signed.apk\` | Firmado y listo |"
+            else
+              echo "| **Google Play Console (.aab)** | \`CarAudio-DSP-Pro-v${VER}-googleplay.aab\` | Pendiente de Secrets (\`KEYSTORE_BASE64\`, \`STORE_PASSWORD\`, \`KEY_PASSWORD\`) |"
+              echo "| **Galaxy Store / Amazon / AppGallery (.apk Release)** | \`CarAudio-DSP-Pro-v${VER}-release-signed.apk\` | Pendiente de Secrets de firma |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

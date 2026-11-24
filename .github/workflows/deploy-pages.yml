@@ -1,0 +1,56 @@
+name: Deploy Official Web & Privacy Policy (GitHub Pages)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "docs/**"
+      - "screenshots/**"
+      - "app/src/main/res/drawable/img_*.jpg"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publicar Sitio Oficial y Política de Privacidad
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Pages Site with Real v6.5.0 Assets
+        run: |
+          mkdir -p _site/screenshots _site/assets
+          cp -r docs/* _site/
+          touch _site/.nojekyll
+          for img in 01_inicio_panel.png 02_reproductor_pro.png 03_ecualizador_31b.png 04_bass_boost_3d.png 05_visualizador_rta.png 06_biblioteca_musica.png 07_bienvenida_neon.png; do
+            if [ -f "screenshots/$img" ]; then
+              cp "screenshots/$img" "_site/screenshots/$img"
+            fi
+          done
+          cp app/src/main/res/drawable/img_car_audio_logo_1795273778926.jpg _site/assets/logo.jpg || true
+          cp app/src/main/res/drawable/img_car_audio_cockpit_1794912323387.jpg _site/assets/cockpit.jpg || true
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "_site"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,31 @@
+default_platform(:android)
+
+platform :android do
+  desc "Ejecuta pruebas unitarias y Robolectric verificadas"
+  lane :test do
+    gradle(
+      task: ":app:testDebugUnitTest",
+      flags: "--tests com.example.CarAudioEngineTest --tests com.example.CarAudioProModulesTest --tests com.example.CarAudioProUiRenderTest --tests com.example.ExampleRobolectricTest --tests com.example.ExampleUnitTest --tests com.example.GreetingScreenshotTest"
+    )
+  end
+
+  desc "Compila APK Debug directo y AAB + APK Release firmados"
+  lane :build_all do
+    gradle(task: ":app:assembleDebug")
+    gradle(task: ":app:bundleRelease")
+    gradle(task: ":app:assembleRelease")
+  end
+
+  desc "Sube paquete AAB y metadatos (es-ES / en-US) a pista interna de Google Play"
+  lane :deploy_internal do
+    gradle(task: ":app:bundleRelease")
+    upload_to_play_store(
+      track: "internal",
+      aab: "app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: false,
+      skip_upload_changelogs: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+end

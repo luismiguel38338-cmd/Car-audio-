@@ -1,0 +1,17 @@
+name: Sugerencia de Mejora
+description: Propón una nueva función o preset DSP para futuras versiones
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: ¿Qué función o mejora te gustaría ver?
+      description: Describe tu idea para el reproductor, ecualizador o interfaz.
+    validations:
+      required: true
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Contexto de uso (Cabina / Auriculares / Teléfono)
+      placeholder: "Ej: Uso en radio Bluetooth automotriz con subwoofer de 12 pulgadas"

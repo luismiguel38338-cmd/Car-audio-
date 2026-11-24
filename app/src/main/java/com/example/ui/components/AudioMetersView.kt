@@ -122,17 +122,28 @@ fun AudioMetersView(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(Icons.Default.GraphicEq, contentDescription = null, tint = theme.accentColor)
                         Column {
-                            Text("ANALIZADOR DE ESPECTRO (RTA 31B)", color = theme.textColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                            Text(
+                                text = "ANALIZADOR RTA 31B",
+                                color = theme.textColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1
+                            )
                             Text(
                                 text = if (isMicRtaActive) "Fuente: Micrófono Acústico (Sala)" else "Fuente: Reproducción Media3 / PCM",
                                 color = theme.accentColor,
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
+                                maxLines = 1
                             )
                         }
                     }
@@ -152,7 +163,13 @@ fun AudioMetersView(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isMicRtaActive) "MIC ON" else "MIC RTA", fontSize = 10.5.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            text = if (isMicRtaActive) "MIC ON" else "MIC RTA",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
 

@@ -1,0 +1,5 @@
+• Experiencia optimizada tipo reproductor del teléfono: nueva pantalla de Inicio rápida con biblioteca, favoritas y modos de graves en un toque.
+• Reproductor Media3 fluido con carátulas en caché, cola interactiva y temporizador de apagado.
+• Nuevo estilo visual Epic Violet DSP Pro (negro OLED, vidrio translúcido e iluminación violeta neón).
+• Ecualizador de 10/31 bandas + paramétrico, Bass Boost con anti-clipping, Jamendo API v3 y descargas offline con pausa/reanudar.
+• Optimizado para menor consumo de RAM y batería.

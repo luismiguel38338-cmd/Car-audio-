@@ -1,0 +1,25 @@
+CAR AUDIO DSP PRO — Potencia tu Música (LM Produce — Producción de Luis Miguel)
+
+Convierte tu teléfono Android en un reproductor musical moderno y consola de procesamiento DSP en tiempo real con estética negra OLED e iluminación violeta neón. Diseñada para funcionar con fluidez desde el primer instante, sin cuentas obligatorias, sin anuncios activos y optimizada también para teléfonos de recursos modestos.
+
+REPRODUCTOR MUSICAL LOCAL COMPLETO (MEDIA3)
+• Escaneo automático de tu biblioteca local (canciones, álbumes, artistas y carpetas) más importación directa de archivos MP3, FLAC, WAV, AAC y OGG.
+• Controles reales: reproducir/pausar, anterior/siguiente, barra de progreso interactiva, volumen, aleatorio, repetición (Off / Todo / 1), cola editable, favoritas y listas de reproducción.
+• Reproducción continua en segundo plano con servicio en primer plano, controles desde la notificación de Android y pantalla bloqueada, y restauración de la última pista reproducida.
+
+ECUALIZADOR DSP REAL Y SISTEMA DE BAJOS
+• Ecualizador gráfico de 10 bandas, 31 bandas ISO de 1/3 de octava y ecualizador paramétrico de 5 bandas mediante DynamicsProcessing y Equalizer del sistema según compatibilidad del dispositivo.
+• Comparación rápida A/B en tiempo real, balance izquierdo/derecho, amplitud estéreo, loudness, ganancia master y compresor.
+• Presets calibrados por género: Dembow dominicano, Reggaetón, Bachata, Merengue, Trap, Hip-Hop, Electrónica, Rock, Música vocal y perfiles personalizados guardados en tu teléfono.
+• Pantalla dedicada de Bass Boost (Normal, Potente y Extremo con limitador anti-clipping) y módulo Subwoofer con altavoz animado, frecuencia subgrave y filtros HPF/LPF.
+
+VISUALIZADOR RTA Y MODO LIGERO
+• Espectro RTA de 31 bandas, osciloscopio, medidores L/R, alerta de saturación (clipping) y modo visual ligero para ahorrar batería y memoria RAM.
+
+MÚSICA ONLINE LEGAL Y DESCARGAS OFFLINE
+• Búsqueda de catálogo libre de derechos mediante la API oficial de Jamendo (cuando el usuario o compilación configura su Client ID) con gestor de descargas offline con progreso, pausa y verificación de licencia autorizada.
+• Accesos directos y búsquedas rápidas hacia la aplicación oficial de YouTube Music sin descargas no autorizadas.
+
+PRIVACIDAD Y TRANSPARENCIA
+• Tus canciones, listas y perfiles de ecualización permanecen localmente en tu dispositivo.
+• Diagnóstico claro de compatibilidad AudioFX para Bluetooth, auriculares, USB Audio y altavoz del teléfono.

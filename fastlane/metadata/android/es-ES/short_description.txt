@@ -1,0 +1,1 @@
+Reproductor de música local con ecualizador de 10/31 bandas, Bass Boost y RTA.

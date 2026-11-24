@@ -186,7 +186,7 @@ fun AboutView(
             onClick = {
                 runCatching {
                     context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://lmmiguel485-ui.github.io/Car-audio-/"))
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://luismiguel38338-cmd.github.io/Car-audio-/"))
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
